@@ -1,20 +1,34 @@
 import './styles.css';
-import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { recipeSchema } from './core/recipe';
+import { Physics } from './physics/physics';
 import { AtmosphereSystem } from './render/atmosphere';
+import { ChunkManager } from './render/chunkManager';
 import { Engine } from './render/engine';
+import { ScatterAssets } from './render/scatterAssets';
+import { buildWorld } from './world/build';
+import { snapshotField } from './world/field';
 
-const engine = new Engine(document.querySelector<HTMLCanvasElement>('#view')!);
-const atmo = new AtmosphereSystem(engine.scene);
-const weather = (new URLSearchParams(location.search).get('weather') ?? 'clear') as 'clear';
-atmo.apply({ time: 'dawn', weather, fog: 0.3, wind: 0.5 });
-atmo.timeScale = 1; // fast-forward: 1 game hour per second, for this check only
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x557744 }));
-ground.receiveShadow = true;
-const box = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({ color: 0xaa8866 }));
-box.position.y = 2;
-box.castShadow = true;
-engine.scene.add(ground, box);
-engine.camera.position.set(14, 6, 14);
-engine.camera.lookAt(0, 2, 0);
-engine.onUpdate((dt) => atmo.update(dt, engine.camera.position));
-engine.start();
+const fixtures = import.meta.glob('../../shared/fixtures/recipes/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+
+void (async () => {
+  const name = new URLSearchParams(location.search).get('w') ?? 'fishing-valley';
+  const recipe = recipeSchema.parse(fixtures[`../../shared/fixtures/recipes/${name}.json`]);
+  const engine = new Engine(document.querySelector<HTMLCanvasElement>('#view')!);
+  const physics = await Physics.create();
+  const atmo = new AtmosphereSystem(engine.scene);
+  const chunks = new ChunkManager(engine.scene, physics, new ScatterAssets());
+  const world = buildWorld(recipe);
+  console.log(world.log.join('\n'));
+  atmo.apply({ ...recipe.atmosphere, time: 'day' });
+  chunks.setSnapshot(snapshotField(world.field));
+  const controls = new OrbitControls(engine.camera, engine.renderer.domElement);
+  engine.camera.position.set(world.spawn.x + 60, world.spawn.y + 60, world.spawn.z + 60);
+  controls.target.set(world.spawn.x, world.spawn.y, world.spawn.z);
+  engine.onUpdate((dt) => {
+    controls.update();
+    chunks.update(controls.target.x, controls.target.z);
+    atmo.update(dt, engine.camera.position);
+  });
+  engine.start();
+})();

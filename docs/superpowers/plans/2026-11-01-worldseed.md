@@ -3198,7 +3198,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `VIEW = 3`
   - `class ChunkManager { group; constructor(scene, physics, scatter); setSnapshot(s: FieldSnapshot): void; update(x, z): void; isReady(x, z): boolean; meshes(): THREE.Object3D[] }`
 
-- [ ] **Step 1: Physics wrapper**
+- [x] **Step 1: Physics wrapper**
 
 `web/src/physics/physics.ts`:
 ```ts
@@ -3239,7 +3239,7 @@ export class Physics {
 }
 ```
 
-- [ ] **Step 2: Scatter assets (procedural low-poly, instanced)**
+- [x] **Step 2: Scatter assets (procedural low-poly, instanced)**
 
 `web/src/render/scatterAssets.ts`:
 ```ts
@@ -3339,7 +3339,7 @@ export class ScatterAssets {
 }
 ```
 
-- [ ] **Step 3: Chunk worker and manager**
+- [x] **Step 3: Chunk worker and manager**
 
 `web/src/render/chunkWorker.ts`:
 ```ts
@@ -3477,7 +3477,7 @@ export class ChunkManager {
 }
 ```
 
-- [ ] **Step 4: Harness with a fly camera**
+- [x] **Step 4: Harness with a fly camera**
 
 `web/src/main.ts`:
 ```ts
@@ -3529,7 +3529,7 @@ Expected:
 
 Water isn't drawn yet (Task 15).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/physics web/src/render web/src/main.ts
