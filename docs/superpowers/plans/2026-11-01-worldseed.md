@@ -2587,7 +2587,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `interface ChunkData { cx; cz; positions: Float32Array; normals: Float32Array; colors: Float32Array; indices: Uint32Array; scatter: ScatterItem[] }`
   - `computeChunk(field, cx, cz): ChunkData`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `web/tests/world/scatter.test.ts`:
 ```ts
@@ -2645,12 +2645,12 @@ describe('computeChunk', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx vitest run tests/world/scatter.test.ts tests/world/chunkData.test.ts`
 Expected: FAIL, modules not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/scatter.ts`:
 ```ts
@@ -2748,12 +2748,12 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
 }
 ```
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `npx vitest run tests/world/scatter.test.ts tests/world/chunkData.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/scatter.ts web/src/world/chunkData.ts web/tests/world/scatter.test.ts web/tests/world/chunkData.test.ts
