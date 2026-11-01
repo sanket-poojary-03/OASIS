@@ -7,3 +7,4 @@
 
 ## 2026-11-02
 - Pin zod to v3: npm resolved zod 4, whose API differs (ZodError.errors → .issues, z.record needs key and value schemas); the plan's schemas are written for zod 3. TypeScript 7, vite 8 and vitest 5 are kept as installed.
+- Ops contract test asserts each fixture's exact op-type sequence and that `dump_ops` output has no nulls and re-validates, instead of the vacuous `len(ops) >= 1` (OpsList already enforces min_length=1).
