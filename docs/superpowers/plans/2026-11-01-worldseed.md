@@ -4424,7 +4424,7 @@ All backend commands run in `backend/` with the venv active.
   - `RateLimiter(per_ip=20, window=600, daily_cap=300, clock=time.time)` with `.check(ip) -> str | None`
   - `create_app(llm=None, cache_dir=None, limiter=None) -> FastAPI`; module-level `app`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `backend/tests/conftest.py`:
 ```python
@@ -4582,12 +4582,12 @@ def test_validation_and_rate_limit(tmp_path):
     assert client.post("/api/world", json={"prompt": "valley"}).status_code == 429
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `pytest -q`
 Expected: FAIL with `ModuleNotFoundError` for `app.llm`, `app.mock` and the others.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `backend/app/llm.py`:
 ```python
@@ -4959,7 +4959,7 @@ LLM_JSON_MODE=1
 ```
 (Set it to `0` if your provider rejects `response_format`.)
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `pytest -q`
 Expected: PASS (contract, llm, mock, service, and api tests).
@@ -4973,7 +4973,7 @@ curl -s -X POST localhost:8000/api/world -H 'content-type: application/json' -d 
 ```
 Expected: health reports `"provider":"mock"` with no key set; world returns the snowy-mountains recipe. Then put a real key in `backend/.env` (copied from `.env.example`), restart, and check that `provider` is `live` and that a new prompt returns `"source":"live"`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend
