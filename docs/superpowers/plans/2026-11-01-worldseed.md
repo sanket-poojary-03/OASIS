@@ -1825,7 +1825,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `biomeAt(field: WorldField, x, z): Biome`
   - `BIOME_COLOR: Record<Biome, [number, number, number]>` (linear 0–1 RGB)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/biome.test.ts`:
 ```ts
@@ -1851,12 +1851,12 @@ describe('classifyBiome', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/biome.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/biome.ts`:
 ```ts
@@ -1912,12 +1912,12 @@ export const BIOME_COLOR: Record<Biome, [number, number, number]> = {
 };
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/biome.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/biome.ts web/tests/world/biome.test.ts
