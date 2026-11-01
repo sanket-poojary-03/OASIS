@@ -85,3 +85,37 @@ describe('findSpawn fallback', () => {
     expect(findSpawn(field, [])).toEqual(findSpawn(field, props));
   });
 });
+
+describe('no-valid-spot fallback', () => {
+  it('crowded world: unplaceable settlements are never wet and wet/overlapping spots get no pad', () => {
+    const r = loadRecipeFixture('tropical-island');
+    for (let i = 0; i < 14; i++) {
+      r.places.push({ id: `town${i}`, kind: 'settlement', label: `Town ${i}`, asset: 'village', size: 'large', interaction: 'none', where: [{ rel: 'flat' }] } as never);
+    }
+    const field = createField(r);
+    const before = field.pads.length;
+    const pls = solvePlacements(r, field);
+    const fallen = pls.filter((p) => p.warnings.some((w) => w.startsWith('no valid spot')));
+    expect(fallen.length).toBeGreaterThan(0);
+    for (const p of fallen) expect(field.isWater(p.x, p.z)).toBe(false);
+    const nonProp = pls.filter((p) => p.kind !== 'prop');
+    expect(field.pads.length - before).toBeLessThan(nonProp.length + 1);
+    for (const pad of field.pads.slice(before)) expect(field.isWater(pad.x, pad.z)).toBe(false);
+  });
+});
+
+describe('findSpawn settlement case', () => {
+  it('uses the area beside a settlement, and recovers when the ring is unusable', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const field = createField(r);
+    const pls = solvePlacements(r, field);
+    const s = findSpawn(field, pls);
+    const v = pls.find((p) => p.kind === 'settlement')!;
+    expect(field.isWater(s.x, s.z)).toBe(false);
+    expect(Math.hypot(s.x - v.x, s.z - v.z)).toBeGreaterThanOrEqual(v.radius);
+    const bad = { ...v, x: 0, z: 0, radius: 1e6 };
+    const s2 = findSpawn(field, [bad]);
+    expect(Number.isFinite(s2.y)).toBe(true);
+    expect(Math.hypot(s2.x, s2.z)).toBeLessThanOrEqual(512 * 1.5);
+  });
+});

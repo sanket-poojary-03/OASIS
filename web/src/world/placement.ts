@@ -182,8 +182,32 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
     if (reasons.length === 0) reasons.push('open, gentle ground');
     return finish(place, field, best.x, best.z, radius, reasons, warnings, placed);
   }
-  warnings.push('no valid spot found; placed at the centre');
-  return finish(place, field, 0, 0, radius, [], warnings, placed);
+  // Last resort: the least-bad candidate (never wet if any dry one exists), centre as a final tiebreak.
+  let best = { x: 0, z: 0 }, bestCost = Infinity;
+  for (const c of [{ x: 0, z: 0 }, ...sampleCandidates(place, placed, rng)]) {
+    const cost = fallbackCost(field, c.x, c.z, radius, MAX_SLOPE[place.kind], placed);
+    if (cost < bestCost) { bestCost = cost; best = c; }
+  }
+  warnings.push('no valid spot found; placed at the least-bad spot');
+  return finish(place, field, best.x, best.z, radius, [], warnings, placed);
+}
+
+function fallbackCost(field: WorldField, x: number, z: number, r: number, maxSlope: number, placed: Map<string, Placement>): number {
+  let cost = 0;
+  if (Math.abs(x) > CORE_HALF - r || Math.abs(z) > CORE_HALF - r) cost += 1000;
+  let slope = 0;
+  for (const [dx, dz] of [[0, 0], [r * 0.7, 0], [-r * 0.7, 0], [0, r * 0.7], [0, -r * 0.7]]) {
+    if (field.isWater(x + dx, z + dz)) cost += dx === 0 && dz === 0 ? 10000 : 2000;
+    slope = Math.max(slope, field.slopeAt(x + dx, z + dz));
+  }
+  cost += Math.max(0, slope - maxSlope) * 100;
+  for (const p of placed.values()) cost += Math.max(0, p.radius + r - Math.hypot(p.x - x, p.z - z)) * 5;
+  return cost;
+}
+
+/** A pad may only be added where it will not flatten water or another place. */
+function padAllowed(field: WorldField, p: Placement, placed: Map<string, Placement>): boolean {
+  return siteProblem(field, p.x, p.z, p.radius, Infinity, placed, true) === null;
 }
 
 export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placement[] = []): Placement[] {
@@ -195,8 +219,8 @@ export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placem
   for (const place of orderPlaces(recipe.places)) {
     if (placed.has(place.id)) continue;
     const pl = placeOne(place, field, placed, recipe.seed);
+    if (place.kind !== 'prop' && padAllowed(field, pl, placed)) field.addPad(padFor(pl));
     placed.set(pl.id, pl);
-    if (place.kind !== 'prop') field.addPad(padFor(pl));
   }
   return recipe.places.map((p) => placed.get(p.id)!).filter(Boolean);
 }
@@ -205,7 +229,7 @@ export function findSpawn(field: WorldField, placements: Placement[]): { x: numb
   const s = placements.find((p) => p.kind === 'settlement');
   // Spec 8.6: beside the first settlement, otherwise near the centre (searched outward from 0,0).
   const cx = s?.x ?? 0, cz = s?.z ?? 0, r = s ? s.radius + 6 : 0;
-  const ok = (x: number, z: number) => !field.isWater(x, z) && field.slopeAt(x, z) < 0.5;
+  const ok = (x: number, z: number) => Math.abs(x) < CORE_HALF && Math.abs(z) < CORE_HALF && !field.isWater(x, z) && field.slopeAt(x, z) < 0.5;
   for (let i = 0; i < 96; i++) {
     const a = i * 0.7, d = r + i * 2;
     const x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
@@ -214,6 +238,7 @@ export function findSpawn(field: WorldField, placements: Placement[]): { x: numb
   if (s) { // settlement ring was all wet/steep: fall back to dry ground outward from the centre
     for (let i = 0; i < 400; i++) {
       const a = i * 0.7, d = i * 2;
+      if (d > CORE_HALF) break;
       const x = Math.cos(a) * d, z = Math.sin(a) * d;
       if (ok(x, z)) return { x, y: field.heightAt(x, z) + 1.2, z };
     }
