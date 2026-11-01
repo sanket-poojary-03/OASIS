@@ -882,7 +882,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - request models `WorldRequest`, `EditRequest`, `EditContext`, `XZ`, `PlacementSummary`, `AssetRequest`
   - helpers `dump(model) -> dict` (always `exclude_none=True`), `ops_adapter: TypeAdapter[list[Op]]`, `FIXTURES_DIR: Path`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `backend/tests/test_contract.py`:
 ```python
@@ -928,12 +928,12 @@ def test_defaults_match_zod():
     assert r.paths == []
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd backend && source .venv/Scripts/activate && pytest tests/test_contract.py -q`
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.schemas'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `backend/app/schemas.py`:
 ```python
@@ -1213,12 +1213,12 @@ def dump_ops(ops: list) -> list[dict]:
     return [ops_adapter.dump_python([o], by_alias=True, exclude_none=True)[0] for o in ops]
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pytest tests/test_contract.py -q`
 Expected: PASS (4 recipes + 2 ops + 2 extra tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend
