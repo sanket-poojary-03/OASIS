@@ -2452,7 +2452,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `interface Building { id: string; placeId: string; x; z; y; rotation; kind: 'house'|'well'|'market'; asset: string; footprint: number; interaction: Interaction }`
   - `layoutSettlement(place: Place, pl: Placement, field: WorldField, seed: number): { buildings: Building[]; spine: Road }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/settlement.test.ts`:
 ```ts
@@ -2486,12 +2486,12 @@ describe('settlement', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/settlement.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/settlement.ts`:
 ```ts
@@ -2556,12 +2556,12 @@ export function layoutSettlement(place: Place, pl: Placement, field: WorldField,
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/settlement.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/settlement.ts web/tests/world/settlement.test.ts
