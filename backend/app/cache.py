@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 
 
@@ -19,4 +21,12 @@ class FileCache:
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
     def put(self, key: str, value: dict) -> None:
-        (self.root / f"{key}.json").write_text(json.dumps(value), encoding="utf-8")
+        fd, tmp = tempfile.mkstemp(dir=self.root, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(value))
+            os.replace(tmp, self.root / f"{key}.json")
+        except BaseException:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise

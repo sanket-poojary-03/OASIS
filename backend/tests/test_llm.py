@@ -32,3 +32,17 @@ def test_client_wraps_http_errors():
     client = LLMClient("https://example.test/v1", "k", "m", transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     with pytest.raises(LLMError):
         client.complete("s", "u")
+
+
+def test_client_joins_list_shaped_content():
+    parts = [{"type": "text", "text": '{"a": '}, {"type": "text", "text": "1}"}]
+    client = LLMClient("https://x.test/v1", "k", "m", transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json={"choices": [{"message": {"content": parts}}]})))
+    assert extract_json(client.complete("s", "u")) == {"a": 1}
+
+
+def test_client_rejects_odd_content_as_llm_error():
+    client = LLMClient("https://x.test/v1", "k", "m", transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json={"choices": [{"message": {"content": 5}}]})))
+    with pytest.raises(LLMError):
+        client.complete("s", "u")

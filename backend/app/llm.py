@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 import re
 
 import httpx
+
+
+log = logging.getLogger(__name__)
 
 
 class LLMError(Exception):
@@ -55,6 +59,12 @@ class LLMClient:
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
                 r = client.post(f"{self.base_url}/chat/completions", json=body, headers={"Authorization": f"Bearer {self.api_key}"})
                 r.raise_for_status()
-                return r.json()["choices"][0]["message"]["content"] or ""
-        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+                content = r.json()["choices"][0]["message"]["content"] or ""
+                if isinstance(content, list):
+                    content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+                if not isinstance(content, str):
+                    raise TypeError("unexpected content type")
+                return content
+        except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError, AttributeError) as e:
+            log.warning("LLM call failed: %s", e)
             raise LLMError(str(e)) from e

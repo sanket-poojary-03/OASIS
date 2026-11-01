@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
 from pydantic import ValidationError
@@ -17,8 +18,14 @@ class Completer(Protocol):
     def complete(self, system: str, user: str) -> str: ...
 
 
+log = logging.getLogger(__name__)
+
+
 def _notes(data: dict) -> list[str]:
-    return [str(n)[:200] for n in data.get("notes", [])][:5]
+    notes = data.get("notes")
+    if not isinstance(notes, list):
+        return []
+    return [n[:200] for n in notes if isinstance(n, str)][:5]
 
 
 class WorldService:
@@ -30,7 +37,10 @@ class WorldService:
         if self.llm is None:
             return mock_world(prompt)
         key = self.cache.key("world", PROMPT_VERSION, self.llm.model, prompt.strip().lower())
-        hit = self.cache.get(key)
+        try:
+            hit = self.cache.get(key)
+        except (OSError, ValueError):
+            hit = None
         if hit:
             return {**hit, "source": "cache"}
         system, user = world_system_prompt(), prompt
@@ -43,10 +53,13 @@ class WorldService:
                 out = {"type": "recipe", "recipe": dump(recipe), "notes": _notes(data), "source": "live"}
                 self.cache.put(key, out)
                 return out
-            except (ValidationError, ValueError) as e:
+            except (ValidationError, ValueError, TypeError) as e:
+                log.warning("LLM answer rejected: %s", str(e)[:300])
                 user = f"{prompt}\n\nYour previous answer was invalid:\n{str(e)[:1500]}\nReturn corrected JSON only."
-            except LLMError:
+            except LLMError as e:
+                log.warning("LLM request failed: %s", e)
                 break
+        log.warning("Falling back to mock world")
         out = mock_world(prompt)
         out["notes"] = ["The AI answer was unusable, so a preset world was used.", *out["notes"]]
         return out
