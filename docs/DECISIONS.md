@@ -13,3 +13,9 @@
 - Task 18 (M8): `WorldService.generate` and `.edit` share a private `_ask(system, user, validate)` helper that keeps Task 17's catch list, WARNING logs and mock fallback; only recipe results are cached.
 - Task 18 (M11): `mock_edit` output is built through `dump_ops(ops_adapter.validate_python(...))`, so mock ops obey the same no-null, schema-valid contract as live ops.
 - Task 18 (I7): service/main/mock import edits only added names; all existing imports kept.
+- Task 19 (I7): main.py/schemas.py edits were targeted additions (new imports, `assets` kwarg, two routes); all existing imports and behaviour kept.
+- Task 19 (I4): `AssetLibrary.search` ranks by (query coverage, Jaccard) and requires the query's head noun (last token before with/on/of/near/..., via `head_noun`) among an entry's tags, so "pine tree" gives the pine, "dead tree" the dead tree, and "campfire with stones" never a well. Returned score stays the coverage.
+- Task 19 (I5): `default_pick` ranks by title Jaccard, then shorter title, and returns -1 on zero overlap; the test now asserts the exact "Candle" wins (`== 1`).
+- Task 19 (M19): `license_ok` also rejects ShareAlike (`sharealike`, `by-sa`, `BY SA`), on top of NC/ND; only CC0 and CC-BY pass.
+- Task 19 (M20): `/api/assets/resolve` calls `guard()` like the AI routes (library hits share the per-IP and daily budget, so large villages may need a higher `LLM_DAILY_CAP`); Meshy generation is server-enforced for `kind == "landmark"` only, whatever `allowGenerate` says.
+- Task 19: Poly Pizza and Sketchfab response field names follow the plan and are unverified against the live APIs (tested with `httpx.MockTransport` only); `_first(...)` accepts several spellings. Live check (plan Step 6) is pending a key.
