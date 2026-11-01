@@ -71,5 +71,38 @@ describe('field', () => {
     let maxSlope = 0;
     for (let i = 0; i < 200; i++) maxSlope = Math.max(maxSlope, f.slopeAt(i * 5 - 500, i * 3 - 300));
     expect(maxSlope).toBeGreaterThan(0.2);
+    f.addPad({ x: 300, z: 300, radius: 12, y: 50 });
+    expect(f.slopeAt(300, 300)).toBeLessThan(0.01);
+    expect(f.slopeAt(305, 298)).toBeLessThan(0.01);
+  });
+
+  it('pad blend is continuous across the water-proximity zone', () => {
+    const f = createField(loadRecipeFixture('fishing-valley'));
+    const c = f.river[60];
+    const px = c.x + 28;
+    f.addPad({ x: px, z: c.z, radius: 14, y: f.baseHeight(px, c.z) + 6 });
+    let worst = 0;
+    for (let dz = -30; dz <= 30; dz += 3) for (let x = c.x - 6; x <= px + 30; x += 1) {
+      worst = Math.max(worst, Math.abs(f.heightAt(x + 1, c.z + dz) - f.heightAt(x, c.z + dz)));
+    }
+    expect(worst).toBeLessThan(2); // slope-limited, no vertical step
+    const lake = createField(loadRecipeFixture('snowy-mountains')).lakes[0];
+    expect(lake).toBeDefined();
+  });
+
+  it('water is consistent with terrain: wet implies below the surface (lake rim, river banks)', () => {
+    const lf = createField(loadRecipeFixture('snowy-mountains'));
+    const l = lf.lakes[0];
+    for (let a = 0; a < 360; a += 5) for (const m of [0.9, 0.99, 1, 1.01, 1.1]) {
+      const x = l.x + Math.cos(a * Math.PI / 180) * l.radius * m, z = l.z + Math.sin(a * Math.PI / 180) * l.radius * m;
+      const s = lf.waterSurfaceAt(x, z);
+      if (lf.isWater(x, z)) expect(lf.heightAt(x, z)).toBeLessThan(s as number);
+      if (m <= 0.99) expect(lf.isWater(x, z)).toBe(true);
+    }
+    const rf = createField(loadRecipeFixture('fishing-valley'));
+    for (let i = 5; i < rf.river.length; i += 7) for (let o = -30; o <= 30; o += 2) {
+      const x = rf.river[i].x + o, z = rf.river[i].z;
+      if (rf.isWater(x, z)) expect(rf.heightAt(x, z)).toBeLessThan(rf.waterSurfaceAt(x, z) as number);
+    }
   });
 });

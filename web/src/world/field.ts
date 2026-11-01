@@ -110,7 +110,7 @@ export function createField(recipe: Recipe): WorldField {
     if (d < RIVER_CARVE_WIDTH) h -= RIVER_DEPTH * (1 - smoothstep(5, RIVER_CARVE_WIDTH, d));
     for (const l of lakes) {
       const dl = Math.hypot(x - l.x, z - l.z);
-      if (dl < l.radius * 1.4) h = Math.min(h, lerp(l.levelY - 5, h, smoothstep(l.radius * 0.5, l.radius * 1.4, dl)));
+      if (dl < l.radius * 1.4) h = Math.min(h, lerp(l.levelY - 5, h, smoothstep(l.radius, l.radius * 1.4, dl)));
     }
     return h;
   };
@@ -120,18 +120,22 @@ export function createField(recipe: Recipe): WorldField {
   const roads: Road[] = [];
   const roadIndex = new SegmentIndex(32);
 
-  const nearWaterChannel = (x: number, z: number) =>
-    riverDist(x, z) < RIVER_WET + 4 || lakes.some((l) => Math.hypot(x - l.x, z - l.z) < l.radius * 1.2);
+  // 0 in the water channel, 1 well clear of it; pad influence fades with this so there is no seam.
+  const landWeight = (x: number, z: number): number => {
+    let k = smoothstep(RIVER_WET, RIVER_WET + 8, riverDist(x, z, RIVER_WET + 9));
+    for (const l of lakes) k = Math.min(k, smoothstep(l.radius, l.radius * 1.3, Math.hypot(x - l.x, z - l.z)));
+    return k;
+  };
 
   const heightAt = (x: number, z: number): number => {
-    let h = carved(x, z);
-    if (pads.length === 0 || nearWaterChannel(x, z)) return h;
+    const c = carved(x, z);
+    if (pads.length === 0) return c;
+    let h = c;
     for (const p of pads) {
       const d = Math.hypot(x - p.x, z - p.z);
-      if (d < p.radius) h = p.y;
-      else if (d < p.radius * 1.8) h = lerp(p.y, h, smoothstep(p.radius, p.radius * 1.8, d));
+      if (d < p.radius * 1.8) h = lerp(p.y, h, smoothstep(p.radius, p.radius * 1.8, d));
     }
-    return h;
+    return h === c ? c : lerp(c, h, landWeight(x, z));
   };
 
   const slopeAt = (x: number, z: number): number => {
@@ -142,9 +146,8 @@ export function createField(recipe: Recipe): WorldField {
   };
 
   const isWater = (x: number, z: number): boolean => {
-    if (riverDist(x, z) < RIVER_WET) return true;
-    for (const l of lakes) if (Math.hypot(x - l.x, z - l.z) < l.radius) return true;
-    return hasSea && heightAt(x, z) < seaLevelY;
+    const s = waterSurfaceAt(x, z);
+    return s !== null && heightAt(x, z) < s;
   };
 
   const waterSurfaceAt = (x: number, z: number): number | null => {

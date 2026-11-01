@@ -6,6 +6,7 @@
 - Endless chunked noise terrain plus a 1024 m authored core.
 
 ## 2026-11-02
+- Task 5 fix round 1 (field.ts): pad influence now fades continuously with distance from water (`landWeight`) instead of a boolean switch, removing the terrain step; the lake carve starts at `radius` (not 0.5 radius) so the whole lake disc is below `levelY`; `isWater` now means inside the channel/lake/sea AND `heightAt < waterSurfaceAt`. The river surface stays `baseHeight - 1.5` because the carve is at least 2.3 m deep inside the wet width, so it is always below that surface (a flat-across-channel surface was not needed).
 - Task 5 (B1): for `valley` and `canyon`, the river is laid directly along the meandering centreline (`z` from -CORE_HALF+16 to CORE_HALF-16 in 8 m steps, 125 points) instead of `traceRiver`: the plan's start walked off the map in 3 steps and raising `maxClimb` did nothing. Other shapes still use `traceRiver`. Matches spec §8.1.
 - Pin zod to v3: npm resolved zod 4, whose API differs (ZodError.errors → .issues, z.record needs key and value schemas); the plan's schemas are written for zod 3. TypeScript 7, vite 8 and vitest 5 are kept as installed.
 - Task 12 (M18, three r187): engine uses `THREE.Timer` (update() then getDelta/getElapsed) instead of deprecated `THREE.Clock`, and `THREE.PCFShadowMap` instead of removed `PCFSoftShadowMap`, keeping the console clean.
