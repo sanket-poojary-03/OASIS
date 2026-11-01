@@ -120,7 +120,7 @@ VICTORIA/
 **Interfaces:**
 - Produces: a working `npm test` (vitest) in `web/` and `pytest` in `backend/`.
 
-- [ ] **Step 1: git init and ignore file**
+- [x] **Step 1: git init and ignore file**
 
 ```bash
 cd /c/Users/sanke/Desktop/VICTORIA
@@ -143,7 +143,7 @@ backend/assets/generated/
 
 Library models (CC0) are committed so the deployed backend can serve them. Commit only the models you use, and keep the total under 30 MB (Task 19).
 
-- [ ] **Step 2: web scaffold**
+- [x] **Step 2: web scaffold**
 
 ```bash
 mkdir -p web/src web/tests && cd web
@@ -217,7 +217,7 @@ import './styles.css';
 document.querySelector('#ui')!.textContent = 'WorldSeed booting…';
 ```
 
-- [ ] **Step 3: backend scaffold**
+- [x] **Step 3: backend scaffold**
 
 ```bash
 mkdir -p backend/app backend/tests backend/assets/library backend/scripts
@@ -255,7 +255,7 @@ MESHY_REFINE=0
 CORS_ORIGINS=*
 ```
 
-- [ ] **Step 4: README and decision log stubs**
+- [x] **Step 4: README and decision log stubs**
 
 `README.md`:
 ```markdown
@@ -287,7 +287,7 @@ Without `LLM_API_KEY` the backend runs in mock mode. Without the backend the web
 - Endless chunked noise terrain plus a 1024 m authored core.
 ```
 
-- [ ] **Step 5: verify the tooling runs**
+- [x] **Step 5: verify the tooling runs**
 
 ```bash
 cd web && npx vitest run --passWithNoTests && cd ../backend && source .venv/Scripts/activate && pytest -q; cd ..
@@ -295,7 +295,7 @@ cd web && npx vitest run --passWithNoTests && cd ../backend && source .venv/Scri
 
 Expected: vitest reports "No test files found, exiting with code 0", and pytest reports "no tests ran".
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
