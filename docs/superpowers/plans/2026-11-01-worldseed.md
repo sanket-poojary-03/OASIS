@@ -2258,7 +2258,6 @@ git commit -m "feat(world): relation-based placement solver with hard constraint
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task 8: Roads (A* + smoothing)
 
 **Files:**
 - Create: `web/src/world/roads.ts`
@@ -2270,7 +2269,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `findPath(field: WorldField, from: Vec2, to: Vec2, cell?: number): Road | null` (width 4)
   - `chaikin(points: Vec2[], iterations?: number): Vec2[]`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/roads.test.ts`:
 ```ts
@@ -2304,12 +2303,12 @@ describe('roads', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/roads.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/roads.ts`:
 ```ts
@@ -2426,12 +2425,12 @@ export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Roa
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/roads.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/roads.ts web/tests/world/roads.test.ts
