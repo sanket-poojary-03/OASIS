@@ -5240,7 +5240,7 @@ Online results are filtered to **CC0 and CC-BY only** (no NC/ND) and to 30k tria
   - The response shape is `{status: "ready"|"pending"|"none", source?: "library"|"online"|"generated", url?, jobId?, credit?}`
   - Routes: `POST /api/assets/resolve`, `GET /api/assets/jobs/{job_id}`, static `/files/library/*` and `/files/generated/*`
 
-- [ ] **Step 1: Extend `AssetRequest`**
+- [x] **Step 1: Extend `AssetRequest`**
 
 In `backend/app/schemas.py` replace the `AssetRequest` class with:
 ```python
@@ -5252,7 +5252,7 @@ class AssetRequest(Strict):
     variant: Annotated[int, Field(ge=0, le=99)] = 0
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `backend/tests/test_assets.py`:
 ```python
@@ -5359,12 +5359,12 @@ def test_default_pick_prefers_title_match():
     assert default_pick("candle", [cand("Tree"), cand("Rock")]) == -1
 ```
 
-- [ ] **Step 3: Run to verify it fails**
+- [x] **Step 3: Run to verify it fails**
 
 Run: `pytest -q tests/test_assets.py`
 Expected: FAIL, `ModuleNotFoundError: app.assets`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `backend/app/assets.py`:
 ```python
@@ -5812,7 +5812,7 @@ SKETCHFAB_TOKEN=
 ASSET_LLM_PICK=1
 ```
 
-- [ ] **Step 5: Run to verify it passes**
+- [x] **Step 5: Run to verify it passes**
 
 Run: `pytest -q`
 Expected: PASS for all backend tests.
@@ -5831,7 +5831,7 @@ EOF
 ```
 Expected: candidates with non-empty `title`, `download` (Poly Pizza) or `uid` (Sketchfab), and `license`. If a field is empty, print one raw result (`r.json()`), add its real key name to the matching `_first(...)` list, and note it in `docs/DECISIONS.md`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend

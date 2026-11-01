@@ -263,6 +263,8 @@ class AssetRequest(Strict):
     query: Annotated[str, Field(min_length=2, max_length=120)]
     kind: Kind = "prop"
     allowGenerate: bool = False
+    allowOnline: bool = True
+    variant: Annotated[int, Field(ge=0, le=99)] = 0
 
 
 def dump(model: BaseModel) -> dict:

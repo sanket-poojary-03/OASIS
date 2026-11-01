@@ -8,3 +8,4 @@ backend/.cache/
 backend/assets/generated/
 *.log
 .DS_Store
+backend/assets/.generated-*.json
