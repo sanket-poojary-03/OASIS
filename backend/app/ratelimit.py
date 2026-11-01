@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+import time
+from collections import defaultdict, deque
+from typing import Callable
+
+
+class RateLimiter:
+    def __init__(self, per_ip: int = 20, window: float = 600, daily_cap: int = 300, clock: Callable[[], float] = time.time):
+        self.per_ip, self.window, self.daily_cap, self.clock = per_ip, window, daily_cap, clock
+        self.hits: dict[str, deque[float]] = defaultdict(deque)
+        self.day: int | None = None
+        self.count = 0
+
+    def check(self, ip: str) -> str | None:
+        now = self.clock()
+        day = int(now // 86400)
+        if day != self.day:
+            self.day, self.count = day, 0
+        if self.count >= self.daily_cap:
+            return "Daily AI budget reached. Try again tomorrow or use the preset worlds."
+        q = self.hits[ip]
+        while q and now - q[0] > self.window:
+            q.popleft()
+        if len(q) >= self.per_ip:
+            return "Too many requests. Wait a few minutes."
+        q.append(now)
+        self.count += 1
+        return None
