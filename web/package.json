@@ -21,7 +21,7 @@
     "@dimforge/rapier3d-compat": "^0.21.0",
     "simplex-noise": "^4.0.3",
     "three": "^0.187.0",
-    "zod": "^4.6.7"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
