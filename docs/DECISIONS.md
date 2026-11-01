@@ -6,6 +6,7 @@
 - Endless chunked noise terrain plus a 1024 m authored core.
 
 ## 2026-11-02
+- Task 5 (B1): for `valley` and `canyon`, the river is laid directly along the meandering centreline (`z` from -CORE_HALF+16 to CORE_HALF-16 in 8 m steps, 125 points) instead of `traceRiver`: the plan's start walked off the map in 3 steps and raising `maxClimb` did nothing. Other shapes still use `traceRiver`. Matches spec §8.1.
 - Pin zod to v3: npm resolved zod 4, whose API differs (ZodError.errors → .issues, z.record needs key and value schemas); the plan's schemas are written for zod 3. TypeScript 7, vite 8 and vitest 5 are kept as installed.
 - Task 12 (M18, three r187): engine uses `THREE.Timer` (update() then getDelta/getElapsed) instead of deprecated `THREE.Clock`, and `THREE.PCFShadowMap` instead of removed `PCFSoftShadowMap`, keeping the console clean.
 - Ops contract test asserts each fixture's exact op-type sequence and that `dump_ops` output has no nulls and re-validates, instead of the vacuous `len(ops) >= 1` (OpsList already enforces min_length=1).

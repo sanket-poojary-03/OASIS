@@ -1516,7 +1516,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[] }`
   - `snapshotField(f): FieldSnapshot`, `restoreField(s): WorldField`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/field.test.ts`:
 ```ts
@@ -1592,12 +1592,12 @@ describe('field', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/field.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/field.ts`:
 ```ts
@@ -1796,12 +1796,12 @@ export function restoreField(s: FieldSnapshot): WorldField {
 
 Note: `isReserved` uses a fixed road half-width of 2 m. All roads are 4 m wide (Tasks 8 and 9).
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/field.test.ts`
 Expected: PASS. If the valley river is shorter than 30 points, the river pooled early: raise `maxClimb` in the `traceRiver` call to `25`, and record that in `docs/DECISIONS.md`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/field.ts web/tests/world/field.test.ts
