@@ -1941,7 +1941,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `solvePlacements(recipe: Recipe, field: WorldField, fixed?: Placement[]): Placement[]`. It mutates `field` by adding pads for every non-prop placement, fixed ones included.
   - `findSpawn(field: WorldField, placements: Placement[]): { x; y; z }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/placement.test.ts`:
 ```ts
@@ -2020,12 +2020,12 @@ describe('placement', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/placement.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/placement.ts`:
 ```ts
@@ -2244,12 +2244,12 @@ export function findSpawn(field: WorldField, placements: Placement[]): { x: numb
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/placement.test.ts`
 Expected: PASS. If the "not floating" assertion fails for a prop, it means a later pad covered the prop. Check that props are placed after pads (`orderPlaces` keeps dependents last); if a fixture still fails, set the prop's `y` from `field.heightAt` after all placements, at the end of `solvePlacements`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/placement.ts web/tests/world/placement.test.ts
