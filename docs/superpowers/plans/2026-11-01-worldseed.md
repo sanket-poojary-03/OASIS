@@ -1346,7 +1346,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `segmentDistance(px, pz, a: Vec2, b: Vec2): number`
   - `class SegmentIndex { constructor(cell?: number); addPolyline(points: Vec2[]): void; distance(x, z, maxRange?: number): number /* Infinity if nothing in range */ }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/river.test.ts`:
 ```ts
@@ -1386,12 +1386,12 @@ describe('SegmentIndex', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/river.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/river.ts`:
 ```ts
@@ -1486,12 +1486,12 @@ export class SegmentIndex {
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/river.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/river.ts web/tests/world/river.test.ts
