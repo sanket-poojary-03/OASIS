@@ -2776,7 +2776,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `interface BuiltWorld { recipe; field: WorldField; placements: Placement[]; buildings: Building[]; roads: Road[]; spawn: { x; y; z }; checks: Check[]; log: string[] }`
   - `buildWorld(recipe: Recipe, keep?: Placement[]): BuiltWorld`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/build.test.ts`:
 ```ts
@@ -2815,12 +2815,12 @@ describe('buildWorld', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/world/build.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/checks.ts`:
 ```ts
@@ -2953,12 +2953,12 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
 }
 ```
 
-- [ ] **Step 4: Run all web tests**
+- [x] **Step 4: Run all web tests**
 
 Run: `npx vitest run`
 Expected: PASS for every suite.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world web/tests/world
