@@ -85,13 +85,16 @@ def lib_from(tmp_path, entries):
 
 
 def test_library_multiword_queries_prefer_the_closest_model(tmp_path):
+    # Tagging contract: kind-specific models also carry their category noun. Listing order is chosen so that
+    # coverage-only ranking (ties -> first entry) would pick the wrong model for "tree" and "campfire with stones".
     lib = lib_from(tmp_path, [
-        ("common-tree", ["tree"]), ("pine-tree", ["pine", "tree"]), ("dead-tree", ["dead", "tree"]),
-        ("well", ["well", "stone"]), ("campfire", ["campfire", "fire"]),
+        ("well", ["well", "stone"]), ("pine-tree", ["pine", "tree"]), ("dead-tree", ["dead", "tree"]),
+        ("common-tree", ["tree"]), ("campfire", ["campfire", "fire"]),
     ])
+    assert lib.search("tree")[0]["id"] == "common-tree"
+    assert lib.search("pine")[0]["id"] == "pine-tree"
     assert lib.search("pine tree")[0]["id"] == "pine-tree"
     assert lib.search("dead tree")[0]["id"] == "dead-tree"
-    assert lib.search("tree")[0]["id"] == "common-tree"
     assert lib.search("campfire with stones")[0]["id"] == "campfire"
 
 
@@ -229,8 +232,126 @@ def test_asset_routes(tmp_path):
     assert client.get("/api/assets/jobs/nope").json() == {"status": "none"}
 
 
-def test_resolve_is_rate_limited(tmp_path):
+def test_library_resolves_are_free_and_do_not_drain_the_llm_budget(tmp_path):
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [])
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", limiter=RateLimiter(per_ip=1), assets=svc))
-    assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).status_code == 200
-    assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).status_code == 429
+    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc))
+    for _ in range(30):
+        assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).status_code == 200
+    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 200
+
+
+def test_external_path_is_gated_and_refusal_is_status_none(tmp_path):
+    poly = FakeFinder("Poly Pizza", [cand("Giraffe"), cand("Zebra")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly])
+    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc, asset_limiter=RateLimiter(per_ip=1)))
+    assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["status"] == "ready"
+    searched = []
+    poly.search = lambda q, limit=8: searched.append(q) or []
+    r = client.post("/api/assets/resolve", json={"query": "zebra"})
+    assert r.status_code == 200 and r.json() == {"status": "none"} and searched == []
+    assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).json()["source"] == "library"
+    assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["source"] == "online"  # cache hit is free
+
+
+def test_meshy_is_gated_too(tmp_path):
+    meshy = FakeMeshy()
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], meshy=meshy, spawn=lambda f, *a: f(*a))
+    out = svc.resolve(AssetRequest(query="giant robot", kind="landmark", allowGenerate=True), gate=lambda: False)
+    assert out == {"status": "none"} and meshy.created == []
+
+
+def test_llm_pick_is_charged_to_the_llm_limiter(tmp_path):
+    class Picker:
+        uses_llm = True
+
+        def __call__(self, q, c):
+            raise AssertionError("must not run when the LLM budget is spent")
+
+    poly = FakeFinder("Poly Pizza", [cand("Giraffe")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=Picker())
+    assert svc.resolve(AssetRequest(query="giraffe"), pick_gate=lambda: False)["status"] == "ready"  # fell back to title match
+
+
+def test_non_glb_download_is_rejected_and_nothing_is_cached(tmp_path):
+    class Html(FakeFinder):
+        def download(self, cand, dest):
+            dest.write_bytes(b"<html>")
+
+    cache = ModelCache(tmp_path / "gen")
+    svc = AssetService(make_lib(tmp_path), cache, [Html("Poly Pizza", [cand("Giraffe")])])
+    assert svc.resolve(AssetRequest(query="giraffe")) == {"status": "none"}
+    assert cache.count() == 0 and list((tmp_path / "gen").iterdir()) == []
+
+
+def test_download_size_cap(tmp_path):
+    big = httpx.MockTransport(lambda req: httpx.Response(200, content=b"glTF" + b"0" * 1000))
+    from app.asset_sources import stream_to_file
+    with httpx.Client(transport=big) as c:
+        try:
+            stream_to_file(c, "https://x/a.glb", tmp_path / "a.glb", cap=100)
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+        assert list(tmp_path.iterdir()) == []
+        stream_to_file(c, "https://x/a.glb", tmp_path / "a.glb", cap=5000)
+        assert (tmp_path / "a.glb").read_bytes()[:4] == b"glTF"
+
+
+def test_corrupt_index_is_treated_as_empty_and_rewritten_atomically(tmp_path):
+    (tmp_path / "gen").mkdir()
+    (tmp_path / ".gen-index.json").write_text("{not json", encoding="utf-8")
+    cache = ModelCache(tmp_path / "gen")
+    assert cache.index == {}
+    (tmp_path / "gen" / "k.glb").write_bytes(b"glTF")
+    cache.add("k", "q", "k.glb", "online")
+    assert json.loads((tmp_path / ".gen-index.json").read_text())["k"]["file"] == "k.glb"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_meshy_attempts_are_persisted_and_counted_before_generation(tmp_path):
+    class Failing(FakeMeshy):
+        def wait(self, task_id):
+            raise RuntimeError("boom")
+
+    lib = make_lib(tmp_path)
+
+    def make():
+        return AssetService(lib, ModelCache(tmp_path / "gen"), [], meshy=Failing(), max_generations=1, spawn=lambda f, *a: f(*a))
+
+    assert make().resolve(AssetRequest(query="giant robot", kind="landmark", allowGenerate=True))["status"] == "pending"
+    # the paid attempt failed, but it still counts, even after a restart
+    assert make().resolve(AssetRequest(query="giant squid", kind="landmark", allowGenerate=True)) == {"status": "none"}
+
+
+def test_inflight_lookups_share_one_download(tmp_path):
+    import threading
+    import time as _t
+
+    class Slow(FakeFinder):
+        def download(self, cand, dest):
+            _t.sleep(0.2)
+            super().download(cand, dest)
+
+    poly = Slow("Poly Pizza", [cand("Giraffe")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly])
+    out = []
+    ts = [threading.Thread(target=lambda: out.append(svc.resolve(AssetRequest(query="giraffe")))) for _ in range(4)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert poly.downloads == 1 and all(o["status"] == "ready" for o in out)
+
+
+def test_generated_index_is_not_served_and_urls_are_encoded(tmp_path):
+    lib = lib_from(tmp_path, [("odd", ["odd"])])
+    lib.entries[0]["file"] = "my folder/odd #1.glb"
+    svc = AssetService(lib, ModelCache(tmp_path / "gen"), [])
+    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc))
+    assert client.post("/api/assets/resolve", json={"query": "odd"}).json()["url"] == "/files/library/my%20folder/odd%20%231.glb"
+    svc.cache.add("k", "q", "k.glb", "online")
+    assert client.get("/files/generated/index.json").status_code == 404
+    assert client.get("/files/generated/.gen-index.json").status_code == 404
+
+
+def test_query_without_meaningful_tokens_is_none(tmp_path):
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [FakeFinder("P", [cand("a")])])
+    assert svc.resolve(AssetRequest(query="the a")) == {"status": "none"}

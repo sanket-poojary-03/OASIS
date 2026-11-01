@@ -36,19 +36,25 @@ def default_assets(llm=None) -> AssetService:
     )
 
 
-def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None) -> FastAPI:
+def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
+               asset_limiter: RateLimiter | None = None) -> FastAPI:
     app = FastAPI(title="WorldSeed API")
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
     cache_root = cache_dir or BACKEND_DIR / ".cache"
     world = WorldService(llm, FileCache(cache_root / "llm"))
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
+    # Separate budget for the external asset path (library/cache hits are free and never counted).
+    asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
     assets = assets or default_assets(llm)
     assets.library.root.mkdir(parents=True, exist_ok=True)
     app.mount("/files/library", StaticFiles(directory=str(assets.library.root)), name="library")
     app.mount("/files/generated", StaticFiles(directory=str(assets.cache.root)), name="generated")
 
+    def client_ip(request: Request) -> str:
+        return request.client.host if request.client else "unknown"
+
     def guard(request: Request) -> None:
-        msg = limiter.check(request.client.host if request.client else "unknown")
+        msg = limiter.check(client_ip(request))
         if msg:
             raise HTTPException(status_code=429, detail=msg)
 
@@ -68,8 +74,8 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
 
     @app.post("/api/assets/resolve")
     def post_resolve(req: AssetRequest, request: Request) -> dict:
-        guard(request)
-        return assets.resolve(req)
+        ip = client_ip(request)
+        return assets.resolve(req, gate=lambda: asset_limiter.check(ip) is None, pick_gate=lambda: limiter.check(ip) is None)
 
     @app.get("/api/assets/jobs/{job_id}")
     def get_job(job_id: str) -> dict:
