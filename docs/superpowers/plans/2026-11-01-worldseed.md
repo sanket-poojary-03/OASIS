@@ -2986,7 +2986,7 @@ Rendering code is verified manually in the browser (`npm run dev`). Each task gi
   - `TIME_HOURS: Record<Atmosphere['time'], number>`
   - `class AtmosphereSystem { hours; timeScale; sun; hemi; readonly isNight: boolean; constructor(scene); apply(spec, resetTime?: boolean); update(dt, viewer: THREE.Vector3) }`
 
-- [ ] **Step 1: Implement the engine**
+- [x] **Step 1: Implement the engine**
 
 `web/src/render/engine.ts`:
 ```ts
@@ -3030,7 +3030,7 @@ export class Engine {
 }
 ```
 
-- [ ] **Step 2: Implement the atmosphere**
+- [x] **Step 2: Implement the atmosphere**
 
 `web/src/render/atmosphere.ts`:
 ```ts
@@ -3140,7 +3140,7 @@ export class AtmosphereSystem {
 }
 ```
 
-- [ ] **Step 3: Temporary harness**
+- [x] **Step 3: Temporary harness**
 
 `web/src/main.ts`:
 ```ts
@@ -3175,7 +3175,7 @@ Expected:
 - `?weather=snow` shows falling snow; `?weather=rain` shows rain streaks.
 - The console has no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/render/engine.ts web/src/render/atmosphere.ts web/src/main.ts
