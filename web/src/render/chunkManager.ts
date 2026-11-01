@@ -3,6 +3,7 @@ import type { Collider } from '@dimforge/rapier3d-compat';
 import type { Physics } from '../physics/physics';
 import { CHUNK_SIZE, type ChunkData } from '../world/chunkData';
 import type { FieldSnapshot } from '../world/field';
+import { ChunkQueue } from './chunkQueue';
 import type { ScatterAssets } from './scatterAssets';
 
 export const VIEW = 3;
@@ -23,7 +24,7 @@ const key = (cx: number, cz: number) => `${cx},${cz}`;
 export class ChunkManager {
   readonly group = new THREE.Group();
   private readonly chunks = new Map<string, LiveChunk>();
-  private readonly pending = new Set<string>();
+  private readonly queue = new ChunkQueue();
   private generation = 0;
   private readonly worker: Worker;
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
@@ -31,13 +32,17 @@ export class ChunkManager {
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly scatter: ScatterAssets) {
     scene.add(this.group);
     this.worker = new Worker(new URL('./chunkWorker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent) => this.receive(e.data);
+    this.worker.onmessage = (e: MessageEvent) => {
+      try { this.receive(e.data); } catch (err) { console.warn('[chunks] bad worker message', err); this.queue.failAll(performance.now()); }
+    };
+    this.worker.onerror = (e) => { console.warn('[chunks] worker error', e.message); this.queue.failAll(performance.now()); };
+    this.worker.onmessageerror = (e) => { console.warn('[chunks] worker message error', e); this.queue.failAll(performance.now()); };
   }
 
   /** New world: the worker rebuilds its field; existing chunks stay visible until replaced. */
   setSnapshot(snapshot: FieldSnapshot): void {
     this.generation++;
-    this.pending.clear();
+    this.queue.reset();
     this.worker.postMessage({ type: 'init', generation: this.generation, snapshot });
     for (const c of this.chunks.values()) c.stale = true;
   }
@@ -48,13 +53,14 @@ export class ChunkManager {
     const wanted: Array<[number, number, number]> = [];
     for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) wanted.push([ccx + dx, ccz + dz, dx * dx + dz * dz]);
     wanted.sort((a, b) => a[2] - b[2]);
+    const now = performance.now();
     let requested = 0;
     for (const [cx, cz] of wanted) {
       if (requested >= 4) break;
       const k = key(cx, cz);
       const c = this.chunks.get(k);
-      if ((!c || c.stale) && !this.pending.has(k)) {
-        this.pending.add(k);
+      if ((!c || c.stale) && this.queue.canRequest(k, now)) {
+        this.queue.markPending(k);
         this.worker.postMessage({ type: 'chunk', generation: this.generation, cx, cz });
         requested++;
       }
@@ -77,11 +83,18 @@ export class ChunkManager {
     return [...this.chunks.values()].map((c) => c.mesh);
   }
 
-  private receive(msg: { type: 'chunk'; generation: number; data: ChunkData }): void {
+  private receive(msg: { type: 'chunk'; generation: number; data: ChunkData } | { type: 'error'; generation: number; cx?: number; cz?: number; message: string }): void {
     if (msg.generation !== this.generation) return;
+    if (msg.type === 'error') {
+      console.warn('[chunks] worker failed', msg.cx ?? 'init', msg.cz ?? '', msg.message);
+      if (msg.cx !== undefined && msg.cz !== undefined) this.queue.fail(key(msg.cx, msg.cz), performance.now());
+      else this.queue.failAll(performance.now());
+      return;
+    }
     const d = msg.data;
     const k = key(d.cx, d.cz);
-    this.pending.delete(k);
+    if (!d || !(d.positions instanceof Float32Array) || !(d.indices instanceof Uint32Array)) throw new Error('malformed chunk data');
+    this.queue.succeed(k);
     const hadCollider = !!this.chunks.get(k)?.collider;
     this.drop(k);
     const geo = new THREE.BufferGeometry();
