@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .cache import FileCache
 from .llm import LLMClient
 from .ratelimit import RateLimiter
-from .schemas import WorldRequest
+from .schemas import EditRequest, WorldRequest
 from .service import WorldService
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -36,6 +36,11 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
     def post_world(req: WorldRequest, request: Request) -> dict:
         guard(request)
         return world.generate(req.prompt)
+
+    @app.post("/api/edit")
+    def post_edit(req: EditRequest, request: Request) -> dict:
+        guard(request)
+        return world.edit(req)
 
     return app
 
