@@ -1,0 +1,4 @@
+[
+  { "op": "addPlace", "place": { "id": "beacon", "kind": "landmark", "label": "Beacon tower", "asset": "white stone lighthouse", "size": "medium", "interaction": "light", "where": [{ "rel": "at", "x": 120, "z": -40 }] } },
+  { "op": "setAtmosphere", "time": "night" }
+]

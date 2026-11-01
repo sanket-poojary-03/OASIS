@@ -330,7 +330,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `OpError`
   - test helper `loadRecipeFixture(name: string): Recipe`, `loadOpsFixture(name: string): unknown`
 
-- [ ] **Step 1: Write the fixtures**
+- [x] **Step 1: Write the fixtures**
 
 `shared/fixtures/recipes/fishing-valley.json`:
 ```json
@@ -428,7 +428,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ]
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 `web/tests/fixtures.ts`:
 ```ts
@@ -575,12 +575,12 @@ describe('ops', () => {
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `cd web && npx vitest run tests/core`
 Expected: FAIL with "Cannot find module '../../src/core/rng'" (and similar).
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `web/src/core/rng.ts`:
 ```ts
@@ -855,12 +855,12 @@ export function describeOps(ops: Op[]): string[] {
 export { DIRECTIONS };
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `cd web && npx vitest run tests/core`
 Expected: PASS (all tests in rng, recipe, ops).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared web/src/core web/tests

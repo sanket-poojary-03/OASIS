@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "title": "Lighthouse Isle",
+  "seed": 7404,
+  "terrain": { "shape": "island", "roughness": 0.45, "height": 0.55, "seaLevel": 0.32 },
+  "climate": { "temperature": 0.85, "moisture": 0.6 },
+  "water": { "river": false, "lake": false },
+  "atmosphere": { "time": "day", "weather": "clear", "fog": 0.1, "wind": 0.4 },
+  "places": [
+    { "id": "village", "kind": "settlement", "label": "Beach village", "asset": "thatched beach hut", "style": "tropical", "size": "small", "interaction": "door", "where": [{ "rel": "by_water" }, { "rel": "flat" }] },
+    { "id": "lighthouse", "kind": "landmark", "label": "Lighthouse", "asset": "white stone lighthouse", "size": "medium", "interaction": "light", "where": [{ "rel": "direction", "dir": "east" }, { "rel": "by_water" }] },
+    { "id": "barrels", "kind": "prop", "label": "Cargo barrels", "asset": "wooden barrel", "size": "small", "interaction": "push", "where": [{ "rel": "near", "target": "village", "maxDist": 20 }] }
+  ],
+  "paths": [{ "from": "village", "to": "lighthouse" }],
+  "life": [{ "kind": "birds", "count": 12 }]
+}
