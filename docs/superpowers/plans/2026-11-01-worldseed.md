@@ -2258,6 +2258,7 @@ git commit -m "feat(world): relation-based placement solver with hard constraint
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
+### Task 8: Roads (A* + smoothing)
 
 **Files:**
 - Create: `web/src/world/roads.ts`
