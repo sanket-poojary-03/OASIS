@@ -1243,7 +1243,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `fbm(noise: NoiseFunction2D, x, z, octaves, gain = 0.5, lacunarity = 2): number`, in [-1, 1]
   - `ridged(noise, x, z, octaves): number`, in [0, 1]
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/world/noise.test.ts`:
 ```ts
@@ -1274,12 +1274,12 @@ describe('noise', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cd web && npx vitest run tests/world/noise.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/world/noise.ts`:
 ```ts
@@ -1319,12 +1319,12 @@ export function ridged(noise: NoiseFunction2D, x: number, z: number, octaves: nu
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/world/noise.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/world/noise.ts web/tests/world/noise.test.ts
