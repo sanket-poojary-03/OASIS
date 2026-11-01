@@ -7,3 +7,4 @@
 
 ## 2026-11-02
 - Pin zod to v3: npm resolved zod 4, whose API differs (ZodError.errors → .issues, z.record needs key and value schemas); the plan's schemas are written for zod 3. TypeScript 7, vite 8 and vitest 5 are kept as installed.
+- Task 12 (M18, three r187): engine uses `THREE.Timer` (update() then getDelta/getElapsed) instead of deprecated `THREE.Clock`, and `THREE.PCFShadowMap` instead of removed `PCFSoftShadowMap`, keeping the console clean.
