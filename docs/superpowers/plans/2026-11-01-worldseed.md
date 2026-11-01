@@ -4995,7 +4995,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `WorldService.edit(req: EditRequest) -> dict`, returning `{type:"ops", ops, notes, source}` or `{type:"unsupported", reason, source}`
   - `POST /api/edit`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `backend/tests/test_mock_edit.py`:
 ```python
@@ -5076,12 +5076,12 @@ def test_edit_route(tmp_path):
     assert body["type"] == "ops" and body["ops"][0]["place"]["interaction"] == "sit"
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `pytest -q tests/test_mock_edit.py tests/test_service_edit.py tests/test_api_edit.py`
 Expected: FAIL with ImportError on `mock_edit`, AttributeError on `edit`, and 404 on the route.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Append to `backend/app/mock.py`:
 ```python
@@ -5192,12 +5192,12 @@ In `backend/app/main.py`, change the schemas import to `from .schemas import Edi
         return world.edit(req)
 ```
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `pytest -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend

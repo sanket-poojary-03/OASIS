@@ -64,6 +64,7 @@ Player context:
 Rules:
 - "here", "there", "where I'm looking", "in front of me" -> {"rel":"at","x":<lookAt.x>,"z":<lookAt.z>} using the lookAt numbers exactly. If lookAt is null, use relations instead.
 - "on this", "on that", "on top of it" (small props only, e.g. a candle on a table) -> the same "at" plus "y":<lookAt.y>, so the prop sits on the surface being looked at.
+- "near this", "next to that", "beside it" -> {"rel":"near","target":<lookingAt id>,"maxDist":30} plus {"rel":"flat"}; if lookingAt is null, use the "at" of lookAt.
 - Any object the user names is fine, even unusual ones ("a giraffe", "a hot-air balloon"): put a short visual description in "asset"; the model finder searches free libraries for it.
 - "that", "this", "it" (the thing being looked at) -> the lookingAt id.
 - New place ids must not already exist. Never resend the whole recipe; only operations.
