@@ -1,6 +1,7 @@
 import type { Op } from '../core/ops';
 import { clampCore, recipeSchema, type Interaction, type Place, type Recipe } from '../core/recipe';
-import { hashString } from '../core/rng';
+import { pyRound } from '../core/pyround';
+import { promptSeed } from '../core/sha256';
 import type { EditContext, EditResult, WorldResult } from './types';
 
 const fixtures = import.meta.glob('../../../shared/fixtures/recipes/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
@@ -29,20 +30,20 @@ export function fixtureRecipe(name: string): Recipe {
 
 export function localWorld(prompt: string): WorldResult {
   const r = fixtureRecipe(pickFixture(prompt));
-  return { type: 'recipe', recipe: { ...r, seed: hashString(prompt.trim().toLowerCase()) & 0x7fffffff }, notes: ['Offline mode: used the preset world closest to your description.'], source: 'offline' };
+  return { type: 'recipe', recipe: { ...r, seed: promptSeed(prompt) }, notes: ['Offline mode: used the preset world closest to your description.'], source: 'offline' };
 }
 
 // ---- edit parser: constants copied exactly from backend/app/mock.py ----
-const TIME: Array<[RegExp, 'night' | 'dawn' | 'dusk' | 'day']> = [[/\b(night|midnight)\b/, 'night'], [/\b(dawn|sunrise|morning)\b/, 'dawn'], [/\b(dusk|sunset|evening)\b/, 'dusk'], [/\b(noon|midday|daytime|day)\b/, 'day']];
-const WEATHER: Array<[RegExp, 'storm' | 'rain' | 'snow' | 'mist' | 'clear']> = [[/\b(storm|stormy|thunder\w*)\b/, 'storm'], [/\b(rain|rainy|raining)\b/, 'rain'], [/\b(snow|snowy|snowing)\b/, 'snow'], [/\b(mist|misty|fog|foggy)\b/, 'mist'], [/\b(clear|sunny)\b/, 'clear']];
-const ATMOS = new Set(['rain', 'snow', 'fog', 'mist', 'storm', 'night', 'day', 'sunset', 'sunrise', 'dawn', 'dusk']);
-const NEAR_THIS = /\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b/g;
-const ON_THIS = /\s+on\s+(?:(?:this|that|it)(?:\s+[a-z]+)?|top of\s+(?:this|that|it|the)(?:\s+[a-z]+)?)(?=\s*[.!]?$)/g;
-const ADD = /\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|the|some)\s+)?(?<noun>[a-z][a-z \-]{1,60}?)(?:\s+(?:here|there|in front of me|where i'?m looking|where i am looking|over there))?\s*[.!]?$/;
-const REMOVE = /\b(?:remove|delete|destroy)\b|\bget rid of\b/;
-const LANDMARK = /tower|castle|lighthouse|statue|temple|obelisk|windmill|arch|monument/;
-const STRUCTURE = /house|cabin|hut|shrine|tent|lodge|well|dock|cottage|barn|inn|stall/;
-const INTERACT: Array<[RegExp, Interaction]> = [[/lamp|lantern|light|torch|candle/, 'light'], [/campfire|bonfire|fire/, 'fire'], [/bell|gong/, 'sound'], [/bench|chair|seat|stool/, 'sit'], [/barrel|crate|box/, 'push'], [/house|cabin|hut|cottage|lodge|barn|inn/, 'door']];
+export const TIME: Array<[RegExp, 'night' | 'dawn' | 'dusk' | 'day']> = [[/\b(night|midnight)\b/, 'night'], [/\b(dawn|sunrise|morning)\b/, 'dawn'], [/\b(dusk|sunset|evening)\b/, 'dusk'], [/\b(noon|midday|daytime|day)\b/, 'day']];
+export const WEATHER: Array<[RegExp, 'storm' | 'rain' | 'snow' | 'mist' | 'clear']> = [[/\b(storm|stormy|thunder\w*)\b/, 'storm'], [/\b(rain|rainy|raining)\b/, 'rain'], [/\b(snow|snowy|snowing)\b/, 'snow'], [/\b(mist|misty|fog|foggy)\b/, 'mist'], [/\b(clear|sunny)\b/, 'clear']];
+export const ATMOS = new Set(['rain', 'snow', 'fog', 'mist', 'storm', 'night', 'day', 'sunset', 'sunrise', 'dawn', 'dusk']);
+export const NEAR_THIS = /\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b/g;
+export const ON_THIS = /\s+on\s+(?:(?:this|that|it)(?:\s+[a-z]+)?|top of\s+(?:this|that|it|the)(?:\s+[a-z]+)?)(?=\s*[.!]?$)/g;
+export const ADD = /\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|the|some)\s+)?(?<noun>[a-z][a-z \-]{1,60}?)(?:\s+(?:here|there|in front of me|where i'?m looking|where i am looking|over there))?\s*[.!]?$/;
+export const REMOVE = /\b(?:remove|delete|destroy)\b|\bget rid of\b/;
+export const LANDMARK = /tower|castle|lighthouse|statue|temple|obelisk|windmill|arch|monument/;
+export const STRUCTURE = /house|cabin|hut|shrine|tent|lodge|well|dock|cottage|barn|inn|stall/;
+export const INTERACT: Array<[RegExp, Interaction]> = [[/lamp|lantern|light|torch|candle/, 'light'], [/campfire|bonfire|fire/, 'fire'], [/bell|gong/, 'sound'], [/bench|chair|seat|stool/, 'sit'], [/barrel|crate|box/, 'push'], [/house|cabin|hut|cottage|lodge|barn|inn/, 'door']];
 
 const ok = (ops: Op[]): EditResult => ({ type: 'ops', ops, notes: [], source: 'offline' });
 const no = (reason: string): EditResult => ({ type: 'unsupported', reason, source: 'offline' });
@@ -62,7 +63,7 @@ export function localEdit(recipe: Recipe, prompt: string, ctx: EditContext): Edi
   const text = prompt.toLowerCase().trim();
   const existing = new Set(recipe.places.map((p) => p.id));
   if (REMOVE.test(text)) {
-    const target = ctx.lookingAt ?? recipe.places.find((p) => text.includes(p.label.toLowerCase()) || text.includes(p.id))?.id;
+    const target = ctx.lookingAt || recipe.places.find((p) => text.includes(p.label.toLowerCase()) || text.includes(p.id))?.id;
     return target ? ok([{ op: 'removePlace', id: target }]) : no('Look at the thing you want to remove, then try again.');
   }
   const nearThis = new RegExp(NEAR_THIS.source).test(text);
@@ -76,7 +77,7 @@ export function localEdit(recipe: Recipe, prompt: string, ctx: EditContext): Edi
     if (nearThis && ctx.lookingAt) where = nearTarget();
     else if (ctx.lookAt) {
       const at: { rel: 'at'; x: number; z: number; y?: number } = { rel: 'at', x: clampCore(ctx.lookAt.x), z: clampCore(ctx.lookAt.z) };
-      if (onThis && kind === 'prop' && ctx.lookAt.y !== undefined) at.y = Math.round(ctx.lookAt.y * 100) / 100;
+      if (onThis && kind === 'prop' && ctx.lookAt.y !== undefined) at.y = pyRound(ctx.lookAt.y, 2);
       where = [at];
     } else if (ctx.lookingAt) where = nearTarget();
     else where = [{ rel: 'flat' }];

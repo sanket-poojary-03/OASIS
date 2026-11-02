@@ -16,15 +16,24 @@ export class AssetModelSource implements ModelSource {
   load(asset: string, kind: PlaceKind): Promise<Loaded> {
     const key = `${kind}:${asset.toLowerCase().trim()}`;
     let p = this.cache.get(key);
-    if (!p) { p = this.fetch(asset, kind); this.cache.set(key, p); }
+    if (!p) {
+      p = this.fetch(asset, kind);
+      this.cache.set(key, p);
+      // Do not cache failures: a transient error should retry on the next request.
+      void p.then((v) => { if (v === null && this.cache.get(key) === p) this.cache.delete(key); });
+    }
     return p;
   }
 
   private async fetch(asset: string, kind: PlaceKind): Promise<Loaded> {
     let res = await resolveAsset(asset, kind, this.allowGenerate(kind));
+    let failures = 0;
     for (let i = 0; res.status === 'pending' && res.jobId && i < 60; i++) {
       await new Promise((r) => setTimeout(r, 5000));
-      res = await assetJob(res.jobId);
+      const next = await assetJob(res.jobId);
+      // assetJob maps network errors to 'none'; tolerate a few before giving up.
+      if (next.status === 'none' && ++failures < 4) continue;
+      res = next;
     }
     if (res.status !== 'ready' || !res.url) return null;
     try {

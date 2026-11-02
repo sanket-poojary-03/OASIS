@@ -6,7 +6,10 @@ import type { AssetResult, EditContext, EditResult, Source, WorldResult } from '
 export const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000').replace(/\/$/, '');
 
 const SOURCES: readonly Source[] = ['live', 'mock', 'cache', 'offline'];
-const asSource = (v: unknown): Source => (SOURCES.includes(v as Source) ? (v as Source) : 'live');
+/** Unknown sources are labelled 'mock' (never claim 'live' for something unverified). */
+const asSource = (v: unknown): Source => (SOURCES.includes(v as Source) ? (v as Source) : 'mock');
+/** Clamp to the backend request models (WorldRequest 3..600, EditRequest 2..400, AssetRequest query <=120) so oversized input is not a silent 422. */
+const clip = (s: string, max: number): string => s.slice(0, max);
 const asNotes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string') : []);
 
 /** Throws on network error, timeout, any non-2xx (incl. 429/5xx) or non-JSON body. */
@@ -23,7 +26,11 @@ async function post(path: string, body: unknown, timeoutMs = 45000): Promise<Rec
 export async function health(): Promise<{ ok: boolean; provider: string } | null> {
   try {
     const r = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(6000) });
-    return r.ok ? ((await r.json()) as { ok: boolean; provider: string }) : null;
+    if (!r.ok) return null;
+    const d: unknown = await r.json();
+    if (typeof d !== 'object' || d === null) return null;
+    const { ok, provider } = d as Record<string, unknown>;
+    return typeof ok === 'boolean' && typeof provider === 'string' ? { ok, provider } : null;
   } catch {
     return null;
   }
@@ -31,7 +38,8 @@ export async function health(): Promise<{ ok: boolean; provider: string } | null
 
 export async function generateWorld(prompt: string): Promise<WorldResult> {
   try {
-    const data = await post('/api/world', { prompt });
+    if (prompt.trim().length < 3) throw new Error('prompt too short');
+    const data = await post('/api/world', { prompt: clip(prompt, 600) });
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
     const parsed = parseRecipe(data.recipe);
     if (!parsed.ok) throw new Error(parsed.error);
@@ -44,7 +52,8 @@ export async function generateWorld(prompt: string): Promise<WorldResult> {
 
 export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext): Promise<EditResult> {
   try {
-    const data = await post('/api/edit', { recipe, prompt, context: ctx });
+    if (prompt.trim().length < 2) throw new Error('prompt too short');
+    const data = await post('/api/edit', { recipe, prompt: clip(prompt, 400), context: ctx });
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
     const ops = opsSchema.safeParse(data.ops);
     if (!ops.success) throw new Error(ops.error.message);
@@ -72,7 +81,7 @@ function toAsset(data: unknown): AssetResult {
 
 export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean): Promise<AssetResult> {
   try {
-    return toAsset(await post('/api/assets/resolve', { query, kind, allowGenerate }, 20000));
+    return toAsset(await post('/api/assets/resolve', { query: clip(query, 120), kind, allowGenerate }, 20000));
   } catch {
     return NONE;
   }

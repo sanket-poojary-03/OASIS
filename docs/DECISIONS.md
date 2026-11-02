@@ -6,6 +6,8 @@
 - Endless chunked noise terrain plus a 1024 m authored core.
 
 ## 2026-11-02
+- Task 22 fix 1 (seed): offline `localWorld` seed mirrors `mock.py prompt_seed` via a pure sync SHA-256 (`web/src/core/sha256.ts`, `promptSeed`), so the same prompt gives the same world online-mock and offline. Expected seeds were computed by running Python.
+- Task 22 fix 1 (rounding): `pyRound` (`web/src/core/pyround.ts`, BigInt exact-binary round-half-even) mirrors Python `round()`; used by `clampCore` and the `y` rounding. A parity test keeps `localMock.ts` regexes and keyword lists equal to `backend/app/mock.py` by reading the file.
 - Task 22 (I6): `web/src/api/localMock.ts` mirrors backend `mock.py` exactly (same keyword lists/regexes: `bring` verb, near-this gives near lookingAt + flat, `y` only for "on this/that" props, `candle` in the light regex). Vitest parity tests hard-code the expected ops from `backend/tests/test_mock_edit.py`.
 - Task 22 (M6): `clampCore` is exported once from `web/src/core/recipe.ts` and imported by `localMock.ts` (Task 24 will import it in `app.ts`).
 - Task 22: client validates every backend response (Zod); network error, timeout, 429/5xx or invalid body falls back to the offline mock. Asset `none` (including limiter refusal, HTTP 200) means placeholder; credits are stored as plain strings and must be rendered with textContent only.
