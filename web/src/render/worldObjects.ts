@@ -69,6 +69,7 @@ interface Entry { root: THREE.Group; spec: Spec; collider: Collider | null }
 
 export class WorldObjects {
   readonly group = new THREE.Group();
+  /** Fired when an object appears (placeholder) and again when its loaded model replaces the placeholder. */
   readonly onReady: Array<(root: THREE.Group, info: ObjectInfo) => void> = [];
   readonly onCleared: Array<() => void> = [];
   private entries: Entry[] = [];
@@ -131,6 +132,7 @@ export class WorldObjects {
       s.info.source = res.source;
       s.info.credit = res.credit;
       this.refreshCollider(entry);
+      for (const cb of this.onReady) cb(root, s.info); // again: interactions re-fit the loaded model (its own door, size)
     });
   }
 

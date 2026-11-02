@@ -4,6 +4,7 @@ import type { Interaction } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { Player } from '../player/player';
 import type { ObjectInfo } from '../render/worldObjects';
+import { findDoorNode, hingeDoor } from './doorHinge';
 import { needsRecovery, pickNearestLit } from './lightMath';
 
 const POOL_SIZE = 6;
@@ -60,19 +61,35 @@ export class InteractionSystem {
     }
   }
 
+  /**
+   * Called when an object appears and again each time its model is swapped in: the old set-up is removed first, so the
+   * door, glow and push body always fit the content the player actually sees.
+   */
   register(root: THREE.Group, info: ObjectInfo): void {
+    const previous = this.unregister(root);
     if (info.interaction === 'none') return;
     const size = root.userData.size as THREE.Vector3;
     const item: InteractItem = { root, info, type: info.interaction, on: info.interaction === 'fire', manual: false, halfHeight: size.y / 2, lightY: 0 };
+    if (previous?.type === 'light' && previous.manual) { item.on = previous.on; item.manual = true; }
     if (item.type === 'door') {
-      const pivot = new THREE.Group();
-      pivot.position.set(-0.55, 0, size.z / 2 + 0.06);
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2, 0.08), DOOR_MAT);
-      panel.position.set(0.55, 1, 0);
-      panel.castShadow = true;
-      pivot.add(panel);
-      root.add(pivot);
-      item.pivot = pivot;
+      const content = root.getObjectByName('content');
+      if (content?.children.some((c) => c.userData.placeholder)) {
+        // Procedural houses have no door of their own: add a stand-in panel on the front face.
+        const pivot = new THREE.Group();
+        pivot.name = 'stand-in-door';
+        pivot.position.set(-0.55, 0, size.z / 2 + 0.06);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2, 0.08), DOOR_MAT);
+        panel.position.set(0.55, 1, 0);
+        panel.castShadow = true;
+        pivot.add(panel);
+        root.add(pivot);
+        item.pivot = pivot;
+      } else {
+        // A loaded model swings its own door part; without one it is scenery (never a slab floating outside it).
+        const door = content ? findDoorNode(content) : null;
+        if (!door) return;
+        item.pivot = hingeDoor(root, door);
+      }
     }
     if (item.type === 'light' || item.type === 'fire') {
       const isLight = item.type === 'light';
@@ -92,6 +109,21 @@ export class InteractionSystem {
     }
     this.applyGlow(item, 0);
     this.items.push(item);
+  }
+
+  /** Remove the interaction set up for `root` (stand-in door or hinge, glow, push body, seat); returns it, if any. */
+  private unregister(root: THREE.Group): InteractItem | undefined {
+    const i = this.items.findIndex((it) => it.root === root);
+    if (i < 0) return undefined;
+    const [it] = this.items.splice(i, 1);
+    if (it.pivot) {
+      root.remove(it.pivot);
+      if (it.pivot.name === 'stand-in-door') it.pivot.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+    }
+    if (it.glow) { root.remove(it.glow); it.glow.geometry.dispose(); (it.glow.material as THREE.Material).dispose(); }
+    if (it.body) this.physics.removeBody(it.body);
+    if (this.seated === it) { this.player.seated = false; this.seated = null; }
+    return it;
   }
 
   clear(): void {
