@@ -8,7 +8,9 @@ import type { Recipe } from './core/recipe';
 import { InteractionSystem } from './logic/interactions';
 import { Wildlife } from './logic/wildlife';
 import { Physics } from './physics/physics';
+import { Avatar } from './player/avatar';
 import { Player } from './player/player';
+import { loadArt } from './render/artLoader';
 import { AssetModelSource } from './render/assetModels';
 import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
@@ -16,6 +18,7 @@ import { disposeGroup } from './render/dispose';
 import { Engine } from './render/engine';
 import { GrassSystem } from './render/grass';
 import { WINDOW_MATERIAL } from './render/placeholders';
+import { PostFX } from './render/postfx';
 import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './render/roads';
 import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
@@ -34,6 +37,8 @@ const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()
 /** Frame time allowed for the spawn chunk to arrive before generate() gives up (a hidden tab does not count). */
 const SPAWN_TIMEOUT_MS = 20_000;
 const MAX_UNDO = 50;
+/** Interaction reach from the camera: 4 m at the eye, 9 m from the third-person camera 5 m behind. */
+const REACH_FIRST = 4, REACH_THIRD = 9;
 const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', cache: 'AI: cached answer', mock: 'AI: mock mode', offline: 'Offline mode' };
 
 export class App {
@@ -52,6 +57,10 @@ export class App {
   private readonly isReady = (x: number, z: number): boolean => this.chunks.isReady(x, z);
   private lookTimer = 0;
   private cineAngle = 0;
+  private artStarted = false;
+  /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
+  private artDirty = false;
+  private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
 
   private constructor(
     readonly engine: Engine,
@@ -63,6 +72,10 @@ export class App {
     readonly player: Player,
     readonly wildlife: Wildlife,
     readonly models: ModelSource,
+    readonly avatar: Avatar,
+    readonly grass: GrassSystem,
+    readonly postfx: PostFX,
+    private readonly scatter: ScatterAssets,
   ) {
     this.interactions = new InteractionSystem(physics, player, engine.scene, {
       heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
@@ -75,10 +88,15 @@ export class App {
   static async create(canvas: HTMLCanvasElement, models: ModelSource = new AssetModelSource()): Promise<App> {
     const engine = new Engine(canvas);
     const physics = await Physics.create();
+    // Art is never awaited here (ruling I8): the world starts with procedural shapes and startArt() swaps models in.
+    const scatter = new ScatterAssets();
+    const grass = new GrassSystem();
+    const postfx = new PostFX(engine.renderer, engine.scene, engine.camera);
+    engine.postfx = postfx;
     const app = new App(
-      engine, physics, new AtmosphereSystem(engine.scene), new ChunkManager(engine.scene, physics, new ScatterAssets(), new GrassSystem()),
+      engine, physics, new AtmosphereSystem(engine.scene), new ChunkManager(engine.scene, physics, scatter, grass),
       new WaterSystem(engine.scene), new WorldObjects(engine.scene, physics, models), new Player(engine.camera, canvas, physics),
-      new Wildlife(engine.scene), models,
+      new Wildlife(engine.scene), models, new Avatar(engine.scene), grass, postfx, scatter,
     );
     engine.onUpdate((dt, t) => app.frame(dt, t));
     engine.start();
@@ -86,6 +104,18 @@ export class App {
   }
 
   get spawning(): boolean { return this.spawnPending !== null; }
+
+  /**
+   * Load the CC0 pack art once, concurrently with everything else, and hot-swap it in as each piece arrives (I8).
+   * Called when the backend answers health; with an empty library or no backend everything stays procedural.
+   */
+  startArt(): void {
+    if (this.artStarted) return;
+    this.artStarted = true;
+    void loadArt(this.scatter, this.wildlife, this.avatar, { onScatter: () => { this.artDirty = true; } }).then((r) => {
+      console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
+    });
+  }
   /** True while a world is being generated or an edit is being asked for (game keys and new requests wait). */
   get busy(): boolean { return this.working; }
 
@@ -244,8 +274,10 @@ export class App {
     }
   }
 
+  private get reach(): number { return this.avatar.thirdPerson ? REACH_THIRD : REACH_FIRST; }
+
   interact(): void {
-    const item = this.interactions.nearest(this.player.lookRay());
+    const item = this.interactions.nearest(this.player.lookRay(), this.reach);
     if (item) this.interactions.use(item);
   }
 
@@ -272,10 +304,15 @@ export class App {
       this.engine.camera.lookAt(c.x, c.y + 4, c.z);
     } else if (this.built) {
       this.player.update(dt, this.built.field, this.isReady);
+      this.avatar.update(dt, this.engine.camera, this.player.position, this.player.moving, this.player.running, this.groundAt);
     }
+    if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
     this.physics.step(dt);
     this.atmosphere.update(dt, this.engine.camera.position);
     this.water.update(this.engine.camera.position);
+    this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
+    this.postfx.setNight(this.atmosphere.night);
+    this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor (DECISIONS 2026-11-02)
     WINDOW_MATERIAL.emissiveIntensity = this.atmosphere.isNight ? 1.4 : 0;
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
@@ -289,7 +326,7 @@ export class App {
   /** Interaction hint (only while walking with the pointer locked) and the place card under the crosshair. */
   private updateLook(ui: UI): void {
     if (this.cinematic) { ui.setHint(null); ui.setCard(null); return; }
-    const item = this.player.controls.isLocked ? this.interactions.nearest(this.player.lookRay()) : null;
+    const item = this.player.controls.isLocked ? this.interactions.nearest(this.player.lookRay(), this.reach) : null;
     ui.setHint(item ? this.interactions.hint(item) : null);
     const hit = this.pick(this.objects.pickables(), 80);
     ui.setCard(hit ? this.objects.infoFor(hit.object) : null);

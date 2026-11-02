@@ -70,7 +70,7 @@ export class UI {
     // busy overlay
     this.busy.append(this.busyText, this.logList);
     // hud
-    this.hud.append(el('div', 'crosshair', '+'), el('div', 'help', 'WASD move · Shift run · Space jump/swim · E use · T talk to the world · U undo · C checks'), this.source);
+    this.hud.append(el('div', 'crosshair', '+'), el('div', 'help', 'WASD move · Shift run · Space jump/swim · E use · T talk to the world · V camera · U undo · C checks'), this.source);
     // command bar
     this.commandInput.placeholder = 'Tell the world what to change… e.g. “make it night”, “put a lighthouse there”';
     this.commandInput.maxLength = 400;

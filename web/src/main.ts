@@ -1,5 +1,5 @@
 import './styles.css';
-import { health } from './api/client';
+import { wakeBackend } from './api/wake';
 import { App } from './app';
 import { runDirector } from './logic/director';
 import { UI } from './ui/ui';
@@ -27,10 +27,14 @@ void (async () => {
   });
   app.ui = ui;
   ui.showStart(true);
-  void health().then((h) => {
-    // A reachable backend clears remembered asset misses; an unreachable one changes nothing (Render cold starts).
-    if (h?.ok) app.models.reset?.();
-    ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)') : 'Offline mode: preset worlds and basic edits only');
+  // Wake a sleeping backend (I8). Once it answers: forget remembered asset misses and load the pack art concurrently.
+  void wakeBackend((h, final) => {
+    ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)')
+      : final ? 'Offline mode: preset worlds and basic edits only' : 'Waking the AI server… (offline mode until it answers)');
+  }).then((h) => {
+    if (!h?.ok) return;
+    app.models.reset?.();
+    app.startArt();
   });
   canvas.addEventListener('click', () => {
     if (app.built && !app.spawning && !app.busy && !ui.commandOpen && !ui.previewOpen && !app.cinematic) app.player.controls.lock();
@@ -46,6 +50,7 @@ void (async () => {
     if (e.code === 'KeyT') { e.preventDefault(); app.player.controls.unlock(); ui.openCommand(); }
     else if (e.code === 'KeyE') { if (app.player.controls.isLocked) app.interact(); }
     else if (e.code === 'KeyU') app.undo();
+    else if (e.code === 'KeyV') ui.toast(app.avatar.toggle() ? 'Third-person view · V for first person' : 'First-person view');
     else if (e.code === 'KeyC') ui.toggleChecks();
   });
   (window as unknown as { app: App }).app = app;

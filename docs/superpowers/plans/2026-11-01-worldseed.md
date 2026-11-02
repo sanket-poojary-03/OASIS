@@ -7643,7 +7643,7 @@ export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate
 - Places get `variant: 0`. Buildings get `variant: Number(b.id.split('-').pop()) || 0`, so `village-house-3` → 3 and every house looks different.
 - Call `this.models.load(s.asset, s.kind, s.variant)`.
 
-- [ ] **Step 8: Wire it into the app**
+- [x] **Step 8: Wire it into the app**
 
 In `web/src/app.ts`:
 - Add the imports:
