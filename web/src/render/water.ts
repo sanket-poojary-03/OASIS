@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import type { WorldField } from '../world/field';
+import { disposeGroup } from './dispose';
 import { ribbonGeometry } from './ribbon';
 
-export function disposeGroup(g: THREE.Object3D): void {
-  g.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
-}
+export { disposeGroup };
 
 export class WaterSystem {
   readonly group = new THREE.Group();

@@ -28,7 +28,8 @@ void (async () => {
   const water = new WaterSystem(engine.scene);
   water.rebuild(world.field);
   engine.scene.add(buildRoadMeshes(world.field, world.roads));
-  addBridgeColliders(world.field, world.roads, physics);
+  const bridgeColliders = addBridgeColliders(world.field, world.roads, physics); // pass to removeBridgeColliders on world rebuild
+  void bridgeColliders;
   player.teleport(world.spawn.x, world.spawn.y, world.spawn.z);
   let pending = true;
   canvas.addEventListener('click', () => player.controls.lock());

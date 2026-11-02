@@ -15,7 +15,7 @@ export function ribbonData(points: Vec2[], halfWidth: number, yAt: (x: number, z
     positions.push(p.x + nx * halfWidth, y, p.z + nz * halfWidth, p.x - nx * halfWidth, y, p.z - nz * halfWidth);
     if (i > 0) {
       const k = i * 2;
-      indices.push(k - 2, k - 1, k, k - 1, k + 1, k);
+      indices.push(k - 2, k, k - 1, k - 1, k, k + 1); // counter-clockwise from above: normals face +y
     }
   }
   return { positions, indices };
