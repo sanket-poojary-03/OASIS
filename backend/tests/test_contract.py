@@ -46,3 +46,16 @@ def test_defaults_match_zod():
     r = Recipe.model_validate(data)
     assert r.places[0].size == "medium" and r.places[0].interaction == "none" and r.places[0].where == []
     assert r.paths == []
+
+
+def test_group_layout_matches_the_browser_schema():
+    import pytest as _pytest
+    from pydantic import ValidationError as _VE
+    from app.schemas import Place, dump
+    p = Place.model_validate({"id": "city", "kind": "settlement", "label": "City", "asset": "modern apartment block",
+                              "layout": {"pattern": "grid", "count": 40, "height": "tall", "centre": "fountain"}})
+    assert dump(p)["layout"] == {"pattern": "grid", "count": 40, "height": "tall", "centre": "fountain"}
+    assert dump(Place.model_validate({"id": "camp", "kind": "settlement", "label": "C", "asset": "tent", "layout": {}}))["layout"] == {"pattern": "village", "height": "low"}
+    for bad in ({"pattern": "spiral"}, {"count": 61}, {"count": 0}, {"centre": "x"}, {"pattern": "grid", "extra": 1}):
+        with _pytest.raises(_VE):
+            Place.model_validate({"id": "camp", "kind": "settlement", "label": "C", "asset": "tent", "layout": bad})

@@ -18,6 +18,8 @@ Interaction = Literal["none", "door", "light", "fire", "sound", "sit", "push"]
 Time = Literal["dawn", "day", "dusk", "night"]
 Weather = Literal["clear", "rain", "snow", "mist", "storm"]
 LifeKind = Literal["deer", "birds", "rabbits"]
+LayoutPattern = Literal["village", "grid", "ring", "line", "scatter"]
+LayoutHeight = Literal["low", "mixed", "tall"]
 
 
 class Strict(BaseModel):
@@ -76,6 +78,14 @@ Relation = Annotated[
 ]
 
 
+class Layout(Strict):
+    """How a group (settlement) is arranged; mirrors web/src/core/recipe.ts layoutSchema."""
+    pattern: LayoutPattern = "village"
+    count: Annotated[int, Field(ge=1, le=60)] | None = None
+    height: LayoutHeight = "low"
+    centre: Annotated[str, Field(min_length=2, max_length=60)] | None = None
+
+
 class Place(Strict):
     id: Id
     kind: Kind
@@ -86,6 +96,7 @@ class Place(Strict):
     interaction: Interaction = "none"
     description: Annotated[str, Field(max_length=280)] | None = None
     where: Annotated[list[Relation], Field(max_length=4)] = []
+    layout: Layout | None = None
 
 
 class Terrain(Strict):

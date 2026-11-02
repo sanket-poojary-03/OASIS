@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ADD, ATMOS, INTERACT, KEYWORDS, LANDMARK, NEAR_THIS, ON_THIS, REMOVE, STRUCTURE, TIME, WEATHER, localEdit, localWorld } from '../../src/api/localMock';
+import { ADD, ATMOS, GROUP_WORDS, INTERACT, KEYWORDS, LANDMARK, NEAR_THIS, ON_THIS, REMOVE, STRUCTURE, TIME, WEATHER, localEdit, localWorld } from '../../src/api/localMock';
 import { pyRound } from '../../src/core/pyround';
 import { clampCore } from '../../src/core/recipe';
 import { sha256Hex } from '../../src/core/sha256';
@@ -37,6 +37,10 @@ describe('mock.py drift guard', () => {
     expect(TIME.map(([r, v]) => [r.source, v])).toEqual(pairs('TIME_WORDS'));
     expect(WEATHER.map(([r, v]) => [r.source, v])).toEqual(pairs('WEATHER_WORDS'));
     expect(INTERACT.map(([r, v]) => [r.source, v])).toEqual(pairs('INTERACTIONS'));
+    const groups = /^GROUP_WORDS = \[(.*)\]\s*$/m.exec(py)![1];
+    const pyGroups = [...groups.matchAll(/\(r"([^"]*)", "(\w+)", "(\w+)", "([^"]*)", "([^"]*)"\)/g)].map((x) => [jsRe(x[1]), x[2], x[3], x[4], x[5]]);
+    expect(GROUP_WORDS.map(([r, ...rest]) => [r.source, ...rest])).toEqual(pyGroups);
+    expect(pyGroups.length).toBe(5);
     const atmos = /ATMOS_NOUNS = \{(.*)\}/.exec(py)![1];
     expect([...ATMOS]).toEqual([...atmos.matchAll(/"([a-z]+)"/g)].map((x) => x[1]));
   });
@@ -77,5 +81,14 @@ describe('remove fallback', () => {
     const ctx = { player: { x: 0, z: 0 }, lookAt: null, lookingAt: '', placements: [] };
     expect(localEdit(r, `remove the ${r.places[0].id}`, ctx)).toMatchObject({ type: 'ops', ops: [{ op: 'removePlace', id: r.places[0].id }] });
     expect(localEdit(r, 'remove that', ctx).type).toBe('unsupported');
+  });
+});
+
+describe('group words (offline)', () => {
+  it('a city gets a tall grid of apartment blocks; a camp a ring of tents; other prompts no layout', () => {
+    const settlement = (p: string) => { const w = localWorld(p); return w.type === 'recipe' ? w.recipe.places.find((x) => x.kind === 'settlement') : undefined; };
+    expect(settlement('a big city at night')).toMatchObject({ asset: 'modern apartment block', layout: { pattern: 'grid', height: 'tall', centre: 'fountain' } });
+    expect(settlement('a desert camp')).toMatchObject({ asset: 'canvas tent', layout: { pattern: 'ring' } });
+    expect(settlement('a misty valley')?.layout).toBeUndefined();
   });
 });

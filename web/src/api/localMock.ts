@@ -1,5 +1,5 @@
 import type { Op } from '../core/ops';
-import { clampCore, recipeSchema, type Interaction, type Place, type Recipe } from '../core/recipe';
+import { clampCore, recipeSchema, type Interaction, type Layout, type Place, type Recipe } from '../core/recipe';
 import { pyRound } from '../core/pyround';
 import { promptSeed } from '../core/sha256';
 import type { EditContext, EditResult, WorldResult } from './types';
@@ -28,8 +28,30 @@ export function fixtureRecipe(name: string): Recipe {
   return recipeSchema.parse(fixtures[`../../../shared/fixtures/recipes/${name}.json`]);
 }
 
+/** Copied exactly from backend/app/mock.py GROUP_WORDS: [regex, pattern, height, member asset or '' to keep, centre or '']. */
+export const GROUP_WORDS: Array<[RegExp, Layout['pattern'], Layout['height'], string, string]> = [
+  [/\b(city|metropolis|downtown|skyscrapers?)\b/, 'grid', 'tall', 'modern apartment block', 'fountain'],
+  [/\b(town)\b/, 'grid', 'low', '', 'fountain'],
+  [/\b(camp|encampment|tents?|colony)\b/, 'ring', 'low', 'canvas tent', 'campfire'],
+  [/\b(harbou?r|port|docks?|wharf)\b/, 'line', 'low', '', ''],
+  [/\b(orchard|ruins)\b/, 'scatter', 'low', '', ''],
+];
+
+/** Give the first settlement the layout the prompt's group word asks for (city → tall grid, camp → ring, …). */
+export function withGroup(recipe: Recipe, prompt: string): Recipe {
+  const text = prompt.toLowerCase();
+  const hit = GROUP_WORDS.find(([re]) => re.test(text));
+  const i = recipe.places.findIndex((p) => p.kind === 'settlement');
+  if (!hit || i < 0) return recipe;
+  const [, pattern, height, asset, centre] = hit;
+  const places = recipe.places.map((p, j) => (j !== i ? p : {
+    ...p, ...(asset ? { asset } : {}), layout: { pattern, height, ...(centre ? { centre } : {}) },
+  }));
+  return { ...recipe, places };
+}
+
 export function localWorld(prompt: string): WorldResult {
-  const r = fixtureRecipe(pickFixture(prompt));
+  const r = withGroup(fixtureRecipe(pickFixture(prompt)), prompt);
   return { type: 'recipe', recipe: { ...r, seed: promptSeed(prompt) }, notes: ['Offline mode: used the preset world closest to your description.'], source: 'offline' };
 }
 

@@ -65,9 +65,11 @@ class LLMClient:
         return cls(os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"), key, os.getenv("LLM_MODEL", "google/gemini-2.5-flash-lite"),
                    fallback_models=backups)
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str, prefer_backup: bool = False) -> str:
+        """`prefer_backup`: start with the backup models (a last try after the main model's answers were unusable)."""
         last: Exception | None = None
-        for model in [self.model, *[m for m in self.fallback_models if m != self.model]]:
+        backups = [m for m in self.fallback_models if m != self.model]
+        for model in [*backups, self.model] if prefer_backup and backups else [self.model, *backups]:
             for attempt in range(self.retries):
                 try:
                     return self._call(model, system, user)

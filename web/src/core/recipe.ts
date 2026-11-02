@@ -31,6 +31,21 @@ export const relationSchema = z.discriminatedUnion('rel', [
   z.strictObject({ rel: z.literal('at'), x: coord, z: coord, y: z.number().min(-200).max(1000).optional() }),
 ]);
 
+export const LAYOUT_PATTERNS = ['village', 'grid', 'ring', 'line', 'scatter'] as const;
+export const LAYOUT_HEIGHTS = ['low', 'mixed', 'tall'] as const;
+/** The most members one group can hold (mirrors backend `Layout.count`). */
+export const MAX_GROUP = 60;
+/**
+ * How a group (settlement) is arranged: any repeated thing (houses, towers, tents, stalls, trees) in a village street,
+ * a city grid, a ring around a centre piece, a line along one street, or scattered loosely.
+ */
+export const layoutSchema = z.strictObject({
+  pattern: z.enum(LAYOUT_PATTERNS).default('village'),
+  count: z.number().int().min(1).max(MAX_GROUP).optional(),
+  height: z.enum(LAYOUT_HEIGHTS).default('low'),
+  centre: z.string().min(2).max(60).optional(),
+});
+
 export const placeSchema = z.strictObject({
   id: idSchema,
   kind: z.enum(PLACE_KINDS),
@@ -41,6 +56,7 @@ export const placeSchema = z.strictObject({
   interaction: z.enum(INTERACTIONS).default('none'),
   description: z.string().max(280).optional(),
   where: z.array(relationSchema).max(4).default([]),
+  layout: layoutSchema.optional(),
 });
 
 export const atmosphereSchema = z.strictObject({
@@ -90,6 +106,7 @@ export type Atmosphere = z.infer<typeof atmosphereSchema>;
 export type Interaction = (typeof INTERACTIONS)[number];
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 export type PlaceSize = (typeof PLACE_SIZES)[number];
+export type Layout = z.infer<typeof layoutSchema>;
 export type LifeKind = (typeof LIFE_KINDS)[number];
 
 export function parseRecipe(data: unknown): { ok: true; recipe: Recipe } | { ok: false; error: string } {

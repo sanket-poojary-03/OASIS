@@ -123,6 +123,20 @@ const BUILDERS: Record<string, (g: THREE.Group) => void> = {
   },
 };
 
+/** A tower block built at its real height (scaling a fixed shape would make tall blocks absurdly wide): body, roof slab, window strips. */
+function block(g: THREE.Group, h: number): void {
+  const w = 8, body = Math.max(1, h - 0.5);
+  add(g, B(w, body, w), 0x9aa3ab, 0, body / 2);
+  add(g, B(w + 0.4, 0.5, w + 0.4), 0x6b7177, 0, body + 0.25);
+  const strip = Math.max(1, body - 2.5);
+  for (const [x, z, ry] of [[0, w / 2 + 0.03, 0], [0, -w / 2 - 0.03, 0], [w / 2 + 0.03, 0, Math.PI / 2], [-w / 2 - 0.03, 0, Math.PI / 2]] as const) {
+    for (const o of [-2, 2]) {
+      const dx = ry ? 0 : o, dz = ry ? o : 0;
+      add(g, B(1.4, strip, 0.05), WINDOW_MATERIAL, x + dx, 1.5 + strip / 2, z + dz, ry);
+    }
+  }
+}
+
 const RULES: Array<[RegExp, string]> = [
   [/lighthouse/, 'lighthouse'],
   [/castle|fort|keep|citadel/, 'castle'],
@@ -130,6 +144,7 @@ const RULES: Array<[RegExp, string]> = [
   [/obelisk|monolith|pillar|menhir/, 'obelisk'],
   [/statue|sculpture|idol/, 'statue'],
   [/\barch\b/, 'arch'],
+  [/apartment|office|skyscraper|high-?rise|tower block|\bblock\b|\bbuilding\b|\bflats?\b|condo|hotel/, 'block'],
   [/tower/, 'tower'],
   [/tent|yurt/, 'tent'],
   [/shrine|altar|temple|chapel/, 'shrine'],
@@ -151,9 +166,11 @@ export function placeholderKind(asset: string): string {
   return 'generic';
 }
 
-export function buildPlaceholder(asset: string): THREE.Group {
+/** `height` (metres) only shapes tower blocks, which are built at their real height; everything else is scaled later. */
+export function buildPlaceholder(asset: string, height = 12): THREE.Group {
   const g = new THREE.Group();
-  BUILDERS[placeholderKind(asset)](g);
+  const kind = placeholderKind(asset);
+  if (kind === 'block') block(g, height); else BUILDERS[kind](g);
   g.userData.placeholder = true;
   return g;
 }

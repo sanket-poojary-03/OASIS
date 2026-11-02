@@ -32,8 +32,27 @@ def load_fixture(name: str) -> Recipe:
     return Recipe.model_validate(json.loads((FIXTURES_DIR / "recipes" / f"{name}.json").read_text(encoding="utf-8")))
 
 
+# Group words: (regex, pattern, height, member asset or "" to keep, centre or ""). The TS mirror copies this exactly.
+GROUP_WORDS = [(r"\b(city|metropolis|downtown|skyscrapers?)\b", "grid", "tall", "modern apartment block", "fountain"), (r"\b(town)\b", "grid", "low", "", "fountain"), (r"\b(camp|encampment|tents?|colony)\b", "ring", "low", "canvas tent", "campfire"), (r"\b(harbou?r|port|docks?|wharf)\b", "line", "low", "", ""), (r"\b(orchard|ruins)\b", "scatter", "low", "", "")]
+
+
+def with_group(recipe: Recipe, prompt: str) -> Recipe:
+    """Give the first settlement the layout the prompt's group word asks for (city → tall grid, camp → ring, …)."""
+    text = prompt.lower()
+    hit = next((g for g in GROUP_WORDS if re.search(g[0], text)), None)
+    data = dump(recipe)
+    place = next((p for p in data["places"] if p["kind"] == "settlement"), None)
+    if not hit or not place:
+        return recipe
+    _, pattern, height, asset, centre = hit
+    place["layout"] = {"pattern": pattern, "height": height, **({"centre": centre} if centre else {})}
+    if asset:
+        place["asset"] = asset
+    return Recipe.model_validate(data)
+
+
 def mock_world(prompt: str) -> dict:
-    recipe = load_fixture(pick_fixture(prompt)).model_copy(update={"seed": prompt_seed(prompt)})
+    recipe = with_group(load_fixture(pick_fixture(prompt)), prompt).model_copy(update={"seed": prompt_seed(prompt)})
     return {"type": "recipe", "recipe": dump(recipe), "notes": ["Mock mode: used the preset world closest to your description."], "source": "mock"}
 
 

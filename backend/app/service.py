@@ -25,6 +25,7 @@ class AIUnavailable(Exception):
     """The AI could not give a usable answer (busy, down, or invalid twice). Never replaced by a fake keyword world."""
 
     MESSAGE = "The AI is busy right now. Please try again in a moment."
+    BAD_ANSWER = "The AI's answer could not be used. Please try again, perhaps in different words."
 
 
 def _notes(data: dict) -> list[str]:
@@ -54,12 +55,9 @@ class WorldService:
             return {"type": "recipe", "recipe": dump(recipe), "notes": _notes(data), "source": "live"}
 
         out = self._ask(world_system_prompt(), prompt, validate, challenge=True)
-        if out is not None:
-            if out["type"] == "recipe":
-                self.cache.put(key, out)
-            return out
-        log.warning("AI unavailable for world prompt")
-        raise AIUnavailable(AIUnavailable.MESSAGE)
+        if out["type"] == "recipe":
+            self.cache.put(key, out)
+        return out
 
     def edit(self, req: EditRequest) -> dict:
         if self.llm is None:
@@ -69,24 +67,23 @@ class WorldService:
             ops = ops_adapter.validate_python(data.get("ops"))
             return {"type": "ops", "ops": dump_ops(ops), "notes": _notes(data), "source": "live"}
 
-        out = self._ask(edit_system_prompt(req), req.prompt, validate)
-        if out is not None:
-            return out
-        log.warning("AI unavailable for edit")
-        raise AIUnavailable(AIUnavailable.MESSAGE)
+        return self._ask(edit_system_prompt(req), req.prompt, validate)
 
-    def _ask(self, system: str, user: str, validate: Callable[[dict], dict], challenge: bool = False) -> dict | None:
-        """Ask the LLM, validate, retry once with the error. None means the AI is unavailable.
+    def _ask(self, system: str, user: str, validate: Callable[[dict], dict], challenge: bool = False) -> dict:
+        """Ask the LLM, validate, retry once with the error; after two unusable answers, one last try on the backup
+        model when the client has one. Raises AIUnavailable (busy, or unusable answers), never returns a fake world.
 
         `challenge`: a refusal is questioned once (models refuse ordinary requests like "a modern city"); a second
         refusal stands.
         """
         prompt = user
-        tries = 0
-        while tries < 2:  # two answers per request; a challenged refusal does not use one up
+        backup = bool(getattr(self.llm, "fallback_models", None))
+        tries, failure = 0, AIUnavailable.MESSAGE
+        while tries < (3 if backup else 2):  # a challenged refusal does not use up a try
             tries += 1
             try:
-                data = extract_json(self.llm.complete(system, user))
+                raw = self.llm.complete(system, user, prefer_backup=True) if tries == 3 else self.llm.complete(system, user)
+                data = extract_json(raw)
                 if data.get("type") == "unsupported":
                     reason = str(data.get("reason", "Not supported"))[:300]
                     if challenge:
@@ -100,8 +97,11 @@ class WorldService:
                 return validate(data)
             except (ValidationError, ValueError, TypeError) as e:
                 log.warning("LLM answer rejected: %s", str(e)[:300])
+                failure = AIUnavailable.BAD_ANSWER
                 user = f"{prompt}\n\nYour previous answer was invalid:\n{str(e)[:1500]}\nReturn corrected JSON only."
             except LLMError as e:
                 log.warning("LLM request failed: %s", e)
+                failure = AIUnavailable.MESSAGE
                 break
-        return None
+        log.warning("AI unavailable: %s", failure)
+        raise AIUnavailable(failure)

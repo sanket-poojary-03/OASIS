@@ -36,9 +36,8 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
     if (place.kind !== 'settlement') continue;
     const pl = placements.find((p) => p.id === place.id);
     if (!pl) continue;
-    const { buildings: b, spine } = layoutSettlement(place, pl, field, recipe.seed);
-    field.addRoad(spine);
-    roads.push(spine);
+    const { buildings: b, spine, streets } = layoutSettlement(place, pl, field, recipe.seed);
+    for (const road of [spine, ...streets]) { field.addRoad(road); roads.push(road); }
     buildings.push(...b);
     log.push(`Laid out ${b.length} buildings in ${place.label}`);
   }

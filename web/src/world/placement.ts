@@ -1,6 +1,7 @@
 import { CORE_HALF, type Place, type PlaceKind, type PlaceSize, type Recipe, type Relation } from '../core/recipe';
 import { hashString, mulberry32 } from '../core/rng';
 import type { Pad, WorldField } from './field';
+import { groupRadius, MAX_GROUP_RADIUS } from './layouts';
 import { clamp } from './noise';
 
 export interface Placement {
@@ -34,7 +35,8 @@ type Rel<K extends Relation['rel']> = Extract<Relation, { rel: K }>;
 interface Candidate { x: number; z: number; h: number; slope: number }
 
 export function placeRadius(place: Place): number {
-  return RADIUS[place.kind][place.size];
+  const base = RADIUS[place.kind][place.size];
+  return place.kind === 'settlement' && place.layout ? Math.min(MAX_GROUP_RADIUS, Math.max(base, groupRadius(place.layout, place.size))) : base;
 }
 
 function targetsOf(place: Place): string[] {

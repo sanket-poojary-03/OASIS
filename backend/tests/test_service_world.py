@@ -105,3 +105,42 @@ def test_world_prompt_welcomes_cities():
     from app.prompts import world_system_prompt
     p = world_system_prompt()
     assert "city" in p and "modern" in p
+
+
+class BackupLLM(FakeLLM):
+    """A client with a backup model: prefer_backup=True answers from the backup queue."""
+
+    fallback_models = ["backup"]
+
+    def __init__(self, *replies, backup=()):
+        super().__init__(*replies)
+        self.backup = list(backup)
+        self.backup_calls = 0
+
+    def complete(self, system, user, prefer_backup=False):
+        if prefer_backup:
+            self.backup_calls += 1
+            return self.backup.pop(0)
+        return super().complete(system, user)
+
+
+def test_broken_answers_get_one_try_on_the_backup_model(tmp_path, valley_json):
+    llm = BackupLLM("{broken", "{still broken", backup=[valley_json])
+    out = WorldService(llm, FileCache(tmp_path)).generate("an apple orchard")
+    assert out["type"] == "recipe" and llm.backup_calls == 1
+
+
+def test_unusable_answers_say_so_not_busy(tmp_path):
+    with pytest.raises(AIUnavailable) as e:
+        WorldService(BackupLLM("{x", "{y", backup=["{z"]), FileCache(tmp_path)).generate("an apple orchard")
+    assert "could not be used" in str(e.value)
+
+    class Down:
+        model = "d"
+
+        def complete(self, s, u):
+            raise LLMError("429")
+
+    with pytest.raises(AIUnavailable) as e:
+        WorldService(Down(), FileCache(tmp_path)).generate("an orchard")
+    assert "busy" in str(e.value)

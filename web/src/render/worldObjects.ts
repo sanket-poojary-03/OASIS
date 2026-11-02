@@ -4,6 +4,7 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
+import type { Building } from '../world/settlement';
 import { fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
 import { buildPlaceholder } from './placeholders';
@@ -52,6 +53,27 @@ export function cloneModel(object: THREE.Object3D): THREE.Object3D {
 }
 
 /** Scale to a target height, centre on x/z, stand on y = 0. Returns a group named "content". */
+/** Most a model is stretched upward to keep a tall group member's height on a narrow plot. */
+const MAX_STRETCH = 3;
+
+/**
+ * Shrink `object` when its footprint is wider than `max` metres, so big models stay on their plot. Uniform by default;
+ * with `keepHeight` (towers in a "tall" group) only the footprint narrows, stretching the height by at most 3x.
+ */
+export function fitWidth(object: THREE.Object3D, max: number, keepHeight = false): THREE.Object3D {
+  object.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  const w = Math.max(size.x, size.z);
+  if (w > max && w > 0) {
+    const k = max / w;
+    object.scale.x *= k;
+    object.scale.z *= k;
+    object.scale.y *= keepHeight ? Math.min(1, k * MAX_STRETCH) : k;
+  }
+  object.updateMatrixWorld(true);
+  return object;
+}
+
 export function normalizeTo(object: THREE.Object3D, height: number): THREE.Group {
   fitToHeight(object, height);
   const g = new THREE.Group();
@@ -64,8 +86,20 @@ function shadows(o: THREE.Object3D): void {
   o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
 }
 
-interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo }
+interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo }
 interface Entry { root: THREE.Group; spec: Spec; collider: Collider | null }
+
+/** A group member's own height (city towers), else the size's house height; centre pieces by what they are. */
+function buildingHeight(b: Building, size: PlaceSize): number {
+  if (b.height) return b.height;
+  if (b.kind === 'house') return HEIGHT.settlement[size];
+  return b.kind === 'centre' && b.interaction === 'fire' ? 1.2 : 3;
+}
+
+function buildingLabel(b: Building, placeLabel: string, grouped: boolean): string {
+  if (b.kind === 'house') return grouped ? `${placeLabel} — ${b.asset}` : `${placeLabel} — house`;
+  return `${placeLabel} — ${b.kind === 'centre' ? b.asset : b.kind}`;
+}
 
 export class WorldObjects {
   readonly group = new THREE.Group();
@@ -97,8 +131,8 @@ export class WorldObjects {
       if (!place) continue;
       specs.push({
         // `village-house-3` → 3, so every house can be a different model; `…-centre` → 0.
-        asset: b.asset, kind: 'structure', variant: Number(b.id.split('-').pop()) || 0, height: b.kind === 'house' ? HEIGHT.settlement[place.size] : 3, x: b.x, y: b.y, z: b.z, rotation: b.rotation,
-        info: { placeId: place.id, objectId: b.id, label: b.kind === 'house' ? `${place.label} — house` : `${place.label} — ${b.kind}`, description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
+        asset: b.asset, kind: 'structure', variant: Number(b.id.split('-').pop()) || 0, height: buildingHeight(b, place.size), maxWidth: b.maxWidth, x: b.x, y: b.y, z: b.z, rotation: b.rotation,
+        info: { placeId: place.id, objectId: b.id, label: buildingLabel(b, place.label, !!place.layout), description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
       });
     }
     for (const s of specs) this.spawn(s, version);
@@ -118,7 +152,7 @@ export class WorldObjects {
     root.position.set(s.x, s.y, s.z);
     root.rotation.y = s.rotation;
     root.userData.info = s.info;
-    this.setContent(root, normalizeTo(buildPlaceholder(s.asset), s.height));
+    this.setContent(root, this.fit(normalizeTo(buildPlaceholder(s.asset, s.height), s.height), s));
     this.group.add(root);
     const entry: Entry = { root, spec: s, collider: null };
     this.entries.push(entry);
@@ -126,7 +160,7 @@ export class WorldObjects {
     for (const cb of this.onReady) cb(root, s.info);
     void this.models.load(s.asset, s.kind, s.variant).then((res) => {
       if (!res || version !== this.version) return;
-      const content = normalizeTo(cloneModel(res.object), s.height);
+      const content = this.fit(normalizeTo(cloneModel(res.object), s.height), s);
       addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
       this.setContent(root, content);
       s.info.source = res.source;
@@ -134,6 +168,11 @@ export class WorldObjects {
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info); // again: interactions re-fit the loaded model (its own door, size)
     });
+  }
+
+  private fit(content: THREE.Group, s: Spec): THREE.Group {
+    // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
+    return s.maxWidth ? (fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group) : content;
   }
 
   private setContent(root: THREE.Group, content: THREE.Group): void {

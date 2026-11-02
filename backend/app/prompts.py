@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p2"
+PROMPT_VERSION = "p3"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -21,7 +21,13 @@ Rules:
 - Never give coordinates, except when the user states explicit coordinates; then use {"rel":"at","x":..,"z":..} with values in -512..512.
 - Say WHERE with relations: highest, lowest, flat, by_water, near(target,maxDist), far_from(target,minDist), direction(dir, of?), visible_from(target). North is negative z.
 - At most 12 places. kind:
-  settlement = village/town/camp (houses are generated automatically; "asset" is the house type, e.g. "thatched cottage");
+  settlement = a GROUP of many repeated things laid out automatically: a village, city, camp, harbour, colony, market, orchard,
+    stone circle... "asset" is the ONE repeated thing (e.g. "thatched cottage", "glass skyscraper", "canvas tent", "space habitat dome",
+    "apple tree"). Optional "layout" says how they are arranged:
+      pattern: village (houses along a lane), grid (city blocks with streets), ring (around a centre: camps, colonies, stone circles),
+               line (along one street or shore: harbours, high streets), scatter (loose: orchards, ruins, farms);
+      count: how many (1-60; leave out for a sensible default); height: low | mixed | tall (tall = towers rising to the centre);
+      centre: the piece in the middle (fountain, campfire, statue, monolith, landing pad).
   landmark = one big notable object (tower, castle, statue, lighthouse, windmill);
   structure = one building (cabin, shrine, dock);
   prop = small object (campfire, bench, barrel, lantern).
@@ -36,7 +42,8 @@ Rules:
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
   e.g. "modern apartment block") plus landmarks and structures (towers, plazas, stations). Indoor or abstract requests: make the
-  closest outdoor world. Explain any compromise in notes. Use unsupported ONLY for harmful content, never because a place is unusual.
+  closest outdoor world. Explain any compromise in notes. Use several places to give a world variety (a city: a tall grid plus a
+  park, a station, a monument; a space colony: a ring of domes plus a launch tower and rovers). Use unsupported ONLY for harmful content, never because a place is unusual.
 - "version": 1, any integer "seed".
 
 Example recipe for "a misty pine valley with a river, a small fishing village on the bank and an old watchtower on the highest hill":

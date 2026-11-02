@@ -108,3 +108,15 @@ def test_requests_cap_the_answer_length(monkeypatch):
     assert seen["body"]["max_tokens"] == 4000
     LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler), max_tokens=200).complete("s", "u")
     assert seen["body"]["max_tokens"] == 200
+
+
+def test_prefer_backup_tries_the_backup_model_first():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content)["model"])
+        return _reply()
+
+    client = LLMClient("https://x.test/v1", "k", "m1", fallback_models=["m2"], transport=httpx.MockTransport(handler), sleep=lambda s: None)
+    client.complete("s", "u", prefer_backup=True)
+    assert calls == ["m2"]

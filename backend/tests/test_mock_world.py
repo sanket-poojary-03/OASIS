@@ -15,3 +15,13 @@ def test_mock_world_is_valid_and_seeded_by_prompt():
     r = Recipe.model_validate(out["recipe"])
     assert r.seed == prompt_seed("a snowy castle")
     assert prompt_seed("A snowy castle ") == prompt_seed("a snowy castle")
+
+
+def test_group_words_shape_the_settlement():
+    from app.mock import mock_world
+    city = next(p for p in mock_world("a big city at night")["recipe"]["places"] if p["kind"] == "settlement")
+    assert city["layout"] == {"pattern": "grid", "height": "tall", "centre": "fountain"} and city["asset"] == "modern apartment block"
+    camp = next(p for p in mock_world("a desert camp")["recipe"]["places"] if p["kind"] == "settlement")
+    assert camp["layout"]["pattern"] == "ring" and camp["asset"] == "canvas tent"
+    plain = next(p for p in mock_world("a misty valley")["recipe"]["places"] if p["kind"] == "settlement")
+    assert "layout" not in plain
