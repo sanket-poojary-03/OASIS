@@ -7566,7 +7566,7 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, avatar
 ```
 Add `import type * as THREE from 'three';` at the top of `artLoader.ts`.
 
-- [ ] **Step 6: Glow pass**
+- [x] **Step 6: Glow pass**
 
 `web/src/render/postfx.ts`:
 ```ts

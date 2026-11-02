@@ -4,6 +4,8 @@ export class Engine {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 6000);
+  /** When set (PostFX: bloom + tone mapping), frames go through it instead of a direct render. */
+  postfx: { render(): void } | null = null;
   private readonly timer = new THREE.Timer();
   private readonly updaters: Array<(dt: number, t: number) => void> = [];
 
@@ -33,7 +35,7 @@ export class Engine {
       const dt = Math.min(this.timer.getDelta(), 0.05);
       const t = this.timer.getElapsed();
       for (const u of this.updaters) u(dt, t);
-      this.renderer.render(this.scene, this.camera);
+      if (this.postfx) this.postfx.render(); else this.renderer.render(this.scene, this.camera);
     });
   }
 }
