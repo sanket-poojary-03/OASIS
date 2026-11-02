@@ -5932,7 +5932,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `Physics` (Task 13); `Player` (Task 14); `ObjectInfo`, `WorldObjects.onReady` and `onCleared` (Task 16).
 - Produces: `class InteractionSystem { constructor(physics, player); register(root: THREE.Group, info: ObjectInfo): void; clear(): void; nearest(ray: THREE.Ray, maxDist?: number): InteractItem | null; use(item): void; hint(item): string; update(dt, isNight, t): void }`, plus `type InteractItem`.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 `web/src/logic/interactions.ts`:
 ```ts
@@ -6102,7 +6102,7 @@ export class InteractionSystem {
 }
 ```
 
-- [ ] **Step 2: Temporary wiring in main.ts**
+- [x] **Step 2: Temporary wiring in main.ts**
 
 Replace `web/src/main.ts` with:
 ```ts
@@ -6138,7 +6138,7 @@ void (async () => {
 - `desert-canyon`: E on the bell plays a chime.
 - `tropical-island`: E on a barrel shoves it along the ground.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/src/logic/interactions.ts web/src/main.ts
