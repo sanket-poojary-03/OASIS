@@ -21,7 +21,8 @@ export interface ObjectInfo {
 }
 
 export interface ModelSource {
-  load(asset: string, kind: PlaceKind): Promise<{ object: THREE.Object3D; source: 'library' | 'online' | 'generated'; credit?: string } | null>;
+  /** `variant` picks between equally good library models (house 0, 1, 2… of a village); 0 is the default model. */
+  load(asset: string, kind: PlaceKind, variant?: number): Promise<{ object: THREE.Object3D; source: 'library' | 'online' | 'generated'; credit?: string } | null>;
   /** Optional: forget remembered misses (new world, or the backend is reachable again). */
   reset?(): void;
 }
@@ -50,7 +51,7 @@ function shadows(o: THREE.Object3D): void {
   o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
 }
 
-interface Spec { asset: string; kind: PlaceKind; height: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo }
+interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo }
 interface Entry { root: THREE.Group; spec: Spec; collider: Collider | null }
 
 export class WorldObjects {
@@ -72,7 +73,7 @@ export class WorldObjects {
       const place = world.recipe.places.find((p) => p.id === pl.id);
       if (!place || place.kind === 'settlement') continue;
       specs.push({
-        asset: place.asset, kind: place.kind, height: HEIGHT[place.kind][place.size], x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
+        asset: place.asset, kind: place.kind, variant: 0, height: HEIGHT[place.kind][place.size], x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
         info: { placeId: pl.id, objectId: pl.id, label: place.label, description: place.description, reasons: pl.reasons, warnings: pl.warnings, source: 'placeholder', interaction: place.interaction, kind: place.kind },
       });
     }
@@ -81,7 +82,8 @@ export class WorldObjects {
       const pl = world.placements.find((p) => p.id === b.placeId);
       if (!place) continue;
       specs.push({
-        asset: b.asset, kind: 'structure', height: b.kind === 'house' ? HEIGHT.settlement[place.size] : 3, x: b.x, y: b.y, z: b.z, rotation: b.rotation,
+        // `village-house-3` → 3, so every house can be a different model; `…-centre` → 0.
+        asset: b.asset, kind: 'structure', variant: Number(b.id.split('-').pop()) || 0, height: b.kind === 'house' ? HEIGHT.settlement[place.size] : 3, x: b.x, y: b.y, z: b.z, rotation: b.rotation,
         info: { placeId: place.id, objectId: b.id, label: b.kind === 'house' ? `${place.label} — house` : `${place.label} — ${b.kind}`, description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
       });
     }
@@ -108,7 +110,7 @@ export class WorldObjects {
     this.entries.push(entry);
     this.refreshCollider(entry);
     for (const cb of this.onReady) cb(root, s.info);
-    void this.models.load(s.asset, s.kind).then((res) => {
+    void this.models.load(s.asset, s.kind, s.variant).then((res) => {
       if (!res || version !== this.version) return;
       this.setContent(root, normalizeTo(res.object.clone(true), s.height));
       s.info.source = res.source;

@@ -12,6 +12,10 @@ export class Player {
   readonly position = new THREE.Vector3();
   enabled = false;
   seated = false;
+  /** Walking or swimming this frame (drives the avatar's walk/run clips). */
+  moving = false;
+  /** Moving with Shift held. */
+  running = false;
   private readonly body: RigidBody;
   private readonly collider: Collider;
   private readonly controller: KinematicCharacterController;
@@ -61,7 +65,7 @@ export class Player {
 
   /** `ready(x, z)` reports whether terrain collision exists there; while it is false a degraded mode uses the analytic field as the floor. */
   update(dt: number, field: WorldField, ready?: (x: number, z: number) => boolean): void {
-    if (!this.enabled) return;
+    if (!this.enabled) { this.moving = false; this.running = false; return; }
     const t = this.body.translation();
     this.camera.getWorldDirection(this.fwd);
     this.fwd.y = 0;
@@ -76,8 +80,11 @@ export class Player {
     }
     if (this.move.lengthSq() > 0) this.move.normalize();
     const active = this.controls.isLocked && !this.seated;
+    const running = active && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'));
+    this.moving = this.move.lengthSq() > 0;
+    this.running = running && this.moving;
     if (ready && !ready(t.x, t.z)) {
-      const n = fallbackStep(t, this.move, active && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) ? 10 : 5, dt, (x, z) => field.heightAt(x, z));
+      const n = fallbackStep(t, this.move, running ? 10 : 5, dt, (x, z) => field.heightAt(x, z));
       this.vy = 0;
       this.body.setNextKinematicTranslation(n);
       this.position.set(n.x, n.y, n.z);
@@ -86,7 +93,6 @@ export class Player {
     }
     const surface = field.isWater(t.x, t.z) ? field.waterSurfaceAt(t.x, t.z) : null;
     const swimming = surface !== null && t.y < surface + 0.3;
-    const running = active && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'));
     const speed = swimming ? 3 : running ? 10 : 5;
     const grounded = this.controller.computedGrounded();
     if (swimming) {

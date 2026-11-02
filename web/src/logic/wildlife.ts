@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/rng';
+import { animatedClone, type AnimatedModel, type ModelTemplate } from '../render/animated';
 import type { BuiltWorld } from '../world/build';
 import type { WorldField } from '../world/field';
 
@@ -68,7 +69,14 @@ function birdMesh(): THREE.Group {
   return g;
 }
 
-interface Animal { mesh: THREE.Group; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean }
+export type AnimalKind = 'deer' | 'rabbit';
+/** `anim` is set when the pack model is in use; otherwise `mesh` is the procedural figure. */
+interface Animal { kind: AnimalKind; mesh: THREE.Group; anim?: AnimatedModel; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean }
+
+/** Procedural figures own their geometries (materials are the shared per-colour cache). */
+function disposeGeometries(g: THREE.Object3D): void {
+  g.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+}
 interface Bird { mesh: THREE.Group; angle: number; radius: number; speed: number; height: number; phase: number }
 
 export class Wildlife {
@@ -78,13 +86,37 @@ export class Wildlife {
   private readonly flock = new THREE.Vector3();
   private scatter = 0;
   private rng = mulberry32(1);
+  private readonly templates = new Map<AnimalKind, ModelTemplate>();
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
   }
 
+  /**
+   * Use an animated pack model for every animal of `kind` from now on, and swap it in for the ones already out
+   * (art hot-swap). Without a template the procedural figures stay.
+   */
+  useModel(kind: AnimalKind, t: ModelTemplate): void {
+    this.templates.set(kind, t);
+    for (const a of this.animals) {
+      if (a.kind !== kind) continue;
+      const anim = animatedClone(t);
+      this.release(a);
+      this.group.remove(a.mesh);
+      a.anim = anim;
+      a.mesh = anim.root;
+      this.group.add(anim.root);
+    }
+  }
+
+  private release(a: Animal): void {
+    if (a.anim) a.anim.dispose(); // geometry and materials are shared with the template
+    else disposeGeometries(a.mesh);
+  }
+
   private clear(): void {
-    this.group.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+    for (const a of this.animals) this.release(a);
+    for (const b of this.birds) disposeGeometries(b.mesh);
     this.group.clear();
     this.scatter = 0;
   }
@@ -118,9 +150,12 @@ export class Wildlife {
         const state: AnimalState = { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 };
         if (!found) continue; // no valid spot: skip the animal (rng draws above stay stable)
         const deer = life.kind === 'deer';
-        const mesh = deer ? deerMesh() : rabbitMesh();
+        const kind: AnimalKind = deer ? 'deer' : 'rabbit';
+        const template = this.templates.get(kind);
+        const anim = template ? animatedClone(template) : undefined;
+        const mesh = anim?.root ?? (deer ? deerMesh() : rabbitMesh());
         this.group.add(mesh);
-        this.animals.push({ mesh, x, z, hop: !deer, tuning: deer ? DEER : RABBIT, state });
+        this.animals.push({ kind, mesh, anim, x, z, hop: !deer, tuning: deer ? DEER : RABBIT, state });
       }
     }
   }
@@ -136,9 +171,13 @@ export class Wildlife {
         if (isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7) { a.x = nx; a.z = nz; }
         else if (a.state.mode === 'walk') a.state = { ...a.state, heading: a.state.heading + Math.PI };
       }
-      a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0), a.z);
+      a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0), a.z);
       a.mesh.rotation.y = a.state.heading;
       a.mesh.visible = isReady(a.x, a.z);
+      if (a.anim && a.mesh.visible) {
+        a.anim.mixer.update(dt);
+        a.anim.play(a.state.mode === 'flee' ? 'run' : a.state.mode === 'walk' ? 'walk' : 'idle');
+      }
     }
     if (Math.hypot(player.x - this.flock.x, player.z - this.flock.z) < 20) this.scatter = 6;
     this.scatter = Math.max(0, this.scatter - dt);

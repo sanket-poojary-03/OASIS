@@ -7437,7 +7437,7 @@ In `instance()`, replace `new THREE.InstancedMesh(this.geometry(kind), this.mate
       const mesh = new THREE.InstancedMesh(model?.geometry ?? this.geometry(kind), model?.material ?? this.material, list.length);
 ```
 
-- [ ] **Step 5: Animated models, avatar and art loader**
+- [x] **Step 5: Animated models, avatar and art loader**
 
 `web/src/render/animated.ts`:
 ```ts
@@ -7601,7 +7601,7 @@ export class PostFX {
 ```
 In `web/src/render/engine.ts`, add the field `postfx: { render(): void } | null = null;` and replace `this.renderer.render(this.scene, this.camera);` in `start()` with `if (this.postfx) this.postfx.render(); else this.renderer.render(this.scene, this.camera);`.
 
-- [ ] **Step 7: Player flags, animal models, house variants, client params**
+- [x] **Step 7: Player flags, animal models, house variants, client params**
 
 `web/src/player/player.ts`:
 - Add the fields `moving = false;` and `running = false;` next to `seated = false;`.

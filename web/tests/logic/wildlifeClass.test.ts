@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Wildlife } from '../../src/logic/wildlife';
 import type { BuiltWorld } from '../../src/world/build';
 import type { WorldField } from '../../src/world/field';
+import { fakeTemplate } from '../render/rigFixture';
 
 const water = (x: number) => x > 40 && x < 60;
 const field = {
@@ -30,5 +31,26 @@ describe('Wildlife', () => {
     const ready = (x: number) => x < 200;
     for (let i = 0; i < 400; i++) w.update(1, i, new THREE.Vector3(0, 0, 0), field, ready);
     for (const m of w.group.children) { expect(water(m.position.x)).toBe(false); expect(m.visible).toBe(ready(m.position.x)); }
+  });
+  it('uses animated pack models when given, hot-swaps live animals, and keeps the procedural ones otherwise', () => {
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(world);
+    const before = positions(w).length;
+    const deer = fakeTemplate(1.5);
+    const geo = (deer.scene.children[0] as THREE.Mesh).geometry;
+    let disposed = 0;
+    geo.addEventListener('dispose', () => disposed++);
+    w.useModel('deer', deer); // hot-swap: same animals, deer now animated
+    w.update(0.1, 0, new THREE.Vector3(1e6, 0, 1e6), field);
+    expect(positions(w)).toHaveLength(before);
+    const animated = () => w.group.children.filter((g) => g.getObjectByName('body'));
+    expect(animated().length).toBeGreaterThan(0);
+    expect(animated().length).toBeLessThan(before); // rabbits stay procedural
+    w.rebuild(world); // a rebuild uses the template directly and never disposes its shared geometry
+    expect(animated().length).toBeGreaterThan(0);
+    w.rebuild(world);
+    expect(disposed).toBe(0);
+    for (let i = 0; i < 50; i++) w.update(0.5, i, new THREE.Vector3(0, 0, 0), field);
+    for (const m of w.group.children) expect(water(m.position.x)).toBe(false);
   });
 });
