@@ -31,7 +31,8 @@ def test_two_bad_answers_raise_instead_of_faking_a_world(tmp_path):
 
 
 def test_unsupported_passes_through(tmp_path):
-    out = WorldService(FakeLLM(json.dumps({"type": "unsupported", "reason": "nope"})), FileCache(tmp_path)).generate("x y z")
+    no = json.dumps({"type": "unsupported", "reason": "nope"})
+    out = WorldService(FakeLLM(no, no), FileCache(tmp_path)).generate("x y z")
     assert out == {"type": "unsupported", "reason": "nope", "source": "live"}
 
 
@@ -85,3 +86,22 @@ def test_unexpected_type_error_raises(tmp_path, caplog):
         with pytest.raises(AIUnavailable):
             WorldService(Odd(), FileCache(tmp_path)).generate("island")
     assert "AI unavailable" in caplog.text
+
+
+def test_unsupported_is_challenged_once_then_accepted(tmp_path, valley_json):
+    llm = FakeLLM(json.dumps({"type": "unsupported", "reason": "not a city engine"}), valley_json)
+    out = WorldService(llm, FileCache(tmp_path)).generate("a big modern city")
+    assert out["type"] == "recipe" and len(llm.calls) == 2
+    assert "only for harmful" in llm.calls[1][1]
+
+
+def test_unsupported_twice_is_respected(tmp_path):
+    no = json.dumps({"type": "unsupported", "reason": "harmful"})
+    out = WorldService(FakeLLM(no, no), FileCache(tmp_path)).generate("something harmful")
+    assert out == {"type": "unsupported", "reason": "harmful", "source": "live"}
+
+
+def test_world_prompt_welcomes_cities():
+    from app.prompts import world_system_prompt
+    p = world_system_prompt()
+    assert "city" in p and "modern" in p

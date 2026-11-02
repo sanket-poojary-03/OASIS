@@ -53,7 +53,7 @@ class WorldService:
             recipe = Recipe.model_validate(data.get("recipe", data)).model_copy(update={"seed": prompt_seed(prompt)})
             return {"type": "recipe", "recipe": dump(recipe), "notes": _notes(data), "source": "live"}
 
-        out = self._ask(world_system_prompt(), prompt, validate)
+        out = self._ask(world_system_prompt(), prompt, validate, challenge=True)
         if out is not None:
             if out["type"] == "recipe":
                 self.cache.put(key, out)
@@ -75,14 +75,28 @@ class WorldService:
         log.warning("AI unavailable for edit")
         raise AIUnavailable(AIUnavailable.MESSAGE)
 
-    def _ask(self, system: str, user: str, validate: Callable[[dict], dict]) -> dict | None:
-        """Ask the LLM, validate, retry once with the error. None means the AI is unavailable."""
+    def _ask(self, system: str, user: str, validate: Callable[[dict], dict], challenge: bool = False) -> dict | None:
+        """Ask the LLM, validate, retry once with the error. None means the AI is unavailable.
+
+        `challenge`: a refusal is questioned once (models refuse ordinary requests like "a modern city"); a second
+        refusal stands.
+        """
         prompt = user
-        for _ in range(2):
+        tries = 0
+        while tries < 2:  # two answers per request; a challenged refusal does not use one up
+            tries += 1
             try:
                 data = extract_json(self.llm.complete(system, user))
                 if data.get("type") == "unsupported":
-                    return {"type": "unsupported", "reason": str(data.get("reason", "Not supported"))[:300], "source": "live"}
+                    reason = str(data.get("reason", "Not supported"))[:300]
+                    if challenge:
+                        challenge = False
+                        tries -= 1
+                        log.warning("World refused (%s); asking once more", reason[:120])
+                        user = (f"{prompt}\n\nYou answered unsupported ({reason[:200]}). Unsupported is only for harmful requests. "
+                                "Make the closest world you can with the available kinds and explain the compromise in notes.")
+                        continue
+                    return {"type": "unsupported", "reason": reason, "source": "live"}
                 return validate(data)
             except (ValidationError, ValueError, TypeError) as e:
                 log.warning("LLM answer rejected: %s", str(e)[:300])

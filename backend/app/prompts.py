@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p1"
+PROMPT_VERSION = "p2"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -34,7 +34,9 @@ Rules:
 - life: deer/birds/rabbits that fit the place (max 4 entries).
 - paths: roads between the main places people would walk between.
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
-- Indoor or abstract requests: make the closest outdoor world and explain in notes. Use unsupported only for harmful content.
+- Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
+  e.g. "modern apartment block") plus landmarks and structures (towers, plazas, stations). Indoor or abstract requests: make the
+  closest outdoor world. Explain any compromise in notes. Use unsupported ONLY for harmful content, never because a place is unusual.
 - "version": 1, any integer "seed".
 
 Example recipe for "a misty pine valley with a river, a small fishing village on the bank and an old watchtower on the highest hill":
