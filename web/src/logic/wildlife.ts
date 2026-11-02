@@ -108,22 +108,25 @@ export class Wildlife {
         continue;
       }
       for (let i = 0; i < life.count; i++) {
-        let x = anchor.x, z = anchor.z;
+        let x = anchor.x, z = anchor.z, found = false;
         for (let tries = 0; tries < 30; tries++) {
           const a = this.rng() * Math.PI * 2, d = 30 + this.rng() * 150;
           x = anchor.x + Math.cos(a) * d;
           z = anchor.z + Math.sin(a) * d;
-          if (!f.isWater(x, z) && f.slopeAt(x, z) < 0.45 && !f.isReserved(x, z, 4)) break;
+          if (!f.isWater(x, z) && f.slopeAt(x, z) < 0.45 && !f.isReserved(x, z, 4)) { found = true; break; }
         }
+        const state: AnimalState = { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 };
+        if (!found) continue; // no valid spot: skip the animal (rng draws above stay stable)
         const deer = life.kind === 'deer';
         const mesh = deer ? deerMesh() : rabbitMesh();
         this.group.add(mesh);
-        this.animals.push({ mesh, x, z, hop: !deer, tuning: deer ? DEER : RABBIT, state: { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 } });
+        this.animals.push({ mesh, x, z, hop: !deer, tuning: deer ? DEER : RABBIT, state });
       }
     }
   }
 
   update(dt: number, t: number, player: THREE.Vector3, field: WorldField, isReady: (x: number, z: number) => boolean = () => true): void {
+    dt = Math.min(dt, 0.1); // a long frame must not hop an animal across a thin water strip
     for (const a of this.animals) {
       const dx = a.x - player.x, dz = a.z - player.z;
       a.state = stepAnimal(a.state, { dt, playerDist: Math.hypot(dx, dz), awayHeading: Math.atan2(dx, dz), rng: this.rng, tuning: a.tuning });
@@ -135,6 +138,7 @@ export class Wildlife {
       }
       a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0), a.z);
       a.mesh.rotation.y = a.state.heading;
+      a.mesh.visible = isReady(a.x, a.z);
     }
     if (Math.hypot(player.x - this.flock.x, player.z - this.flock.z) < 20) this.scatter = 6;
     this.scatter = Math.max(0, this.scatter - dt);
