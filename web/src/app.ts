@@ -14,6 +14,7 @@ import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
 import { disposeGroup } from './render/dispose';
 import { Engine } from './render/engine';
+import { GrassSystem } from './render/grass';
 import { WINDOW_MATERIAL } from './render/placeholders';
 import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './render/roads';
 import { ScatterAssets } from './render/scatterAssets';
@@ -75,7 +76,7 @@ export class App {
     const engine = new Engine(canvas);
     const physics = await Physics.create();
     const app = new App(
-      engine, physics, new AtmosphereSystem(engine.scene), new ChunkManager(engine.scene, physics, new ScatterAssets()),
+      engine, physics, new AtmosphereSystem(engine.scene), new ChunkManager(engine.scene, physics, new ScatterAssets(), new GrassSystem()),
       new WaterSystem(engine.scene), new WorldObjects(engine.scene, physics, models), new Player(engine.camera, canvas, physics),
       new Wildlife(engine.scene), models,
     );

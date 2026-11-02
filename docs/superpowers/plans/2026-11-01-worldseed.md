@@ -7321,7 +7321,7 @@ export function grassChunk(field: WorldField, cx: number, cz: number): Float32Ar
 In `web/src/render/chunkWorker.ts`, add `data.grass.buffer` to the transfer list.
 Run the test again. Expected: PASS.
 
-- [ ] **Step 2: Grass system (instanced tufts with wind in the vertex shader)**
+- [x] **Step 2: Grass system (instanced tufts with wind in the vertex shader)**
 
 `web/src/render/grass.ts`:
 ```ts
@@ -7388,7 +7388,7 @@ export class GrassSystem {
 }
 ```
 
-- [ ] **Step 3: Chunk manager draws grass on the 3×3 chunks around the player**
+- [x] **Step 3: Chunk manager draws grass on the 3×3 chunks around the player**
 
 In `web/src/render/chunkManager.ts`:
 - Import `import type { GrassSystem } from './grass';`
