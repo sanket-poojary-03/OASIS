@@ -6164,7 +6164,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `speedOf(s, tuning): number`
   - `class Wildlife { group; constructor(scene); rebuild(world: BuiltWorld): void; update(dt, t, player: THREE.Vector3, field: WorldField): void }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/logic/wildlife.test.ts`:
 ```ts
@@ -6199,12 +6199,12 @@ describe('stepAnimal', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/logic/wildlife.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/logic/wildlife.ts`:
 ```ts
@@ -6348,7 +6348,7 @@ export class Wildlife {
 }
 ```
 
-- [ ] **Step 4: Wire it in and verify**
+- [x] **Step 4: Wire it in and verify**
 
 In `web/src/main.ts` add the import `import { Wildlife } from './logic/wildlife';`. After `const interactions = …` add:
 ```ts
@@ -6367,7 +6367,7 @@ Browser, `fishing-valley`:
 - Running toward them makes them bolt away.
 - A flock of birds circles over the village and scatters upward when you walk under it.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/logic/wildlife.ts web/tests/logic web/src/main.ts
