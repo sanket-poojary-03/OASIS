@@ -8,7 +8,10 @@ const fixtures = import.meta.glob('../../shared/fixtures/recipes/*.json', { eage
 void (async () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#view')!;
   const app = await App.create(canvas);
-  const interactions = new InteractionSystem(app.physics, app.player);
+  const interactions = new InteractionSystem(app.physics, app.player, app.engine.scene, {
+    heightAt: (x, z) => app.built?.field.heightAt(x, z) ?? 0,
+    isReady: (x, z) => app.chunks.isReady(x, z),
+  });
   app.objects.onReady.push((root, info) => interactions.register(root, info));
   app.objects.onCleared.push(() => interactions.clear());
 
@@ -23,7 +26,7 @@ void (async () => {
     hint.style.display = item ? 'block' : 'none';
   });
   addEventListener('keydown', (e) => {
-    if (e.code !== 'KeyE' || !app.player.controls.isLocked) return;
+    if (e.code !== 'KeyE' || e.repeat || !app.player.controls.isLocked) return;
     const item = interactions.nearest(app.player.lookRay());
     if (item) interactions.use(item);
   });

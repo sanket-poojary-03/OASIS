@@ -19,8 +19,8 @@ export class Physics {
     return this.world.createCollider(this.R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setRotation(quatY(rotY)));
   }
 
-  addDynamicBox(x: number, y: number, z: number, hx: number, hy: number, hz: number): RigidBody {
-    const body = this.world.createRigidBody(this.R.RigidBodyDesc.dynamic().setTranslation(x, y, z).setLinearDamping(0.6).setAngularDamping(0.6));
+  addDynamicBox(x: number, y: number, z: number, hx: number, hy: number, hz: number, rotY = 0): RigidBody {
+    const body = this.world.createRigidBody(this.R.RigidBodyDesc.dynamic().setTranslation(x, y, z).setRotation(quatY(rotY)).setLinearDamping(0.6).setAngularDamping(0.6));
     this.world.createCollider(this.R.ColliderDesc.cuboid(hx, hy, hz).setDensity(0.5), body);
     return body;
   }

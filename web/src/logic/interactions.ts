@@ -4,6 +4,14 @@ import type { Interaction } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { Player } from '../player/player';
 import type { ObjectInfo } from '../render/worldObjects';
+import { needsRecovery, pickNearestLit } from './lightMath';
+
+const POOL_SIZE = 6;
+
+export interface InteractEnv {
+  heightAt(x: number, z: number): number;
+  isReady(x: number, z: number): boolean;
+}
 
 type Usable = Exclude<Interaction, 'none'>;
 
@@ -24,7 +32,7 @@ export interface InteractItem {
   on: boolean;
   manual: boolean;
   pivot?: THREE.Object3D;
-  light?: THREE.PointLight;
+  lightY: number;
   glow?: THREE.Mesh;
   body?: RigidBody;
   halfHeight: number;
@@ -34,15 +42,28 @@ export class InteractionSystem {
   private items: InteractItem[] = [];
   private audio: AudioContext | null = null;
   private seated: InteractItem | null = null;
+  private readonly pool: THREE.PointLight[] = [];
   private readonly raycaster = new THREE.Raycaster();
   private readonly dir = new THREE.Vector3();
 
-  constructor(private readonly physics: Physics, private readonly player: Player) {}
+  constructor(
+    private readonly physics: Physics,
+    private readonly player: Player,
+    scene: THREE.Object3D,
+    private readonly env: InteractEnv,
+  ) {
+    // Fixed pool: the light count never changes, so shaders never recompile on world reload.
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const l = new THREE.PointLight(0xffffff, 0, 20, 1.6);
+      scene.add(l);
+      this.pool.push(l);
+    }
+  }
 
   register(root: THREE.Group, info: ObjectInfo): void {
     if (info.interaction === 'none') return;
     const size = root.userData.size as THREE.Vector3;
-    const item: InteractItem = { root, info, type: info.interaction, on: info.interaction === 'fire', manual: false, halfHeight: size.y / 2 };
+    const item: InteractItem = { root, info, type: info.interaction, on: info.interaction === 'fire', manual: false, halfHeight: size.y / 2, lightY: 0 };
     if (item.type === 'door') {
       const pivot = new THREE.Group();
       pivot.position.set(-0.55, 0, size.z / 2 + 0.06);
@@ -56,28 +77,27 @@ export class InteractionSystem {
     if (item.type === 'light' || item.type === 'fire') {
       const isLight = item.type === 'light';
       const y = isLight ? size.y + 0.2 : 0.6;
-      const light = new THREE.PointLight(isLight ? 0xffd59a : 0xff8a3d, 0, isLight ? 26 : 14, 1.6);
-      light.position.set(0, y, 0);
       const glow = new THREE.Mesh(
         isLight ? new THREE.SphereGeometry(0.18, 10, 8) : new THREE.ConeGeometry(0.4, 1.1, 7),
         new THREE.MeshBasicMaterial({ color: isLight ? 0xffe2a8 : 0xff9a3d, transparent: true, opacity: 0.9 }),
       );
       glow.position.set(0, isLight ? y : 0.7, 0);
-      root.add(light, glow);
-      item.light = light;
+      root.add(glow);
+      item.lightY = y;
       item.glow = glow;
     }
     if (item.type === 'push') {
       const p = root.position;
-      item.body = this.physics.addDynamicBox(p.x, p.y + size.y / 2 + 0.05, p.z, size.x / 2, size.y / 2, size.z / 2);
+      item.body = this.physics.addDynamicBox(p.x, p.y + size.y / 2 + 0.05, p.z, size.x / 2, size.y / 2, size.z / 2, root.rotation.y);
     }
-    this.applyLight(item, 0);
+    this.applyGlow(item, 0);
     this.items.push(item);
   }
 
   clear(): void {
     for (const it of this.items) if (it.body) this.physics.removeBody(it.body);
     this.items = [];
+    for (const l of this.pool) l.intensity = 0;
     if (this.seated) { this.player.seated = false; this.seated = null; }
   }
 
@@ -128,22 +148,58 @@ export class InteractionSystem {
     for (const it of this.items) {
       if (it.pivot) it.pivot.rotation.y += ((it.on ? -1.6 : 0) - it.pivot.rotation.y) * Math.min(1, dt * 6);
       if (it.type === 'light' && !it.manual) it.on = isNight;
-      if (it.light) this.applyLight(it, t);
-      if (it.body) {
-        const tr = it.body.translation(), q = it.body.rotation();
-        it.root.quaternion.set(q.x, q.y, q.z, q.w);
-        const offset = new THREE.Vector3(0, -it.halfHeight, 0).applyQuaternion(it.root.quaternion);
-        it.root.position.set(tr.x + offset.x, tr.y + offset.y, tr.z + offset.z);
-      }
+      if (it.glow) this.applyGlow(it, t);
+      if (it.body) this.syncBody(it);
     }
+    this.assignPool(t);
   }
 
-  private applyLight(it: InteractItem, t: number): void {
-    if (!it.light || !it.glow) return;
-    const flicker = it.type === 'fire' ? 1 + Math.sin(t * 13) * 0.12 + Math.sin(t * 7.3) * 0.08 : 1;
-    it.light.intensity = it.on ? (it.type === 'light' ? 40 : 22) * flicker : 0;
+  private syncBody(it: InteractItem): void {
+    const body = it.body!;
+    const tr = body.translation();
+    const ground = this.env.heightAt(tr.x, tr.z);
+    const ready = this.env.isReady(tr.x, tr.z);
+    // Hold the body still until the chunk collider underneath exists, then release it.
+    body.setGravityScale(ready ? 1 : 0, true);
+    if (!ready) {
+      body.setLinvel({ x: 0, y: 0, z: 0 }, false);
+    } else if (needsRecovery(tr.y, ground)) {
+      body.setTranslation({ x: tr.x, y: ground + it.halfHeight + 0.05, z: tr.z }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    const t2 = body.translation(), q = body.rotation();
+    it.root.quaternion.set(q.x, q.y, q.z, q.w);
+    const offset = new THREE.Vector3(0, -it.halfHeight, 0).applyQuaternion(it.root.quaternion);
+    it.root.position.set(t2.x + offset.x, t2.y + offset.y, t2.z + offset.z);
+  }
+
+  private assignPool(t: number): void {
+    const cam = this.player.lookRay().origin;
+    const pts = this.items.map((it) => ({
+      x: it.root.position.x, y: it.root.position.y + it.lightY, z: it.root.position.z, lit: it.on && !!it.glow,
+    }));
+    const chosen = pickNearestLit(pts, cam.x, cam.y, cam.z, this.pool.length);
+    this.pool.forEach((l, i) => {
+      const idx = chosen[i];
+      if (idx === undefined) { l.intensity = 0; return; }
+      const it = this.items[idx], p = pts[idx];
+      const isLight = it.type === 'light';
+      l.position.set(p.x, p.y, p.z);
+      l.color.set(isLight ? 0xffd59a : 0xff8a3d);
+      l.distance = isLight ? 26 : 14;
+      l.intensity = (isLight ? 40 : 22) * this.flicker(it, t);
+    });
+  }
+
+  private flicker(it: InteractItem, t: number): number {
+    return it.type === 'fire' ? 1 + Math.sin(t * 13) * 0.12 + Math.sin(t * 7.3) * 0.08 : 1;
+  }
+
+  private applyGlow(it: InteractItem, t: number): void {
+    if (!it.glow) return;
     it.glow.visible = it.on;
-    if (it.type === 'fire') it.glow.scale.y = flicker;
+    if (it.type === 'fire') it.glow.scale.y = this.flicker(it, t);
   }
 
   private ring(): void {
