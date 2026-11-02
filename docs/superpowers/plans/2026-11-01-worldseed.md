@@ -7814,7 +7814,7 @@ python scripts/build_manifest.py
 ```
 Then edit each `generated-hero/...` entry in `assets/library/manifest.json`: set `"tags"` to the words of its query (for example `["ruined", "stone", "watchtower", "tower"]`) and `"license"` to `"Generated with Meshy (owner's account)"`. Check the result: `du -sh assets/library` should be under 30 MB.
 
-- [ ] **Step 3: Backend container**
+- [x] **Step 3: Backend container**
 
 `backend/Dockerfile`:
 ```dockerfile
