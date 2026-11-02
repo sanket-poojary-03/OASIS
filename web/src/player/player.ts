@@ -3,6 +3,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import type { Collider, KinematicCharacterController, RigidBody } from '@dimforge/rapier3d-compat';
 import type { Physics } from '../physics/physics';
 import type { WorldField } from '../world/field';
+import { fallbackStep } from './fallbackStep';
 
 const EYE = 0.75; // capsule centre → eye height offset
 
@@ -33,6 +34,7 @@ export class Player {
     addEventListener('keydown', (e) => {
       const t = e.target;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+      if (e.code === 'Space' && this.controls.isLocked) e.preventDefault();
       this.keys.add(e.code);
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -40,14 +42,14 @@ export class Player {
   }
 
   teleport(x: number, y: number, z: number): void {
+    this.body.setTranslation({ x, y, z }, true);
+    this.body.setNextKinematicTranslation({ x, y, z });
+    this.vy = 0;
     this.position.set(x, y, z);
     this.camera.position.set(x, y + EYE, z);
   }
 
   spawn(x: number, y: number, z: number): void {
-    this.body.setTranslation({ x, y: y + 1, z }, true);
-    this.body.setNextKinematicTranslation({ x, y: y + 1, z });
-    this.vy = 0;
     this.teleport(x, y + 1, z);
   }
 
@@ -57,11 +59,10 @@ export class Player {
     return new THREE.Ray(this.camera.position.clone(), dir);
   }
 
-  /** `ready(x, z)` reports whether terrain collision exists there; while it is false the player is held in place. */
+  /** `ready(x, z)` reports whether terrain collision exists there; while it is false a degraded mode uses the analytic field as the floor. */
   update(dt: number, field: WorldField, ready?: (x: number, z: number) => boolean): void {
     if (!this.enabled) return;
     const t = this.body.translation();
-    if (ready && !ready(t.x, t.z)) { this.vy = 0; return; }
     this.camera.getWorldDirection(this.fwd);
     this.fwd.y = 0;
     this.fwd.normalize();
@@ -74,17 +75,26 @@ export class Player {
       if (this.keys.has('KeyA')) this.move.sub(this.right);
     }
     if (this.move.lengthSq() > 0) this.move.normalize();
+    const active = this.controls.isLocked && !this.seated;
+    if (ready && !ready(t.x, t.z)) {
+      const n = fallbackStep(t, this.move, active && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) ? 10 : 5, dt, (x, z) => field.heightAt(x, z));
+      this.vy = 0;
+      this.body.setNextKinematicTranslation(n);
+      this.position.set(n.x, n.y, n.z);
+      this.camera.position.set(n.x, n.y + (this.seated ? 0.1 : EYE), n.z);
+      return;
+    }
     const surface = field.isWater(t.x, t.z) ? field.waterSurfaceAt(t.x, t.z) : null;
     const swimming = surface !== null && t.y < surface + 0.3;
-    const running = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+    const running = active && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'));
     const speed = swimming ? 3 : running ? 10 : 5;
     const grounded = this.controller.computedGrounded();
     if (swimming) {
       const target = (surface! - 0.5 - t.y) * 3;
       this.vy += (target - this.vy) * Math.min(1, dt * 4);
-      if (this.keys.has('Space')) this.vy = 2.5;
+      if (active && this.keys.has('Space')) this.vy = 2.5;
     } else if (grounded && this.vy <= 0) {
-      this.vy = this.keys.has('Space') && !this.seated ? 7 : -1;
+      this.vy = active && this.keys.has('Space') ? 7 : -1;
     } else {
       this.vy -= 20 * dt;
     }
