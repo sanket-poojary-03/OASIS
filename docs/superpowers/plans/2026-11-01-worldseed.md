@@ -6704,7 +6704,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 All model-written text (labels, descriptions, notes) goes in with `textContent`, never `innerHTML`.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 `web/src/ui/ui.ts`:
 ```ts
@@ -6919,12 +6919,12 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding
 @media (max-width: 600px) { .help { display: none; } }
 ```
 
-- [ ] **Step 2: Type-check**
+- [x] **Step 2: Type-check**
 
 Run: `npx tsc --noEmit`
 Expected: no errors. (The UI is wired up and checked visually in Task 24.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/src/ui web/src/styles.css

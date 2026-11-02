@@ -3,3 +3,35 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; fon
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
+.hidden { display: none !important; }
+button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding: 10px 16px; }
+.primary { background: #f5c451; color: #1b1405; font-weight: 700; }
+.secondary { background: rgba(255,255,255,.12); color: #eef2ff; }
+.start { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at top, rgba(30,50,90,.85), rgba(5,8,18,.95)); padding: 16px; }
+.start h1 { font-size: clamp(36px, 7vw, 64px); margin: 0; letter-spacing: -1px; }
+.tagline { margin: 0; opacity: .8; }
+.prompt-input { width: min(720px, 100%); height: 110px; border-radius: 14px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.35); color: #fff; padding: 14px; font: 16px/1.4 system-ui; resize: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: min(720px, 100%); }
+.chip { background: rgba(255,255,255,.08); color: #cdd6f4; font-size: 13px; padding: 6px 10px; }
+.actions { display: flex; gap: 10px; }
+.health { font-size: 12px; opacity: .6; }
+.busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,8,18,.7); gap: 10px; }
+.busy-text { font-size: 20px; }
+.log { list-style: none; padding: 0; margin: 0; font-size: 13px; opacity: .85; max-width: min(640px, 92vw); text-align: center; }
+.hud { position: absolute; inset: 0; pointer-events: none !important; }
+.crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; opacity: .7; }
+.help { position: absolute; left: 16px; bottom: 14px; font-size: 12px; opacity: .75; text-shadow: 0 1px 2px #000; }
+.source { position: absolute; right: 16px; top: 14px; font-size: 12px; background: rgba(0,0,0,.4); padding: 4px 8px; border-radius: 8px; }
+.hint { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: rgba(0,0,0,.55); padding: 8px 14px; border-radius: 10px; pointer-events: none !important; }
+.card { position: absolute; left: 16px; top: 14px; width: min(340px, calc(100vw - 32px)); background: rgba(8,12,24,.72); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 12px 14px; pointer-events: none !important; }
+.card h3 { margin: 0 0 6px; } .card p { margin: 6px 0 0; font-size: 13px; } .why { opacity: .85; } .warn { color: #ffcf7a; }
+.badge { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.12); }
+.badge.generated { background: #6d4aff; } .badge.library { background: #2f7d5b; } .badge.online { background: #1f6f8b; }
+.command { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); }
+.command-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(245,196,81,.6); background: rgba(5,8,18,.85); color: #fff; font-size: 16px; }
+.preview { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); background: rgba(8,12,24,.9); border: 1px solid rgba(245,196,81,.5); border-radius: 12px; padding: 12px 16px; }
+.preview h3 { margin: 0 0 6px; } .preview ul { margin: 0; padding-left: 18px; } .note { font-size: 13px; opacity: .8; } .keys { font-size: 12px; opacity: .7; }
+.checks { position: absolute; right: 16px; top: 48px; width: min(320px, calc(100vw - 32px)); max-height: 60vh; overflow: auto; background: rgba(8,12,24,.85); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+.checks ul { list-style: none; padding: 0; margin: 0; } .checks .pass { color: #8fe3a8; } .checks .warn { color: #ffcf7a; } .checks .fail { color: #ff8a8a; }
+.toast { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); background: rgba(8,12,24,.9); padding: 10px 16px; border-radius: 10px; max-width: min(640px, calc(100vw - 32px)); font-size: 14px; }
+@media (max-width: 600px) { .help { display: none; } }
