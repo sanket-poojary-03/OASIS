@@ -3733,7 +3733,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `buildRoadMeshes(field: WorldField, roads: Road[]): THREE.Group`
   - `disposeGroup(g: THREE.Object3D): void`
 
-- [ ] **Step 1: Implement water**
+- [x] **Step 1: Implement water**
 
 `web/src/render/water.ts`:
 ```ts
@@ -3801,7 +3801,7 @@ export class WaterSystem {
 }
 ```
 
-- [ ] **Step 2: Implement roads**
+- [x] **Step 2: Implement roads**
 
 `web/src/render/roads.ts`:
 ```ts
@@ -3855,7 +3855,7 @@ export function buildRoadMeshes(field: WorldField, roads: Road[]): THREE.Group {
 }
 ```
 
-- [ ] **Step 3: Harness additions**
+- [x] **Step 3: Harness additions**
 
 In `web/src/main.ts`, add these imports:
 ```ts
@@ -3883,7 +3883,7 @@ Expected:
 - `snowy-mountains`: a lake disc.
 - Swimming in the visible water works.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/render/water.ts web/src/render/roads.ts web/src/main.ts

@@ -5,6 +5,8 @@ import { Player } from './player/player';
 import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
 import { Engine } from './render/engine';
+import { addBridgeColliders, buildRoadMeshes } from './render/roads';
+import { WaterSystem } from './render/water';
 import { ScatterAssets } from './render/scatterAssets';
 import { buildWorld } from './world/build';
 import { snapshotField } from './world/field';
@@ -23,6 +25,10 @@ void (async () => {
   const world = buildWorld(recipe);
   atmo.apply(recipe.atmosphere);
   chunks.setSnapshot(snapshotField(world.field));
+  const water = new WaterSystem(engine.scene);
+  water.rebuild(world.field);
+  engine.scene.add(buildRoadMeshes(world.field, world.roads));
+  addBridgeColliders(world.field, world.roads, physics);
   player.teleport(world.spawn.x, world.spawn.y, world.spawn.z);
   let pending = true;
   canvas.addEventListener('click', () => player.controls.lock());
@@ -37,6 +43,7 @@ void (async () => {
     player.update(dt, world.field, (x, z) => chunks.isReady(x, z));
     physics.step(dt);
     atmo.update(dt, engine.camera.position);
+    water.update(engine.camera.position);
   });
   engine.start();
 })();
