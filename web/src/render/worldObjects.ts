@@ -3,6 +3,7 @@ import type { Collider } from '@dimforge/rapier3d-compat';
 import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
+import { fitToHeight } from './fit';
 import { buildPlaceholder } from './placeholders';
 
 export interface ObjectInfo {
@@ -38,15 +39,7 @@ const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
 
 /** Scale to a target height, centre on x/z, stand on y = 0. Returns a group named "content". */
 export function normalizeTo(object: THREE.Object3D, height: number): THREE.Group {
-  object.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
-  object.scale.multiplyScalar(size.y > 0 ? height / size.y : 1);
-  object.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(object);
-  const c = box.getCenter(new THREE.Vector3());
-  object.position.x -= c.x;
-  object.position.z -= c.z;
-  object.position.y -= box.min.y;
+  fitToHeight(object, height);
   const g = new THREE.Group();
   g.name = 'content';
   g.add(object);

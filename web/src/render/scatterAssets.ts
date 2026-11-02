@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ScatterItem, ScatterKind } from '../world/scatter';
+import { fitToHeight } from './fit';
 
 interface PartOpts { x?: number; y?: number; z?: number; sx?: number; sy?: number; sz?: number; rz?: number }
 
@@ -57,8 +58,12 @@ function build(kind: ScatterKind): THREE.BufferGeometry {
 
 const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'pine', 'dead_tree', 'cactus']);
 
+/** Attributes a pack model may keep when its meshes are merged (only those every mesh has). */
+const KEEP = ['position', 'normal', 'uv', 'color'];
+
 export class ScatterAssets {
   private readonly geos = new Map<ScatterKind, THREE.BufferGeometry>();
+  private readonly models = new Map<ScatterKind, { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>();
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
   private readonly dummy = new THREE.Object3D();
 
@@ -68,12 +73,52 @@ export class ScatterAssets {
     return g;
   }
 
+  hasModel(kind: ScatterKind): boolean {
+    return this.models.has(kind);
+  }
+
+  /**
+   * Replace a procedural kind with a pack model: merged into one geometry (one material group per mesh), fitted to
+   * `height` with fitToHeight, standing on y = 0. Takes ownership of `object` (it is rescaled). Live chunks keep their
+   * old instances until ChunkManager.refreshScatter() re-instances them. If nothing can be merged the kind stays procedural.
+   */
+  useModel(kind: ScatterKind, object: THREE.Object3D, height: number): void {
+    fitToHeight(object, height);
+    const geos: THREE.BufferGeometry[] = [];
+    const mats: THREE.Material[] = [];
+    object.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      let g = o.geometry.clone() as THREE.BufferGeometry;
+      if (g.index) g = g.toNonIndexed();
+      g.applyMatrix4(o.matrixWorld);
+      g.morphAttributes = {};
+      if (!g.getAttribute('normal')) g.computeVertexNormals();
+      geos.push(g);
+      mats.push(Array.isArray(o.material) ? o.material[0] : o.material);
+    });
+    if (geos.length === 0) return;
+    const keep = KEEP.filter((a) => geos.every((g) => g.getAttribute(a)));
+    for (const g of geos) for (const name of Object.keys(g.attributes)) if (!keep.includes(name)) g.deleteAttribute(name);
+    const merged = mergeGeometries(geos, true);
+    for (const g of geos) g.dispose();
+    if (!merged) return;
+    // A material that reads vertex colours would turn black once a mesh without them forced the attribute out.
+    const fixed = mats.map((m) => {
+      if (keep.includes('color') || !(m as THREE.MeshStandardMaterial).vertexColors) return m;
+      const c = m.clone();
+      (c as THREE.MeshStandardMaterial).vertexColors = false;
+      return c;
+    });
+    this.models.set(kind, { geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed });
+  }
+
   instance(items: ScatterItem[]): THREE.Group {
     const group = new THREE.Group();
     const byKind = new Map<ScatterKind, ScatterItem[]>();
     for (const it of items) { const list = byKind.get(it.kind) ?? []; list.push(it); byKind.set(it.kind, list); }
     for (const [kind, list] of byKind) {
-      const mesh = new THREE.InstancedMesh(this.geometry(kind), this.material, list.length);
+      const model = this.models.get(kind);
+      const mesh = new THREE.InstancedMesh(model?.geometry ?? this.geometry(kind), model?.material ?? this.material, list.length);
       list.forEach((it, i) => {
         this.dummy.position.set(it.x, it.y, it.z);
         this.dummy.rotation.set(0, it.rotation, 0);

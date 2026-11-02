@@ -7402,7 +7402,7 @@ In `web/src/render/chunkManager.ts`:
 - In `receive`, build the chunk with `grassData: d.grass, grass: null`.
 - In `drop`, before deleting, add `if (c.grass) { this.group.remove(c.grass); c.grass.dispose(); }`.
 
-- [ ] **Step 4: Pack models for scatter**
+- [x] **Step 4: Pack models for scatter**
 
 In `web/src/render/scatterAssets.ts`, add the field `private readonly models = new Map<ScatterKind, { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>();` and this method:
 ```ts
