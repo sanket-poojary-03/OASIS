@@ -1,44 +1,49 @@
 import './styles.css';
+import { health } from './api/client';
 import { App } from './app';
-import { recipeSchema } from './core/recipe';
-import { InteractionSystem } from './logic/interactions';
-import { Wildlife } from './logic/wildlife';
+import { runDirector } from './logic/director';
+import { UI } from './ui/ui';
 
-const fixtures = import.meta.glob('../../shared/fixtures/recipes/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+const editable = (el: unknown): boolean =>
+  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLElement && el.isContentEditable);
+
+/** Keys typed into a text field (start prompt, command bar) or aimed at a visible, focused UI control are not game keys. */
+function uiOwnsKey(e: KeyboardEvent, root: HTMLElement): boolean {
+  if (editable(e.target) || editable(document.activeElement)) return true;
+  // A hidden control (e.g. "Create world" once the start screen is gone) may keep focus; it must not swallow game keys.
+  return e.target instanceof HTMLElement && root.contains(e.target) && e.target.getClientRects().length > 0;
+}
 
 void (async () => {
   const canvas = document.querySelector<HTMLCanvasElement>('#view')!;
+  const root = document.querySelector<HTMLElement>('#ui')!;
   const app = await App.create(canvas);
-  const interactions = new InteractionSystem(app.physics, app.player, app.engine.scene, {
-    heightAt: (x, z) => app.built?.field.heightAt(x, z) ?? 0,
-    isReady: (x, z) => app.chunks.isReady(x, z),
+  const ui = new UI(root, {
+    generate: (prompt) => void app.generate(prompt),
+    command: (text) => void app.command(text),
+    confirm: () => app.confirm(),
+    cancel: () => app.cancel(),
+    director: () => void runDirector(app, ui),
   });
-  app.objects.onReady.push((root, info) => interactions.register(root, info));
-  app.objects.onCleared.push(() => interactions.clear());
-
-  const wildlife = new Wildlife(app.engine.scene);
-  app.engine.onUpdate((dt, t) => {
-    if (app.built) wildlife.update(dt, t, app.player.position, app.built.field, (x, z) => app.chunks.isReady(x, z));
-  });
-
-  const hint = document.createElement('div');
-  hint.style.cssText = 'position:fixed;left:50%;bottom:18%;transform:translateX(-50%);padding:6px 12px;border-radius:8px;background:rgba(11,16,32,.7);font-size:14px;display:none;pointer-events:none';
-  document.querySelector('#ui')!.append(hint);
-
-  app.engine.onUpdate((dt, t) => {
-    interactions.update(dt, app.atmosphere.isNight, t);
-    const item = app.player.controls.isLocked ? interactions.nearest(app.player.lookRay()) : null;
-    hint.textContent = item ? interactions.hint(item) : '';
-    hint.style.display = item ? 'block' : 'none';
+  app.ui = ui;
+  ui.showStart(true);
+  void health().then((h) => ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)') : 'Offline mode: preset worlds and basic edits only'));
+  canvas.addEventListener('click', () => {
+    if (app.built && !app.spawning && !app.busy && !ui.commandOpen && !ui.previewOpen && !app.cinematic) app.player.controls.lock();
   });
   addEventListener('keydown', (e) => {
-    if (e.code !== 'KeyE' || e.repeat || !app.player.controls.isLocked) return;
-    const item = interactions.nearest(app.player.lookRay());
-    if (item) interactions.use(item);
+    if (!app.built || app.cinematic || app.busy || uiOwnsKey(e, root)) return;
+    if (ui.previewOpen) {
+      if (e.code === 'Enter' || e.code === 'NumpadEnter') app.confirm();
+      else if (e.code === 'Escape') app.cancel();
+      e.preventDefault();
+      return;
+    }
+    if (ui.commandOpen || e.repeat) return;
+    if (e.code === 'KeyT') { e.preventDefault(); app.player.controls.unlock(); ui.openCommand(); }
+    else if (e.code === 'KeyE') { if (app.player.controls.isLocked) app.interact(); }
+    else if (e.code === 'KeyU') app.undo();
+    else if (e.code === 'KeyC') ui.toggleChecks();
   });
-  const name = new URLSearchParams(location.search).get('w') ?? 'fishing-valley';
-  app.load(recipeSchema.parse(fixtures[`../../shared/fixtures/recipes/${name}.json`]));
-  wildlife.rebuild(app.built!);
-  canvas.addEventListener('click', () => app.player.controls.lock());
   (window as unknown as { app: App }).app = app;
 })();

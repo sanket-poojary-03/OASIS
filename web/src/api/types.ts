@@ -4,10 +4,11 @@ import type { Recipe } from '../core/recipe';
 export type Source = 'live' | 'mock' | 'cache' | 'offline';
 export type WorldResult = { type: 'recipe'; recipe: Recipe; notes: string[]; source: Source } | { type: 'unsupported'; reason: string; source: Source };
 export type EditResult = { type: 'ops'; ops: Op[]; notes: string[]; source: Source } | { type: 'unsupported'; reason: string; source: Source };
+/** Mirrors backend `EditContext` (strict: no other keys). The app omits lookAt/lookingAt when absent; null stays accepted for older callers. */
 export interface EditContext {
   player: { x: number; z: number };
-  lookAt: { x: number; z: number; y?: number } | null;
-  lookingAt: string | null;
+  lookAt?: { x: number; z: number; y?: number } | null;
+  lookingAt?: string | null;
   placements: Array<{ id: string; label: string; x: number; z: number }>;
 }
 /** `none` means "use the procedural placeholder". `credit` is third-party text: textContent only. */

@@ -6943,7 +6943,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: everything above.
 - Produces: `class App` adds `ui`, `cinematic: Cinematic | null`, `generate(prompt): Promise<boolean>`, `command(text, lookOverride?): Promise<void>`, `confirm()`, `cancel()`, `undo()`, `interact()`, `editContext(lookOverride?)`. Also `interface Cinematic { x; y; z; radius; height; speed }` and `runDirector(app, ui): Promise<void>`.
 
-- [ ] **Step 1: Replace `web/src/app.ts`**
+- [x] **Step 1: Replace `web/src/app.ts`**
 
 ```ts
 import * as THREE from 'three';
@@ -7171,7 +7171,7 @@ export class App {
 }
 ```
 
-- [ ] **Step 2: Director stub (replaced in Task 25)**
+- [x] **Step 2: Director stub (replaced in Task 25)**
 
 `web/src/logic/director.ts`:
 ```ts
@@ -7184,7 +7184,7 @@ export async function runDirector(app: App, ui: UI): Promise<void> {
 }
 ```
 
-- [ ] **Step 3: Replace `web/src/main.ts`**
+- [x] **Step 3: Replace `web/src/main.ts`**
 
 ```ts
 import './styles.css';
@@ -7241,7 +7241,7 @@ Run the backend (`uvicorn app.main:app --port 8000`, mock or live) and `npm run 
 Run: `npx vitest run && npx tsc --noEmit && npm run build`
 Expected: all three pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src
