@@ -55,15 +55,16 @@ class LLMClient:
         self.sleep = sleep
         # Always cap the answer: OpenRouter reserves the cost of the longest possible answer up front (402 on a low balance).
         self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4000"))
+        self.reasoning_effort = os.getenv("LLM_REASONING_EFFORT", "").strip()
 
     @classmethod
     def from_env(cls) -> "LLMClient | None":
         key = os.getenv("LLM_API_KEY", "").strip()
         if not key:
             return None
-        backups = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "google/gemini-2.5-flash").split(",") if m.strip()]
-        return cls(os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"), key, os.getenv("LLM_MODEL", "google/gemini-2.5-flash-lite"),
-                   fallback_models=backups)
+        # Default provider: Sarvam (OpenAI-compatible). Any other compatible endpoint works through the same three settings.
+        backups = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "sarvam-105b-conversations").split(",") if m.strip()]
+        return cls(os.getenv("LLM_BASE_URL", "https://api.sarvam.ai/v1"), key, os.getenv("LLM_MODEL", "sarvam-105b"), fallback_models=backups)
 
     def complete(self, system: str, user: str, prefer_backup: bool = False) -> str:
         """`prefer_backup`: start with the backup models (a last try after the main model's answers were unusable)."""
@@ -97,6 +98,9 @@ class LLMClient:
         }
         if os.getenv("LLM_JSON_MODE", "1") == "1":
             body["response_format"] = {"type": "json_object"}
+        # Reasoning models (Sarvam, OpenAI o-series) spend answer tokens thinking first; "low" keeps a recipe inside max_tokens.
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
             r = client.post(f"{self.base_url}/chat/completions", json=body, headers={"Authorization": f"Bearer {self.api_key}"})
             r.raise_for_status()

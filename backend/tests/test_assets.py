@@ -438,3 +438,15 @@ def test_llm_picker_caps_its_answer():
             return '{"index": 0}'
 
     assert LLMPicker(Rec()).llm.max_tokens <= 200
+
+
+def test_llm_picker_turns_reasoning_off():
+    from app.assets import LLMPicker
+
+    class Rec:
+        model, timeout, retries, fallback_models, max_tokens, reasoning_effort = "m", 45.0, 2, [], 4000, "low"
+
+        def complete(self, s, u):
+            return '{"index": 0}'
+
+    assert LLMPicker(Rec()).llm.reasoning_effort == "none"

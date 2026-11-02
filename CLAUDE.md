@@ -48,7 +48,7 @@ Without `LLM_API_KEY` the backend runs in **mock mode**. Without the backend, th
 ## Stack
 - **Web:** Vite, TypeScript, three.js, @dimforge/rapier3d-compat, simplex-noise, zod, vitest
 - **Backend:** Python 3.11+, FastAPI, Pydantic v2, httpx, pytest
-- **LLM:** any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`; default `google/gemini-2.5-flash-lite` via OpenRouter)
+- **LLM:** any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`; default Sarvam `sarvam-105b`, backup `sarvam-105b-conversations`, `LLM_REASONING_EFFORT=low`)
 - **Art:** one CC0 family. Quaternius Stylized Nature, Medieval Village (house prefabs) and Animated Animals, plus a KayKit Adventurers player. Wind grass, bloom, and a third-person animated player (V).
 - **Model finder** (any object, even unexpected): library → cache → Poly Pizza (`POLY_PIZZA_KEY`) → Sketchfab (`SKETCHFAB_TOKEN`) → Meshy (landmarks only, `MESHY_MAX_GENERATIONS=5`) → procedural placeholder. Online models must be CC0 or CC-BY only, and are credited in the place card.
 - **Placing on things:** `at` carries an optional `y` (crosshair surface height) so props can sit on tables. "Near this" uses `lookingAt`.

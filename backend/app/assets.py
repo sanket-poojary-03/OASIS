@@ -161,6 +161,8 @@ class LLMPicker:
             self.llm.retries = 1  # one try per model: a busy AI must not hold up model loading
         if hasattr(self.llm, "max_tokens"):
             self.llm.max_tokens = 100  # the answer is {"index": n}
+        if getattr(self.llm, "reasoning_effort", ""):
+            self.llm.reasoning_effort = "none"  # picking from a short list needs no thinking (and it would eat the 100 tokens)
 
     def __call__(self, query: str, cands: list[Candidate]) -> int:
         lines = "\n".join(f"{i}: {c.title} ({c.tris or '?'} triangles)" for i, c in enumerate(cands))

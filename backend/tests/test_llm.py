@@ -120,3 +120,26 @@ def test_prefer_backup_tries_the_backup_model_first():
     client = LLMClient("https://x.test/v1", "k", "m1", fallback_models=["m2"], transport=httpx.MockTransport(handler), sleep=lambda s: None)
     client.complete("s", "u", prefer_backup=True)
     assert calls == ["m2"]
+
+
+def test_reasoning_effort_is_sent_only_when_set(monkeypatch):
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return _reply()
+
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler)).complete("s", "u")
+    assert "reasoning_effort" not in seen["body"]
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "low")
+    LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler)).complete("s", "u")
+    assert seen["body"]["reasoning_effort"] == "low"
+
+
+def test_defaults_point_at_sarvam(monkeypatch):
+    for k in ("LLM_BASE_URL", "LLM_MODEL", "LLM_FALLBACK_MODELS"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    c = LLMClient.from_env()
+    assert c.base_url == "https://api.sarvam.ai/v1" and c.model == "sarvam-105b" and c.fallback_models == ["sarvam-105b-conversations"]
