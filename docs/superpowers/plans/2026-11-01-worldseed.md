@@ -3912,7 +3912,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `class WorldObjects { group; onReady: Array<(root, info) => void>; onCleared: Array<() => void>; constructor(scene, physics, models); rebuild(world: BuiltWorld): void; pickables(): THREE.Object3D[]; infoFor(o: THREE.Object3D): ObjectInfo | null }`. Each root has `userData.info: ObjectInfo` and `userData.size: THREE.Vector3`.
   - `class App { engine; physics; atmosphere; chunks; water; objects; player; built: BuiltWorld | null; static create(canvas, models?); load(recipe, keep?, respawn?): BuiltWorld }`. It contains two hook comments, `// @hook:after-load` and `// @hook:frame`, used by Tasks 20 and 21.
 
-- [ ] **Step 1: Write the failing test (keyword routing only, no WebGL)**
+- [x] **Step 1: Write the failing test (keyword routing only, no WebGL)**
 
 `web/tests/render/placeholders.test.ts`:
 ```ts
@@ -3942,12 +3942,12 @@ describe('placeholderKind', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/render/placeholders.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement placeholders**
+- [x] **Step 3: Implement placeholders**
 
 `web/src/render/placeholders.ts`:
 ```ts
@@ -4112,7 +4112,7 @@ export function buildPlaceholder(asset: string): THREE.Group {
 }
 ```
 
-- [ ] **Step 4: Implement world objects**
+- [x] **Step 4: Implement world objects**
 
 `web/src/render/worldObjects.ts`:
 ```ts
@@ -4268,7 +4268,7 @@ export class WorldObjects {
 }
 ```
 
-- [ ] **Step 5: Implement the App runtime and boot**
+- [x] **Step 5: Implement the App runtime and boot**
 
 `web/src/app.ts`:
 ```ts
@@ -4391,7 +4391,7 @@ Browser, `/?w=snowy-mountains` (it starts at night):
 - The castle sits on a peak.
 - There's a lodge and a lantern by the lake.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src web/tests
