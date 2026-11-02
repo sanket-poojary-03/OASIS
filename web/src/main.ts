@@ -27,16 +27,19 @@ void (async () => {
   });
   app.ui = ui;
   ui.showStart(true);
-  void health().then((h) => ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)') : 'Offline mode: preset worlds and basic edits only'));
+  void health().then((h) => {
+    // A reachable backend clears remembered asset misses; an unreachable one changes nothing (Render cold starts).
+    if (h?.ok) app.models.reset?.();
+    ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)') : 'Offline mode: preset worlds and basic edits only');
+  });
   canvas.addEventListener('click', () => {
     if (app.built && !app.spawning && !app.busy && !ui.commandOpen && !ui.previewOpen && !app.cinematic) app.player.controls.lock();
   });
   addEventListener('keydown', (e) => {
-    if (!app.built || app.cinematic || app.busy || uiOwnsKey(e, root)) return;
+    if (!app.built || app.cinematic || app.busy || ui.startOpen || uiOwnsKey(e, root)) return;
     if (ui.previewOpen) {
-      if (e.code === 'Enter' || e.code === 'NumpadEnter') app.confirm();
-      else if (e.code === 'Escape') app.cancel();
-      e.preventDefault();
+      if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); app.confirm(); }
+      else if (e.code === 'Escape') { e.preventDefault(); app.cancel(); }
       return;
     }
     if (ui.commandOpen || e.repeat) return;

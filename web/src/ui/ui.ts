@@ -24,6 +24,12 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+/** A hidden control must not keep keyboard focus (it would swallow game keys). */
+function blurWithin(container: HTMLElement): void {
+  const a = document.activeElement;
+  if (a instanceof HTMLElement && container.contains(a)) a.blur();
+}
+
 export class UI {
   private readonly start = el('div', 'start');
   private readonly prompt = el('textarea', 'prompt-input');
@@ -79,8 +85,12 @@ export class UI {
 
   get commandOpen(): boolean { return !this.command.classList.contains('hidden'); }
   get previewOpen(): boolean { return !this.preview.classList.contains('hidden'); }
+  get startOpen(): boolean { return !this.start.classList.contains('hidden'); }
 
-  showStart(show: boolean): void { this.start.classList.toggle('hidden', !show); }
+  showStart(show: boolean): void {
+    this.start.classList.toggle('hidden', !show);
+    if (!show) blurWithin(this.start);
+  }
   setHealth(text: string): void { this.healthLine.textContent = text; }
 
   setBusy(text: string | null): void {
@@ -121,7 +131,7 @@ export class UI {
 
   closeCommand(): void {
     this.command.classList.add('hidden');
-    this.commandInput.blur();
+    blurWithin(this.command);
   }
 
   showPreview(lines: string[], notes: string[]): void {

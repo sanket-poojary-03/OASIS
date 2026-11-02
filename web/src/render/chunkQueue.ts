@@ -13,6 +13,9 @@ export class ChunkQueue {
     return !f || (f.count <= MAX_RETRIES && now >= f.retryAt);
   }
 
+  /** True once the key has used up its retries: it will not be requested again until forget() or reset(). */
+  gaveUp(key: string): boolean { return (this.failures.get(key)?.count ?? 0) > MAX_RETRIES; }
+
   markPending(key: string): void { this.pending.add(key); }
 
   /** Chunk arrived: forget the key and its failures. */

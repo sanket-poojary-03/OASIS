@@ -11,5 +11,9 @@ export interface EditContext {
   lookingAt?: string | null;
   placements: Array<{ id: string; label: string; x: number; z: number }>;
 }
-/** `none` means "use the procedural placeholder". `credit` is third-party text: textContent only. */
-export interface AssetResult { status: 'ready' | 'pending' | 'none'; source?: 'library' | 'online' | 'generated'; url?: string; jobId?: string; credit?: string }
+/**
+ * `none` means "use the procedural placeholder". `transient` marks a none that only says the backend could not be
+ * reached or answer now (network, timeout, 429, 5xx); without it the backend definitively has no model (HTTP-200 none).
+ * `credit` is third-party text: textContent only.
+ */
+export interface AssetResult { status: 'ready' | 'pending' | 'none'; source?: 'library' | 'online' | 'generated'; url?: string; jobId?: string; credit?: string; transient?: true }

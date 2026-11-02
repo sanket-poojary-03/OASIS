@@ -51,3 +51,26 @@ describe('client hardening', () => {
     expect(sent.prompt).toHaveLength(600);
   });
 });
+
+describe('asset transport vs definitive none', () => {
+  it('network error, timeout, 429 and 5xx are transient; HTTP-200 none and other 4xx are definitive', async () => {
+    const { assetJob } = await import('../../src/api/client');
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });
+    expect(await assetJob('j1')).toEqual({ status: 'none', transient: true });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); }));
+    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });
+    for (const status of [429, 500, 502, 503]) {
+      vi.stubGlobal('fetch', reply(status, {}));
+      expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });
+      expect(await assetJob('j1')).toEqual({ status: 'none', transient: true });
+    }
+    vi.stubGlobal('fetch', reply(200, { status: 'none' }));
+    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none' });
+    expect(await assetJob('j1')).toEqual({ status: 'none' });
+    vi.stubGlobal('fetch', reply(422, { detail: 'bad' }));
+    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none' });
+    vi.stubGlobal('fetch', reply(404, {}));
+    expect(await assetJob('j1')).toEqual({ status: 'none' });
+  });
+});

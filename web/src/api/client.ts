@@ -12,12 +12,17 @@ const asSource = (v: unknown): Source => (SOURCES.includes(v as Source) ? (v as 
 const clip = (s: string, max: number): string => s.slice(0, max);
 const asNotes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string') : []);
 
-/** Throws on network error, timeout, any non-2xx (incl. 429/5xx) or non-JSON body. */
+/** A non-2xx answer. Network errors and timeouts throw the fetch error instead. */
+class HttpError extends Error {
+  constructor(readonly status: number, path: string) { super(`${path} -> ${status}`); }
+}
+
+/** Throws on network error, timeout, any non-2xx (incl. 429/5xx; an HttpError) or non-JSON body. */
 async function post(path: string, body: unknown, timeoutMs = 45000): Promise<Record<string, unknown>> {
   const r = await fetch(`${API_BASE}${path}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!r.ok) throw new Error(`${path} -> ${r.status}`);
+  if (!r.ok) throw new HttpError(r.status, path);
   const data: unknown = await r.json();
   if (typeof data !== 'object' || data === null) throw new Error(`${path}: bad response`);
   return data as Record<string, unknown>;
@@ -65,6 +70,10 @@ export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext
 }
 
 const NONE: AssetResult = { status: 'none' };
+/** The backend could not be reached or could not answer now (network, timeout, 429, 5xx, unreadable body). */
+const DOWN: AssetResult = { status: 'none', transient: true };
+/** Only a definitive client error (a 4xx other than 429) is a real "no model"; every other failure is transient. */
+const failed = (e: unknown): AssetResult => (e instanceof HttpError && e.status < 500 && e.status !== 429 ? NONE : DOWN);
 const absolute = (url: string): string => (url.startsWith('/') ? `${API_BASE}${url}` : url);
 
 /** Validate an asset response; anything malformed becomes `none` (placeholder). Credit is third-party text: render with textContent only. */
@@ -82,17 +91,17 @@ function toAsset(data: unknown): AssetResult {
 export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean): Promise<AssetResult> {
   try {
     return toAsset(await post('/api/assets/resolve', { query: clip(query, 120), kind, allowGenerate }, 20000));
-  } catch {
-    return NONE;
+  } catch (e) {
+    return failed(e);
   }
 }
 
 export async function assetJob(id: string): Promise<AssetResult> {
   try {
     const r = await fetch(`${API_BASE}/api/assets/jobs/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) return NONE;
+    if (!r.ok) throw new HttpError(r.status, '/api/assets/jobs');
     return toAsset(await r.json());
-  } catch {
-    return NONE;
+  } catch (e) {
+    return failed(e);
   }
 }

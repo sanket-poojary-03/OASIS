@@ -20,6 +20,19 @@ describe('ChunkQueue', () => {
     q.markPending('a'); q.fail('a', 0);
     expect(q.canRequest('a', 1e9)).toBe(false);
   });
+  it('gaveUp reports a key only once its retries are exhausted (reset or forget clears it)', () => {
+    const q = new ChunkQueue();
+    expect(q.gaveUp('a')).toBe(false);
+    for (let i = 0; i < MAX_RETRIES; i++) { q.markPending('a'); q.fail('a', 0); }
+    expect(q.gaveUp('a')).toBe(false);
+    q.markPending('a'); q.fail('a', 0);
+    expect(q.gaveUp('a')).toBe(true);
+    q.reset();
+    expect(q.gaveUp('a')).toBe(false);
+    for (let i = 0; i <= MAX_RETRIES; i++) { q.markPending('b'); q.fail('b', 0); }
+    q.forget('b');
+    expect(q.gaveUp('b')).toBe(false);
+  });
   it('forget clears a given-up key so it can be requested again', () => {
     const q = new ChunkQueue();
     for (let i = 0; i <= MAX_RETRIES; i++) { q.markPending('a'); q.fail('a', 0); }

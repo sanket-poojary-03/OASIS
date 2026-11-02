@@ -81,6 +81,11 @@ export class ChunkManager {
     return !!c && !c.stale && !!c.collider;
   }
 
+  /** True when the chunk under (x, z) failed every retry, so isReady there will not come true for this world. */
+  failed(x: number, z: number): boolean {
+    return this.queue.gaveUp(key(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)));
+  }
+
   meshes(): THREE.Object3D[] {
     return [...this.chunks.values()].map((c) => c.mesh);
   }

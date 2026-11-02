@@ -21,6 +21,8 @@ export interface ObjectInfo {
 
 export interface ModelSource {
   load(asset: string, kind: PlaceKind): Promise<{ object: THREE.Object3D; source: 'library' | 'online' | 'generated'; credit?: string } | null>;
+  /** Optional: forget remembered misses (new world, or the backend is reachable again). */
+  reset?(): void;
 }
 
 export class NullModelSource implements ModelSource {

@@ -13,6 +13,8 @@ export interface Placement {
   radius: number;
   reasons: string[];
   warnings: string[];
+  /** The solver flattened a pad here (padAllowed passed). Kept placements re-pad only when this is true. */
+  padded: boolean;
 }
 
 const RADIUS: Record<PlaceKind, Record<PlaceSize, number>> = {
@@ -144,7 +146,7 @@ function finish(place: Place, field: WorldField, x: number, z: number, radius: n
   const targetId = targetsOf(place).find((id) => placed.has(id));
   const face = targetId ? placed.get(targetId)! : { x: 0, z: 0 };
   const rotation = Math.atan2(face.x - x, face.z - z);
-  return { id: place.id, kind: place.kind, x, z, y: yOverride ?? (place.kind === 'prop' ? field.heightAt(x, z) : avg), rotation, radius, reasons, warnings };
+  return { id: place.id, kind: place.kind, x, z, y: yOverride ?? (place.kind === 'prop' ? field.heightAt(x, z) : avg), rotation, radius, reasons, warnings, padded: false };
 }
 
 function placeOne(place: Place, field: WorldField, placed: Map<string, Placement>, seed: number): Placement {
@@ -212,14 +214,16 @@ function padAllowed(field: WorldField, p: Placement, placed: Map<string, Placeme
 
 export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placement[] = []): Placement[] {
   const placed = new Map<string, Placement>();
-  for (const p of fixed) {
-    placed.set(p.id, p);
-    if (p.kind !== 'prop') field.addPad(padFor(p));
-  }
+  const kept = new Map(fixed.map((p) => [p.id, p]));
+  for (const p of fixed) placed.set(p.id, p); // every kept place counts for spacing and relations from the start
+  // Pads go down in solve order, kept or new, and only where the solver padded: pads blend in sequence, so a rebuild
+  // that keeps every placement (undo, a later edit) lays the same pads in the same order and reproduces the terrain.
   for (const place of orderPlaces(recipe.places)) {
-    if (placed.has(place.id)) continue;
+    const k = kept.get(place.id);
+    if (k) { if (k.padded) field.addPad(padFor(k)); continue; }
     const pl = placeOne(place, field, placed, recipe.seed);
-    if (place.kind !== 'prop' && padAllowed(field, pl, placed)) field.addPad(padFor(pl));
+    pl.padded = place.kind !== 'prop' && padAllowed(field, pl, placed);
+    if (pl.padded) field.addPad(padFor(pl));
     placed.set(pl.id, pl);
   }
   return recipe.places.map((p) => placed.get(p.id)!).filter(Boolean);

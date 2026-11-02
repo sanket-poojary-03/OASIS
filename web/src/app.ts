@@ -20,6 +20,7 @@ import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
 import { WorldObjects, type ModelSource } from './render/worldObjects';
 import type { UI } from './ui/ui';
+import { waitUntil } from './ui/wait';
 import { buildWorld, type BuiltWorld } from './world/build';
 import { snapshotField } from './world/field';
 import type { Placement } from './world/placement';
@@ -29,6 +30,9 @@ export interface Cinematic { x: number; y: number; z: number; radius: number; he
 interface Snapshot { recipe: Recipe; placements: Placement[]; atmosphereOnly: boolean }
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+/** Frame time allowed for the spawn chunk to arrive before generate() gives up (a hidden tab does not count). */
+const SPAWN_TIMEOUT_MS = 20_000;
+const MAX_UNDO = 50;
 const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', cache: 'AI: cached answer', mock: 'AI: mock mode', offline: 'Offline mode' };
 
 export class App {
@@ -57,6 +61,7 @@ export class App {
     readonly objects: WorldObjects,
     readonly player: Player,
     readonly wildlife: Wildlife,
+    readonly models: ModelSource,
   ) {
     this.interactions = new InteractionSystem(physics, player, engine.scene, {
       heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
@@ -72,7 +77,7 @@ export class App {
     const app = new App(
       engine, physics, new AtmosphereSystem(engine.scene), new ChunkManager(engine.scene, physics, new ScatterAssets()),
       new WaterSystem(engine.scene), new WorldObjects(engine.scene, physics, models), new Player(engine.camera, canvas, physics),
-      new Wildlife(engine.scene),
+      new Wildlife(engine.scene), models,
     );
     engine.onUpdate((dt, t) => app.frame(dt, t));
     engine.start();
@@ -117,11 +122,21 @@ export class App {
       if (res.type === 'unsupported') { ui?.setBusy(null); ui?.toast(res.reason); return false; }
       ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
       await nextFrame();
+      this.models.reset?.(); // a new world may find models that were missing (or offline) before
       const built = this.load(res.recipe);
       for (const line of [...res.notes, ...built.log]) ui?.log(line);
       ui?.setSource(SOURCE_LABEL[res.source]);
       this.history = [];
-      while (this.spawning) await nextFrame();
+      const spawned = await waitUntil(() => !this.spawning, {
+        failed: () => !!this.spawnPending && this.chunks.failed(this.spawnPending.x, this.spawnPending.z),
+        timeoutMs: SPAWN_TIMEOUT_MS,
+        frame: nextFrame,
+      });
+      if (!spawned) {
+        ui?.setBusy(null);
+        ui?.toast('The terrain could not be loaded — reload or try another world');
+        return false;
+      }
       ui?.setBusy(null);
       ui?.showStart(false);
       ui?.showHud(true);
@@ -155,6 +170,10 @@ export class App {
     let res: EditResult;
     try {
       res = await editWorld(recipe, text, this.editContext(lookOverride));
+    } catch (e) {
+      console.error('command failed', e);
+      ui?.toast('Could not work out that change. Try again.');
+      return;
     } finally {
       this.working = false;
       ui?.setBusy(null);
@@ -177,7 +196,9 @@ export class App {
     this.ui?.hidePreview();
     const a = p.applied;
     const atmosphereOnly = p.ops.every((o) => o.op === 'setAtmosphere');
-    this.history.push({ recipe: b.recipe, placements: b.placements, atmosphereOnly });
+    const snap: Snapshot = { recipe: b.recipe, placements: b.placements, atmosphereOnly };
+    this.history.push(snap);
+    if (this.history.length > MAX_UNDO) this.history.shift();
     if (atmosphereOnly) {
       const timeChanged = p.ops.some((o) => o.op === 'setAtmosphere' && o.time !== undefined);
       b.recipe = a.recipe;
@@ -185,10 +206,17 @@ export class App {
       this.ui?.toast('Done');
       return;
     }
-    const keep = a.terrainChanged ? [] : b.placements.filter((pl) => !a.changedPlaces.has(pl.id) && !a.removedPlaces.has(pl.id));
-    const built = this.load(a.recipe, keep, false);
-    const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}`);
-    this.ui?.toast(placed.length ? `Placed ${placed.join(' · ')}` : 'Done');
+    try {
+      const keep = a.terrainChanged ? [] : b.placements.filter((pl) => !a.changedPlaces.has(pl.id) && !a.removedPlaces.has(pl.id));
+      const built = this.load(a.recipe, keep, false);
+      const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}`);
+      this.ui?.toast(placed.length ? `Placed ${placed.join(' · ')}` : 'Done');
+    } catch (e) {
+      console.error('edit failed to build', e);
+      if (this.history[this.history.length - 1] === snap) this.history.pop();
+      try { this.load(snap.recipe, snap.placements, false); } catch (e2) { console.error('restore failed', e2); }
+      this.ui?.toast('That change could not be built, so the world was left as it was.');
+    }
   }
 
   cancel(): void {
@@ -200,14 +228,19 @@ export class App {
     const b = this.built;
     const prev = b ? this.history.pop() : undefined;
     if (!b || !prev) { this.ui?.toast('Nothing to undo'); return; }
-    if (prev.atmosphereOnly) {
-      const timeChanged = prev.recipe.atmosphere.time !== b.recipe.atmosphere.time;
-      b.recipe = prev.recipe;
-      this.atmosphere.apply(prev.recipe.atmosphere, timeChanged);
-    } else {
-      this.load(prev.recipe, prev.placements, false);
+    try {
+      if (prev.atmosphereOnly) {
+        const timeChanged = prev.recipe.atmosphere.time !== b.recipe.atmosphere.time;
+        b.recipe = prev.recipe;
+        this.atmosphere.apply(prev.recipe.atmosphere, timeChanged);
+      } else {
+        this.load(prev.recipe, prev.placements, false);
+      }
+      this.ui?.toast('Undone');
+    } catch (e) {
+      console.error('undo failed', e);
+      this.ui?.toast('Undo failed.');
     }
-    this.ui?.toast('Undone');
   }
 
   interact(): void {
