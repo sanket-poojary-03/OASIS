@@ -28,6 +28,28 @@ class AIUnavailable(Exception):
     BAD_ANSWER = "The AI's answer could not be used. Please try again, perhaps in different words."
 
 
+def _target(rel) -> str | None:
+    return getattr(rel, "target", None) or getattr(rel, "of", None)
+
+
+def check_targets(recipe: Recipe, ops: list) -> None:
+    """Every relation in the ops must name a place that exists at that point (the recipe's, or one added earlier in the
+    same list). The browser would reject the edit otherwise; raising here sends the error back to the AI to correct."""
+    ids = {p.id for p in recipe.places}
+    for op in ops:
+        kind = getattr(op, "op", "")
+        if kind == "removePlace":
+            ids.discard(op.id)
+            continue
+        where = op.place.where if kind == "addPlace" else getattr(op, "where", None) or []
+        if kind == "addPlace":
+            ids.add(op.place.id)
+        for rel in where:
+            t = _target(rel)
+            if t is not None and t not in ids:
+                raise ValueError(f'relation refers to unknown place "{t}"; use one of: {", ".join(sorted(ids))} (or "at" with lookAt for "here")')
+
+
 def _notes(data: dict) -> list[str]:
     notes = data.get("notes")
     if not isinstance(notes, list):
@@ -65,6 +87,7 @@ class WorldService:
 
         def validate(data: dict) -> dict:
             ops = ops_adapter.validate_python(data.get("ops"))
+            check_targets(req.recipe, ops)
             return {"type": "ops", "ops": dump_ops(ops), "notes": _notes(data), "source": "live"}
 
         return self._ask(edit_system_prompt(req), req.prompt, validate)

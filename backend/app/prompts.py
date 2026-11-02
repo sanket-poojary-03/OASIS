@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p3"
+PROMPT_VERSION = "p4"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -80,6 +80,9 @@ Rules:
 - setClimate, setTerrain and setWater rebuild the whole world. Use them only when asked (e.g. "make it winter" -> setClimate temperature 0.1 + setAtmosphere weather snow).
 - Time and weather words -> setAtmosphere.
 - Keep place rules from the world prompt: kind, asset, interaction, relations.
+- To add a whole group ("build a city here", "a camp of tents by the lake", "plant an orchard"), add ONE settlement whose asset is
+  the repeated thing, with layout {pattern: village|grid|ring|line|scatter, count 1-60, height low|mixed|tall, centre: optional piece}:
+  grid for cities, ring for camps/colonies/stone circles, line for harbours/streets, scatter for orchards/ruins.
 
 Respond with the JSON object only."""
 
