@@ -44,4 +44,12 @@ describe('ops', () => {
     expect(lines[0]).toContain('Beacon tower');
     expect(lines[1]).toContain('night');
   });
+
+  it('a 13th place gives a friendly message, not a raw schema error (m8)', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const full = { ...r, places: Array.from({ length: 12 }, (_, i) => ({ ...r.places[0], id: `spot-${i}`, where: [{ rel: 'flat' as const }] })), paths: [] };
+    const add = { op: 'addPlace' as const, place: { ...r.places[0], id: 'one-more', where: [{ rel: 'flat' as const }] } };
+    expect(() => applyOps(full, [add])).toThrow('This world already has 12 places — remove one first.');
+    expect(applyOps(full, [{ op: 'removePlace', id: 'spot-0' }, add]).recipe.places).toHaveLength(12); // remove then add is fine
+  });
 });

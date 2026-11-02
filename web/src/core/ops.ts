@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  DIRECTIONS, idSchema, INTERACTIONS, LIFE_KINDS, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
+  DIRECTIONS, idSchema, INTERACTIONS, LIFE_KINDS, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
   type Recipe,
 } from './recipe';
 
@@ -109,6 +109,7 @@ export function applyOps(recipe: Recipe, ops: Op[]): ApplyResult {
         break;
     }
   }
+  if (next.places.length > MAX_PLACES) throw new OpError(`This world already has ${MAX_PLACES} places — remove one first.`);
   const parsed = recipeSchema.safeParse(next);
   if (!parsed.success) throw new OpError(parsed.error.issues.map((i) => i.message).join('; '));
   return { recipe: parsed.data, ...res };

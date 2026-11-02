@@ -50,6 +50,9 @@ export const atmosphereSchema = z.strictObject({
   wind: unit,
 });
 
+/** The most places one recipe can hold (mirrors backend `Recipe.places` max_length). */
+export const MAX_PLACES = 12;
+
 export const recipeSchema = z
   .strictObject({
     version: z.literal(1),
@@ -59,7 +62,7 @@ export const recipeSchema = z
     climate: z.strictObject({ temperature: unit, moisture: unit }),
     water: z.strictObject({ river: z.boolean(), lake: z.boolean() }),
     atmosphere: atmosphereSchema,
-    places: z.array(placeSchema).max(12),
+    places: z.array(placeSchema).max(MAX_PLACES),
     paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(12).default([]),
     life: z.array(z.strictObject({ kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) })).max(4).default([]),
   })
