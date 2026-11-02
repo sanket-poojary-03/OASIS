@@ -17,7 +17,7 @@ The LLM writes a validated world recipe (relations, not coordinates) and live ed
 Browser (Vite, TypeScript, three.js, Rapier) builds an endless deterministic world from the recipe in a Web Worker. A FastAPI backend turns text into a recipe or edit ops (Pydantic-validated, Zod-validated again in the browser) and serves models. Full diagram: spec section 4.
 
 ## Controls
-WASD move, mouse look, Space jump, Shift run, E interact, T type a command (for example "make it night", "put a giraffe here"), Ctrl+Z undo.
+WASD move, mouse look (click the view to lock the pointer), Space jump/swim, Shift run, E interact, T type a command (for example "make it night", "put a giraffe here"; Enter sends, Esc closes), Enter/Esc confirm or cancel the previewed edit, U undo, C show checks. Esc stops the demo.
 
 ## Offline mode
 If the backend is unreachable the web app falls back to a local mock using `shared/fixtures`, so it always works.
