@@ -94,19 +94,29 @@ export class Wildlife {
 
   /**
    * Use an animated pack model for every animal of `kind` from now on, and swap it in for the ones already out
-   * (art hot-swap). Without a template the procedural figures stay.
+   * (art hot-swap). Without a template the procedural figures stay. The template is registered only after a first copy
+   * of it is made: a model that cannot be cloned is ignored (procedural animals stay), like Avatar.use.
    */
   useModel(kind: AnimalKind, t: ModelTemplate): void {
+    let first: AnimatedModel | undefined;
+    try {
+      first = animatedClone(t);
+    } catch (e) {
+      console.warn(`[wildlife] cannot use the ${kind} model; keeping the procedural ones`, e);
+      return;
+    }
     this.templates.set(kind, t);
     for (const a of this.animals) {
       if (a.kind !== kind) continue;
-      const anim = animatedClone(t);
+      const anim = first ?? animatedClone(t);
+      first = undefined;
       this.release(a);
       this.group.remove(a.mesh);
       a.anim = anim;
       a.mesh = anim.root;
       this.group.add(anim.root);
     }
+    first?.dispose(); // no animal of this kind is out yet
   }
 
   private release(a: Animal): void {

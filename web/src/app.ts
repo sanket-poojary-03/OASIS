@@ -17,7 +17,7 @@ import { ChunkManager } from './render/chunkManager';
 import { disposeGroup } from './render/dispose';
 import { Engine } from './render/engine';
 import { GrassSystem } from './render/grass';
-import { WINDOW_MATERIAL } from './render/placeholders';
+import { setNightGlow } from './render/nightGlow';
 import { PostFX } from './render/postfx';
 import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './render/roads';
 import { ScatterAssets } from './render/scatterAssets';
@@ -58,6 +58,7 @@ export class App {
   private lookTimer = 0;
   private cineAngle = 0;
   private artStarted = false;
+  private backendSeen = false;
   /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
   private artDirty = false;
   private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
@@ -116,6 +117,23 @@ export class App {
       console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
     });
   }
+  /**
+   * The backend answered: health at boot, or the first world/edit answer that did not fall back to offline (a backend
+   * that wakes after the boot pings gave up). Forgets remembered asset misses and starts the pack art, once (I6).
+   */
+  backendAnswered(): void {
+    if (this.backendSeen) return;
+    this.backendSeen = true;
+    this.models.reset?.();
+    this.startArt();
+  }
+
+  /** Bookkeeping for every world/edit answer: tell the player about a rate-limited fallback, note a live backend. */
+  private noteAnswer(res: { source: Source; notice?: string }): void {
+    if (res.notice) this.ui?.toast(res.notice);
+    if (res.source !== 'offline') this.backendAnswered();
+  }
+
   /** True while a world is being generated or an edit is being asked for (game keys and new requests wait). */
   get busy(): boolean { return this.working; }
 
@@ -150,6 +168,7 @@ export class App {
     try {
       ui?.setBusy('Imagining your world…');
       const res = await generateWorld(prompt);
+      this.noteAnswer(res);
       if (res.type === 'unsupported') { ui?.setBusy(null); ui?.toast(res.reason); return false; }
       ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
       await nextFrame();
@@ -210,7 +229,8 @@ export class App {
       ui?.setBusy(null);
     }
     ui?.setSource(SOURCE_LABEL[res.source]);
-    if (res.type === 'unsupported') { ui?.toast(res.reason); return; }
+    this.noteAnswer(res);
+    if (res.type === 'unsupported') { ui?.toast(res.notice ? `${res.notice} ${res.reason}` : res.reason); return; }
     if (this.built?.recipe !== recipe) return; // the world changed while we waited
     try {
       this.pending = { applied: applyOps(recipe, res.ops), ops: res.ops };
@@ -313,7 +333,7 @@ export class App {
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
     this.postfx.setNight(this.atmosphere.night);
     this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor (DECISIONS 2026-11-02)
-    WINDOW_MATERIAL.emissiveIntensity = this.atmosphere.isNight ? 1.4 : 0;
+    setNightGlow(this.atmosphere.isNight ? 1.4 : 0); // placeholder windows and the windows/lamps of loaded models
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
     this.lookTimer -= dt;
@@ -325,7 +345,7 @@ export class App {
 
   /** Interaction hint (only while walking with the pointer locked) and the place card under the crosshair. */
   private updateLook(ui: UI): void {
-    if (this.cinematic) { ui.setHint(null); ui.setCard(null); return; }
+    if (this.cinematic || ui.startOpen) { ui.setHint(null); ui.setCard(null); return; }
     const item = this.player.controls.isLocked ? this.interactions.nearest(this.player.lookRay(), this.reach) : null;
     ui.setHint(item ? this.interactions.hint(item) : null);
     const hit = this.pick(this.objects.pickables(), 80);

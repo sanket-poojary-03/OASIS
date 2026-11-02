@@ -6,6 +6,7 @@ import { AssetModelSource, BREAKER_MS, MISS_TTL_MS, TRANSIENT_TTL_MS } from '../
 const READY: AssetResult = { status: 'ready', source: 'library', url: 'http://x/a.glb' };
 const NONE: AssetResult = { status: 'none' };
 const DOWN: AssetResult = { status: 'none', transient: true };
+const SLOW: AssetResult = { status: 'none', transient: true, timeout: true };
 
 /** An AssetModelSource with a fake clock, fake resolve/job endpoints and a fake GLB loader. */
 function rig(answer: (query: string) => AssetResult | Promise<AssetResult>) {
@@ -65,6 +66,29 @@ describe('AssetModelSource caching', () => {
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(await src.load('bench', 'prop')).toBeNull(); // and the breaker re-opened
     expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
+  it('(c) a timeout is a transient miss for that asset only: it never opens the breaker (m7)', async () => {
+    const { src, clock, resolve } = rig((q) => (q === 'giraffe' ? SLOW : READY));
+    expect(await src.load('giraffe', 'prop')).toBeNull();
+    expect(await src.load('house', 'structure')).not.toBeNull(); // other assets still load
+    expect(await src.load('giraffe', 'prop')).toBeNull(); // remembered for the short TTL
+    expect(resolve).toHaveBeenCalledTimes(2);
+    clock.t += TRANSIENT_TTL_MS + 1;
+    await src.load('giraffe', 'prop');
+    expect(resolve).toHaveBeenCalledTimes(3);
+  });
+
+  it('(c) a timeout during the probe keeps the breaker as it was', async () => {
+    let mode: 'down' | 'slow' | 'up' = 'down';
+    const { src, clock, resolve } = rig(() => (mode === 'down' ? DOWN : mode === 'slow' ? SLOW : READY));
+    await src.load('house', 'structure');
+    clock.t += BREAKER_MS + 1;
+    mode = 'slow';
+    expect(await src.load('tower', 'landmark')).toBeNull(); // the probe timed out: no verdict
+    mode = 'up';
+    expect(await src.load('bench', 'prop')).not.toBeNull(); // the next request probes again and succeeds
+    expect(resolve).toHaveBeenCalledTimes(3);
   });
 
   it('(c) after the breaker window only one probe goes out; when it succeeds the rest load again', async () => {

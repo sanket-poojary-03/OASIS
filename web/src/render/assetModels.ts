@@ -11,7 +11,10 @@ type Loaded = { object: THREE.Object3D; source: 'library' | 'online' | 'generate
 export const MISS_TTL_MS = 10 * 60_000;
 /** A transient miss (backend unreachable, 429/5xx, a job still running, a GLB that failed to load) is retried after this. */
 export const TRANSIENT_TTL_MS = 45_000;
-/** Any transport failure stops all asset requests for this long; then a single probe decides whether to resume. */
+/**
+ * A transport failure (unreachable, 429, 5xx) stops all asset requests for this long; then a single probe decides
+ * whether to resume. A timeout does not: it is only a transient miss for its own asset (m7).
+ */
 export const BREAKER_MS = 30_000;
 
 export interface AssetDeps {
@@ -87,12 +90,12 @@ export class AssetModelSource implements ModelSource {
     return p;
   }
 
-  /** Breaker bookkeeping for every answer from the asset API (resolve or job poll). */
+  /** Breaker bookkeeping for every answer from the asset API (resolve or job poll). A timeout leaves it as it was. */
   private noteTransport(res: AssetResult): void {
-    if (res.status === 'none' && res.transient) {
+    if (res.status === 'none' && res.transient && !res.timeout) {
       this.tripped = true;
       this.offlineUntil = this.now() + BREAKER_MS;
-    } else {
+    } else if (!res.timeout) {
       this.tripped = false;
     }
     this.probing = false;

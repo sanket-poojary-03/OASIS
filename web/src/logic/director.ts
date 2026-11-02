@@ -6,7 +6,7 @@ const PROMPT = 'A misty pine valley with a river, a small fishing village on the
 
 let running = false;
 
-/** A self-running ~60 s demo through the real pipeline: prompt → world → reasons → live edits. Esc stops it. */
+/** A self-running ~70 s demo through the real pipeline: prompt → world → reasons → live edits, ending on a clear day. Esc stops it. */
 export async function runDirector(app: App, ui: UI): Promise<void> {
   if (running) return;
   running = true;
@@ -20,7 +20,9 @@ export async function runDirector(app: App, ui: UI): Promise<void> {
   };
   try {
     await ui.typeStart(PROMPT);
-    if (stopped || !(await app.generate(PROMPT)) || !app.built) return;
+    if (stopped) return;
+    const ok = await app.generate(PROMPT);
+    if (stopped || !ok || !app.built) return; // Esc while the world was being built stops the demo there
     const b = app.built;
     const village = b.placements.find((p) => p.kind === 'settlement') ?? b.placements[0];
     if (!village) return;
@@ -35,6 +37,7 @@ export async function runDirector(app: App, ui: UI): Promise<void> {
       ['make it night', undefined],
       ['put a lighthouse here', { x: village.x + village.radius + 25, z: village.z }],
       ['make it snow', undefined],
+      ['make it a clear day', undefined], // end in daylight, so the viewer takes over a bright world
     ];
     app.cinematic = { x: village.x, y: village.y, z: village.z, radius: village.radius + 45, height: 26, speed: 0.1 };
     for (const [text, look] of steps) {

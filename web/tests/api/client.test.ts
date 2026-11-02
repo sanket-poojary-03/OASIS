@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { editWorld, generateWorld, resolveAsset } from '../../src/api/client';
+import { BUSY_NOTICE, editWorld, generateWorld, resolveAsset } from '../../src/api/client';
 import { loadRecipeFixture } from '../fixtures';
 
 const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -31,6 +31,19 @@ describe('client fallbacks', () => {
     vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'online', url: '/assets/x.glb', credit: 'by <b>x</b> CC-BY' }));
     const ok = await resolveAsset('chair', 'prop', false);
     expect(ok.status === 'ready' && ok.url).toMatch(/^http.*\/assets\/x\.glb$/);
+  });
+});
+
+describe('rate-limited AI (I4)', () => {
+  it('a 429 from /api/world or /api/edit falls back offline with a "busy" notice; other failures carry none', async () => {
+    const r = loadRecipeFixture('fishing-valley');
+    vi.stubGlobal('fetch', reply(429, { detail: 'Too many requests. Wait a few minutes.' }));
+    expect(await generateWorld('a desert')).toMatchObject({ type: 'recipe', source: 'offline', notice: BUSY_NOTICE });
+    expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'ops', source: 'offline', notice: BUSY_NOTICE });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    expect((await generateWorld('a desert')).notice).toBeUndefined();
+    vi.stubGlobal('fetch', reply(500, {}));
+    expect((await editWorld(r, 'make it night', ctx)).notice).toBeUndefined();
   });
 });
 
@@ -73,7 +86,8 @@ describe('asset transport vs definitive none', () => {
     expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });
     expect(await assetJob('j1')).toEqual({ status: 'none', transient: true });
     vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); }));
-    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });
+    expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true, timeout: true }); // m7
+    expect(await assetJob('j1')).toEqual({ status: 'none', transient: true, timeout: true });
     for (const status of [429, 500, 502, 503]) {
       vi.stubGlobal('fetch', reply(status, {}));
       expect(await resolveAsset('dragon', 'prop', false)).toEqual({ status: 'none', transient: true });

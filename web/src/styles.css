@@ -22,6 +22,8 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding
 .crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; opacity: .7; }
 .help { position: absolute; left: 16px; bottom: 14px; font-size: 12px; opacity: .75; text-shadow: 0 1px 2px #000; }
 .source { position: absolute; right: 16px; top: 14px; font-size: 12px; background: rgba(0,0,0,.4); padding: 4px 8px; border-radius: 8px; }
+.new-world { position: absolute; right: 16px; bottom: 14px; font-size: 13px; padding: 6px 12px; pointer-events: auto; }
+.fatal { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; font-size: 18px; background: #0b1020; }
 .hint { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: rgba(0,0,0,.55); padding: 8px 14px; border-radius: 10px; pointer-events: none !important; }
 .card { position: absolute; left: 16px; top: 14px; width: min(340px, calc(100vw - 32px)); background: rgba(8,12,24,.72); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 12px 14px; pointer-events: none !important; }
 .card h3 { margin: 0 0 6px; } .card p { margin: 6px 0 0; font-size: 13px; } .why { opacity: .85; } .warn { color: #ffcf7a; }

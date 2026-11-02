@@ -17,6 +17,10 @@ class HttpError extends Error {
   constructor(readonly status: number, path: string) { super(`${path} -> ${status}`); }
 }
 
+/** Shown when the backend refused with 429 (per-IP or daily AI budget) and the offline mock answered instead. */
+export const BUSY_NOTICE = 'The AI is busy — using offline mode for a few minutes.';
+const offlineNotice = (e: unknown): { notice?: string } => (e instanceof HttpError && e.status === 429 ? { notice: BUSY_NOTICE } : {});
+
 /** Throws on network error, timeout, any non-2xx (incl. 429/5xx; an HttpError) or non-JSON body. */
 async function post(path: string, body: unknown, timeoutMs = 45000): Promise<Record<string, unknown>> {
   const r = await fetch(`${API_BASE}${path}`, {
@@ -51,7 +55,7 @@ export async function generateWorld(prompt: string): Promise<WorldResult> {
     return { type: 'recipe', recipe: parsed.recipe, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
     console.warn('generateWorld fell back to offline mode:', e);
-    return localWorld(prompt);
+    return { ...localWorld(prompt), ...offlineNotice(e) };
   }
 }
 
@@ -65,15 +69,18 @@ export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext
     return { type: 'ops', ops: ops.data, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
     console.warn('editWorld fell back to offline mode:', e);
-    return localEdit(recipe, prompt, ctx);
+    return { ...localEdit(recipe, prompt, ctx), ...offlineNotice(e) };
   }
 }
 
 const NONE: AssetResult = { status: 'none' };
-/** The backend could not be reached or could not answer now (network, timeout, 429, 5xx, unreadable body). */
+/** The backend could not be reached or could not answer now (network, 429, 5xx, unreadable body). */
 const DOWN: AssetResult = { status: 'none', transient: true };
+/** The request timed out: transient for this lookup only (a slow online search or download), not "the backend is down". */
+const SLOW: AssetResult = { status: 'none', transient: true, timeout: true };
+const isTimeout = (e: unknown): boolean => e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
 /** Only a definitive client error (a 4xx other than 429) is a real "no model"; every other failure is transient. */
-const failed = (e: unknown): AssetResult => (e instanceof HttpError && e.status < 500 && e.status !== 429 ? NONE : DOWN);
+const failed = (e: unknown): AssetResult => (isTimeout(e) ? SLOW : e instanceof HttpError && e.status < 500 && e.status !== 429 ? NONE : DOWN);
 const absolute = (url: string): string => (url.startsWith('/') ? `${API_BASE}${url}` : url);
 
 /** Validate an asset response; anything malformed becomes `none` (placeholder). Credit is third-party text: render with textContent only. */

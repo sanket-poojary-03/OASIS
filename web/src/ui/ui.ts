@@ -8,6 +8,8 @@ export interface UIHandlers {
   confirm(): void;
   cancel(): void;
   director(): void;
+  /** Leave the current world for the start screen (HUD button or N). */
+  newWorld(): void;
 }
 
 const EXAMPLES = [
@@ -46,6 +48,7 @@ export class UI {
   private readonly checks = el('div', 'checks hidden');
   private readonly source = el('div', 'source');
   private readonly toastEl = el('div', 'toast hidden');
+  private readonly back = el('button', 'secondary hidden', 'Back to my world');
   private toastTimer = 0;
 
   constructor(root: HTMLElement, private readonly h: UIHandlers) {
@@ -64,13 +67,20 @@ export class UI {
     go.onclick = () => { if (this.prompt.value.trim().length >= 3) h.generate(this.prompt.value.trim()); };
     const demo = el('button', 'secondary', '▶ Watch the demo');
     demo.onclick = () => h.director();
+    this.back.onclick = () => { this.showStart(false); this.showHud(true); };
     const actions = el('div', 'actions');
-    actions.append(go, demo);
+    actions.append(go, demo, this.back);
     this.start.append(this.prompt, chips, actions, this.healthLine);
     // busy overlay
     this.busy.append(this.busyText, this.logList);
     // hud
-    this.hud.append(el('div', 'crosshair', '+'), el('div', 'help', 'WASD move · Shift run · Space jump/swim · E use · T talk to the world · V camera · U undo · C checks'), this.source);
+    const newWorld = el('button', 'secondary new-world', 'New world (N)');
+    newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
+    this.hud.append(
+      el('div', 'crosshair', '+'),
+      el('div', 'help', 'WASD move · Shift run · Space jump/swim · E use · T talk to the world · V camera · U undo · C checks · N new world'),
+      this.source, newWorld,
+    );
     // command bar
     this.commandInput.placeholder = 'Tell the world what to change… e.g. “make it night”, “put a lighthouse there”';
     this.commandInput.maxLength = 400;
@@ -89,7 +99,19 @@ export class UI {
 
   showStart(show: boolean): void {
     this.start.classList.toggle('hidden', !show);
-    if (!show) blurWithin(this.start);
+    if (!show) { blurWithin(this.start); this.back.classList.add('hidden'); }
+  }
+
+  /** The start screen over a running world (I7): HUD and panels step aside, and "Back to my world" returns to it. */
+  showStartOver(): void {
+    this.closeCommand();
+    this.hidePreview();
+    this.setHint(null);
+    this.setCard(null);
+    this.checks.classList.add('hidden');
+    this.showHud(false);
+    this.back.classList.remove('hidden');
+    this.showStart(true);
   }
   setHealth(text: string): void { this.healthLine.textContent = text; }
 

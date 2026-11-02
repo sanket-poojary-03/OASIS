@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Wildlife } from '../../src/logic/wildlife';
 import type { BuiltWorld } from '../../src/world/build';
 import type { WorldField } from '../../src/world/field';
@@ -52,5 +52,18 @@ describe('Wildlife', () => {
     expect(disposed).toBe(0);
     for (let i = 0; i < 50; i++) w.update(0.5, i, new THREE.Vector3(0, 0, 0), field);
     for (const m of w.group.children) expect(water(m.position.x)).toBe(false);
+  });
+  it('ignores a template that cannot be cloned and keeps the procedural animals (I5)', () => {
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(world);
+    const before = w.group.children.slice();
+    const bad = fakeTemplate(1.5);
+    bad.scene.clone = () => { throw new Error('broken rig'); };
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => w.useModel('deer', bad)).not.toThrow();
+    expect(w.group.children).toEqual(before); // nothing swapped, nothing lost
+    expect(() => w.rebuild(world)).not.toThrow(); // and the template was never registered
+    expect(w.group.children.filter((g) => g.getObjectByName('body'))).toHaveLength(0);
+    expect(w.group.children).toHaveLength(before.length);
   });
 });
