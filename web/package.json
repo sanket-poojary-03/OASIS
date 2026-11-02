@@ -17,6 +17,9 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
     "simplex-noise": "^4.0.3",
