@@ -6,6 +6,7 @@
 - Endless chunked noise terrain plus a 1024 m authored core.
 
 ## 2026-11-02
+- Task 23 (M7): `wait(ms)` lives in `web/src/ui/wait.ts`; `ui.ts` imports it and Task 25's director should import it too instead of redefining it.
 - Task 16 (M4): `app.ts` has no `// @hook:after-load` / `// @hook:frame` comments. Tasks 20 and 21 wire in through `main.ts` (via `WorldObjects.onReady`/`onCleared` callbacks and `engine.onUpdate`), and Task 24 replaces `app.ts`. `App.load` also frees the old bridge colliders before adding new ones.
 - Task 7 (M16): `findSpawn` no longer falls back to `placements[0]`. With no settlement it searches outward from (0, 0) for dry, gentle ground (spec 8.6, "otherwise near the centre"); if the ring around a settlement is all wet or steep it does the same centre search before a last-resort (0, 0). Covered by a fallback test.
 - Task 5 fix round 1 (field.ts): pad influence now fades continuously with distance from water (`landWeight`) instead of a boolean switch, removing the terrain step; the lake carve starts at `radius` (not 0.5 radius) so the whole lake disc is below `levelY`; `isWater` now means inside the channel/lake/sea AND `heightAt < waterSurfaceAt`. The river surface stays `baseHeight - 1.5` because the carve is at least 2.3 m deep inside the wet width, so it is always below that surface (a flat-across-channel surface was not needed).
