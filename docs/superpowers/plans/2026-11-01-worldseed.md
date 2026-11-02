@@ -7709,7 +7709,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `App.generate`, `App.command`, `App.confirm`, `App.cinematic` (Task 24); `UI.typeStart`, `UI.typeCommand`, `UI.toast` (Task 23).
 - Produces: `runDirector(app, ui): Promise<void>`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 `web/src/logic/director.ts`:
 ```ts
@@ -7760,7 +7760,7 @@ Expected:
 - Control returns to you at the end.
 - It works the same in offline mode.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add web/src/logic/director.ts
