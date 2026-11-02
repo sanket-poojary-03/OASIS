@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import type { Collider } from '@dimforge/rapier3d-compat';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
 import { fitToHeight } from './fit';
+import { addNightGlow } from './nightGlow';
 import { buildPlaceholder } from './placeholders';
 
 export interface ObjectInfo {
@@ -37,6 +39,17 @@ const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
   structure: { small: 4, medium: 6, large: 9 },
   prop: { small: 1, medium: 1.6, large: 2.4 },
 };
+
+/**
+ * A placed copy of a loaded model. SkeletonUtils.clone gives a rigged model its own bones (Object3D.clone would keep
+ * skinning it with the template's bones, which are not in the scene: drawn at the origin, unscaled). Unrigged models
+ * clone as usual. A skinned mesh's bounds come from the bind pose, so it is never frustum-culled by them.
+ */
+export function cloneModel(object: THREE.Object3D): THREE.Object3D {
+  const copy = SkeletonUtils.clone(object);
+  copy.traverse((o) => { if (o instanceof THREE.SkinnedMesh) o.frustumCulled = false; });
+  return copy;
+}
 
 /** Scale to a target height, centre on x/z, stand on y = 0. Returns a group named "content". */
 export function normalizeTo(object: THREE.Object3D, height: number): THREE.Group {
@@ -112,7 +125,9 @@ export class WorldObjects {
     for (const cb of this.onReady) cb(root, s.info);
     void this.models.load(s.asset, s.kind, s.variant).then((res) => {
       if (!res || version !== this.version) return;
-      this.setContent(root, normalizeTo(res.object.clone(true), s.height));
+      const content = normalizeTo(cloneModel(res.object), s.height);
+      addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
+      this.setContent(root, content);
       s.info.source = res.source;
       s.info.credit = res.credit;
       this.refreshCollider(entry);

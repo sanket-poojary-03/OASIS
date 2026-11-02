@@ -30,12 +30,31 @@ export class Engine {
   }
 
   start(): void {
-    this.renderer.setAnimationLoop(() => {
-      this.timer.update();
-      const dt = Math.min(this.timer.getDelta(), 0.05);
-      const t = this.timer.getElapsed();
-      for (const u of this.updaters) u(dt, t);
-      if (this.postfx) this.postfx.render(); else this.renderer.render(this.scene, this.camera);
-    });
+    this.renderer.setAnimationLoop(() => this.tick());
   }
+
+  /**
+   * One frame. A throwing updater or render is caught (and logged once per distinct error), so one bad frame or system
+   * never freezes the whole app: the other updaters and the render still run.
+   */
+  tick(): void {
+    this.timer.update();
+    const dt = Math.min(this.timer.getDelta(), 0.05);
+    const t = this.timer.getElapsed();
+    for (const u of this.updaters) {
+      try { u(dt, t); } catch (e) { warnOnce('frame update', e); }
+    }
+    try {
+      if (this.postfx) this.postfx.render(); else this.renderer.render(this.scene, this.camera);
+    } catch (e) { warnOnce('render', e); }
+  }
+}
+
+const warned = new Set<string>();
+/** console.warn once per distinct error (a per-frame error would otherwise flood the console). */
+export function warnOnce(where: string, e: unknown): void {
+  const key = `${where}: ${e instanceof Error ? `${e.name} ${e.message}` : String(e)}`;
+  if (warned.has(key) || warned.size >= 50) return;
+  warned.add(key);
+  console.warn(`[engine] ${where} failed; the app keeps running (this error is logged once)`, e);
 }
