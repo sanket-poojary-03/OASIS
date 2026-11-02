@@ -113,3 +113,43 @@ describe('AssetModelSource caching', () => {
     expect(resolve).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('AssetModelSource variants (every house its own library model)', () => {
+  const variantRig = (answer: (query: string, variant: number) => AssetResult) => {
+    const resolve = vi.fn(async (q: string, _k: unknown, _g: boolean, _o?: boolean, v = 0) => answer(q, v));
+    const loadGltf = vi.fn(async () => ({ scene: new THREE.Group() }));
+    const src = new AssetModelSource(() => false, { resolve, loadGltf, now: () => 1, sleep: async () => {} });
+    return { src, resolve, loadGltf };
+  };
+
+  it('asks for each library variant once, passes it on, and loads a shared GLB URL once', async () => {
+    const { src, resolve, loadGltf } = variantRig((_q, v) => ({ status: 'ready', source: 'library', url: `http://x/house-${v % 2}.glb` }));
+    const [h0, h1, h2] = await Promise.all([src.load('house', 'structure', 0), src.load('house', 'structure', 1), src.load('house', 'structure', 2)]);
+    expect(h0 && h1 && h2).toBeTruthy();
+    expect(resolve.mock.calls.map((c) => c[4]).sort()).toEqual([0, 1, 2]);
+    expect(resolve.mock.calls.every((c) => c[3] === true)).toBe(true);
+    expect(loadGltf).toHaveBeenCalledTimes(2); // variant 2 is the same file as variant 0
+    await src.load('house', 'structure', 1);
+    expect(resolve).toHaveBeenCalledTimes(3);
+  });
+
+  it('a base miss costs one request for the whole village (empty library)', async () => {
+    const { src, resolve } = variantRig(() => NONE);
+    for (let v = 0; v < 8; v++) expect(await src.load('house', 'structure', v)).toBeNull();
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('an online or generated base model is reused for every variant without asking again', async () => {
+    const { src, resolve } = variantRig(() => ({ status: 'ready', source: 'online', url: 'http://x/hut.glb' }));
+    const a = await src.load('hut', 'structure', 0);
+    expect(await src.load('hut', 'structure', 4)).toBe(a);
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed variant falls back to the base model; variants are clamped to the backend range', async () => {
+    const { src, resolve } = variantRig((_q, v) => (v === 0 ? READY : DOWN));
+    const base = await src.load('house', 'structure', 0);
+    expect(await src.load('house', 'structure', 500)).toBe(base);
+    expect(resolve.mock.calls[1][4]).toBe(99);
+  });
+});

@@ -21,7 +21,7 @@ self.onmessage = (e: MessageEvent) => {
       return;
     }
     const data = computeChunk(field, m.cx, m.cz);
-    post({ type: 'chunk', generation, data }, [data.positions.buffer, data.normals.buffer, data.colors.buffer, data.indices.buffer]);
+    post({ type: 'chunk', generation, data }, [data.positions.buffer, data.normals.buffer, data.colors.buffer, data.indices.buffer, data.grass.buffer]);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (m.type === 'init') post({ type: 'error', generation: m.generation, message });

@@ -88,9 +88,18 @@ function toAsset(data: unknown): AssetResult {
   return NONE;
 }
 
-export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean): Promise<AssetResult> {
+/** The backend AssetRequest accepts variant 0..99. */
+export const MAX_VARIANT = 99;
+export const clampVariant = (v: number): number => Math.max(0, Math.min(MAX_VARIANT, Math.floor(v) || 0));
+
+/**
+ * `allowOnline = false` keeps the lookup to the CC0 library and the model cache (the base art must be instant and
+ * consistent). `variant` rotates between equally good library models, so the houses of a village differ.
+ */
+export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean, allowOnline = true, variant = 0): Promise<AssetResult> {
   try {
-    return toAsset(await post('/api/assets/resolve', { query: clip(query, 120), kind, allowGenerate }, 20000));
+    const body = { query: clip(query, 120), kind, allowGenerate, allowOnline, variant: clampVariant(variant) };
+    return toAsset(await post('/api/assets/resolve', body, 20000));
   } catch (e) {
     return failed(e);
   }

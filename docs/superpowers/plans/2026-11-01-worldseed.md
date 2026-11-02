@@ -7275,7 +7275,7 @@ Goal: make the world something people want to explore. Every tree, rock, house, 
   - `resolveAsset(query, kind, allowGenerate, allowOnline = true, variant = 0)`
   - `ModelSource.load(asset, kind, variant?)`
 
-- [ ] **Step 1: Grass positions in chunk data (test first)**
+- [x] **Step 1: Grass positions in chunk data (test first)**
 
 Add to `web/tests/world/chunkData.test.ts`, inside the `describe`:
 ```ts
@@ -7321,7 +7321,7 @@ export function grassChunk(field: WorldField, cx: number, cz: number): Float32Ar
 In `web/src/render/chunkWorker.ts`, add `data.grass.buffer` to the transfer list.
 Run the test again. Expected: PASS.
 
-- [ ] **Step 2: Grass system (instanced tufts with wind in the vertex shader)**
+- [x] **Step 2: Grass system (instanced tufts with wind in the vertex shader)**
 
 `web/src/render/grass.ts`:
 ```ts
@@ -7388,7 +7388,7 @@ export class GrassSystem {
 }
 ```
 
-- [ ] **Step 3: Chunk manager draws grass on the 3×3 chunks around the player**
+- [x] **Step 3: Chunk manager draws grass on the 3×3 chunks around the player**
 
 In `web/src/render/chunkManager.ts`:
 - Import `import type { GrassSystem } from './grass';`
@@ -7402,7 +7402,7 @@ In `web/src/render/chunkManager.ts`:
 - In `receive`, build the chunk with `grassData: d.grass, grass: null`.
 - In `drop`, before deleting, add `if (c.grass) { this.group.remove(c.grass); c.grass.dispose(); }`.
 
-- [ ] **Step 4: Pack models for scatter**
+- [x] **Step 4: Pack models for scatter**
 
 In `web/src/render/scatterAssets.ts`, add the field `private readonly models = new Map<ScatterKind, { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>();` and this method:
 ```ts
@@ -7437,7 +7437,7 @@ In `instance()`, replace `new THREE.InstancedMesh(this.geometry(kind), this.mate
       const mesh = new THREE.InstancedMesh(model?.geometry ?? this.geometry(kind), model?.material ?? this.material, list.length);
 ```
 
-- [ ] **Step 5: Animated models, avatar and art loader**
+- [x] **Step 5: Animated models, avatar and art loader**
 
 `web/src/render/animated.ts`:
 ```ts
@@ -7566,7 +7566,7 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, avatar
 ```
 Add `import type * as THREE from 'three';` at the top of `artLoader.ts`.
 
-- [ ] **Step 6: Glow pass**
+- [x] **Step 6: Glow pass**
 
 `web/src/render/postfx.ts`:
 ```ts
@@ -7601,7 +7601,7 @@ export class PostFX {
 ```
 In `web/src/render/engine.ts`, add the field `postfx: { render(): void } | null = null;` and replace `this.renderer.render(this.scene, this.camera);` in `start()` with `if (this.postfx) this.postfx.render(); else this.renderer.render(this.scene, this.camera);`.
 
-- [ ] **Step 7: Player flags, animal models, house variants, client params**
+- [x] **Step 7: Player flags, animal models, house variants, client params**
 
 `web/src/player/player.ts`:
 - Add the fields `moving = false;` and `running = false;` next to `seated = false;`.
@@ -7643,7 +7643,7 @@ export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate
 - Places get `variant: 0`. Buildings get `variant: Number(b.id.split('-').pop()) || 0`, so `village-house-3` → 3 and every house looks different.
 - Call `this.models.load(s.asset, s.kind, s.variant)`.
 
-- [ ] **Step 8: Wire it into the app**
+- [x] **Step 8: Wire it into the app**
 
 In `web/src/app.ts`:
 - Add the imports:
@@ -7691,7 +7691,7 @@ Browser, with the backend running and the catalogue from Task 19b in place:
 
 Take 3 screenshots (valley at dawn, village at night, island beach) and save them to `docs/screenshots/`. They go in the README and the video.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add web/src web/tests docs/screenshots

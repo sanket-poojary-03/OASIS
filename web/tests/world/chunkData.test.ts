@@ -38,6 +38,28 @@ describe('computeChunk', () => {
     }
   });
 
+  it('packs grass tufts as x,y,z,rot,scale on dry grassy ground, deterministically', () => {
+    const field = createField(loadRecipeFixture('fishing-valley'));
+    const a = computeChunk(field, 2, 2), b = computeChunk(field, 2, 2);
+    expect(a.grass.length % 5).toBe(0);
+    expect(Array.from(a.grass)).toEqual(Array.from(b.grass));
+    for (let i = 0; i < a.grass.length; i += 5) {
+      expect(field.isWater(a.grass[i], a.grass[i + 2])).toBe(false);
+      expect(a.grass[i + 1]).toBeCloseTo(field.heightAt(a.grass[i], a.grass[i + 2]), 4);
+    }
+  });
+
+  it('has one grass: wind-grass tufts in chunk data, no procedural grass in the scatter (M17)', () => {
+    const field = createField(loadRecipeFixture('fishing-valley'));
+    let tufts = 0;
+    for (const [cx, cz] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [2, 2], [-2, 1]]) {
+      const c = computeChunk(field, cx, cz);
+      tufts += c.grass.length / 5;
+      expect(c.scatter.filter((s) => (s.kind as string) === 'grass')).toEqual([]);
+    }
+    expect(tufts).toBeGreaterThan(100);
+  });
+
   it('is independent of generation order', () => {
     const field = createField(loadRecipeFixture('snowy-mountains'));
     const first = computeChunk(field, 1, -2);

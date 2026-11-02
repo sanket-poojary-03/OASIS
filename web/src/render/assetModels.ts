@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { assetJob, resolveAsset } from '../api/client';
+import { assetJob, clampVariant, resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
 import type { PlaceKind } from '../core/recipe';
 import type { ModelSource } from './worldObjects';
@@ -15,7 +15,7 @@ export const TRANSIENT_TTL_MS = 45_000;
 export const BREAKER_MS = 30_000;
 
 export interface AssetDeps {
-  resolve?: (query: string, kind: PlaceKind, allowGenerate: boolean) => Promise<AssetResult>;
+  resolve?: (query: string, kind: PlaceKind, allowGenerate: boolean, allowOnline?: boolean, variant?: number) => Promise<AssetResult>;
   job?: (id: string) => Promise<AssetResult>;
   loadGltf?: (url: string) => Promise<{ scene: THREE.Object3D }>;
   now?: () => number;
@@ -27,9 +27,12 @@ export interface AssetDeps {
  * for up to 5 min. `none` or any failure resolves null so the caller keeps the placeholder. World rebuilds call load()
  * for every object, so: successes and in-flight requests are shared per asset; misses are remembered with an expiry;
  * and a transport failure opens a source-wide breaker so an offline edit costs no requests at all.
+ * Variants (house 0, 1, 2…) ride on the base lookup: a variant is asked for only when the base model came from the
+ * library (only library ties rotate), and identical GLB URLs are loaded once.
  */
 export class AssetModelSource implements ModelSource {
   private readonly cache = new Map<string, Promise<Loaded>>();
+  private readonly gltfs = new Map<string, Promise<{ scene: THREE.Object3D }>>();
   private readonly misses = new Map<string, number>();
   private offlineUntil = 0;
   private tripped = false;
@@ -57,15 +60,23 @@ export class AssetModelSource implements ModelSource {
     this.probing = false;
   }
 
-  load(asset: string, kind: PlaceKind): Promise<Loaded> {
-    const key = `${kind}:${asset.toLowerCase().trim()}`;
+  load(asset: string, kind: PlaceKind, variant = 0): Promise<Loaded> {
+    const base = `${kind}:${asset.toLowerCase().trim()}`;
+    const v = clampVariant(variant);
+    const first = this.request(base, asset, kind, 0);
+    if (v === 0) return first;
+    // No model, or an online/generated one (the same for every variant): no extra request. A failed variant keeps the base.
+    return first.then((b) => (b?.source === 'library' ? this.request(`${base}#${v}`, asset, kind, v).then((r) => r ?? b) : b));
+  }
+
+  private request(key: string, asset: string, kind: PlaceKind, variant: number): Promise<Loaded> {
     const known = this.cache.get(key);
     if (known) return known;
     const now = this.now();
     if ((this.misses.get(key) ?? 0) > now) return Promise.resolve(null);
     if (this.tripped && (now < this.offlineUntil || this.probing)) return Promise.resolve(null);
     if (this.tripped) this.probing = true; // breaker window over: this request is the one probe
-    const p = this.fetch(asset, kind).then(({ value, retryAfter }) => {
+    const p = this.fetch(asset, kind, variant).then(({ value, retryAfter }) => {
       if (value === null) {
         if (this.cache.get(key) === p) this.cache.delete(key);
         this.misses.set(key, this.now() + retryAfter);
@@ -87,9 +98,20 @@ export class AssetModelSource implements ModelSource {
     this.probing = false;
   }
 
-  private async fetch(asset: string, kind: PlaceKind): Promise<{ value: Loaded; retryAfter: number }> {
+  /** One GLB per URL: variants that resolve to the same library file share the parsed scene (callers clone it). */
+  private gltf(url: string): Promise<{ scene: THREE.Object3D }> {
+    let p = this.gltfs.get(url);
+    if (!p) {
+      p = this.loadGltf(url);
+      this.gltfs.set(url, p);
+      p.catch(() => { if (this.gltfs.get(url) === p) this.gltfs.delete(url); });
+    }
+    return p;
+  }
+
+  private async fetch(asset: string, kind: PlaceKind, variant: number): Promise<{ value: Loaded; retryAfter: number }> {
     const miss = (r: AssetResult) => ({ value: null, retryAfter: r.status === 'none' && !r.transient ? MISS_TTL_MS : TRANSIENT_TTL_MS });
-    let res = await this.resolve(asset, kind, this.allowGenerate(kind));
+    let res = await this.resolve(asset, kind, this.allowGenerate(kind), true, variant);
     this.noteTransport(res);
     let flaky = 0;
     for (let i = 0; res.status === 'pending' && res.jobId && i < 60; i++) {
@@ -102,7 +124,7 @@ export class AssetModelSource implements ModelSource {
     }
     if (res.status !== 'ready' || !res.url) return miss(res);
     try {
-      const gltf = await this.loadGltf(res.url);
+      const gltf = await this.gltf(res.url);
       return { value: { object: gltf.scene, source: res.source ?? 'generated', credit: res.credit }, retryAfter: 0 };
     } catch {
       return { value: null, retryAfter: TRANSIENT_TTL_MS };

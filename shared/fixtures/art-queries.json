@@ -1,0 +1,16 @@
+{
+  "scatter": [
+    { "kind": "tree", "query": "tree", "height": 6 },
+    { "kind": "pine", "query": "pine tree", "height": 7 },
+    { "kind": "dead_tree", "query": "dead tree", "height": 5 },
+    { "kind": "bush", "query": "bush", "height": 1.1 },
+    { "kind": "rock", "query": "rock", "height": 1.2 },
+    { "kind": "cactus", "query": "cactus", "height": 2.6 },
+    { "kind": "reed", "query": "reed", "height": 1.4 }
+  ],
+  "rigged": [
+    { "use": "player", "query": "adventurer character", "height": 1.8 },
+    { "use": "deer", "query": "deer", "height": 1.5 },
+    { "use": "rabbit", "query": "rabbit", "height": 0.45 }
+  ]
+}
