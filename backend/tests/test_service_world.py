@@ -5,7 +5,7 @@ from app.llm import LLMError
 from app.mock import prompt_seed
 from app.prompts import PROMPT_VERSION
 from app.schemas import FIXTURES_DIR
-from app.service import WorldService
+from app.service import AIUnavailable, WorldService
 from tests.conftest import FakeLLM
 
 
@@ -25,9 +25,9 @@ def test_retry_after_invalid_answer(tmp_path, valley_json):
     assert "invalid" in llm.calls[1][1]
 
 
-def test_falls_back_to_mock_after_two_failures(tmp_path):
-    out = WorldService(FakeLLM("garbage", "still garbage"), FileCache(tmp_path)).generate("desert canyon")
-    assert out["source"] == "mock" and "preset" in out["notes"][0]
+def test_two_bad_answers_raise_instead_of_faking_a_world(tmp_path):
+    with pytest.raises(AIUnavailable):
+        WorldService(FakeLLM("garbage", "still garbage"), FileCache(tmp_path)).generate("desert canyon")
 
 
 def test_unsupported_passes_through(tmp_path):
@@ -35,14 +35,15 @@ def test_unsupported_passes_through(tmp_path):
     assert out == {"type": "unsupported", "reason": "nope", "source": "live"}
 
 
-def test_llm_error_falls_back(tmp_path):
+def test_llm_error_raises(tmp_path):
     class Broken:
         model = "b"
 
         def complete(self, s, u):
             raise LLMError("down")
 
-    assert WorldService(Broken(), FileCache(tmp_path)).generate("island")["source"] == "mock"
+    with pytest.raises(AIUnavailable):
+        WorldService(Broken(), FileCache(tmp_path)).generate("island")
 
 
 def test_no_llm_uses_mock(tmp_path):
@@ -73,7 +74,7 @@ def test_cache_put_leaves_no_temp_files(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["k.json"]
 
 
-def test_unexpected_type_error_falls_back(tmp_path, caplog):
+def test_unexpected_type_error_raises(tmp_path, caplog):
     class Odd:
         model = "o"
 
@@ -81,5 +82,6 @@ def test_unexpected_type_error_falls_back(tmp_path, caplog):
             return ["not", "a", "string"]
 
     with caplog.at_level("WARNING"):
-        out = WorldService(Odd(), FileCache(tmp_path)).generate("island")
-    assert out["source"] == "mock" and "Falling back" in caplog.text
+        with pytest.raises(AIUnavailable):
+            WorldService(Odd(), FileCache(tmp_path)).generate("island")
+    assert "AI unavailable" in caplog.text

@@ -12,21 +12,35 @@ const asSource = (v: unknown): Source => (SOURCES.includes(v as Source) ? (v as 
 const clip = (s: string, max: number): string => s.slice(0, max);
 const asNotes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string') : []);
 
-/** A non-2xx answer. Network errors and timeouts throw the fetch error instead. */
+/** A non-2xx answer; `detail` is the backend's FastAPI message when it sent one. Network errors and timeouts throw the fetch error instead. */
 class HttpError extends Error {
-  constructor(readonly status: number, path: string) { super(`${path} -> ${status}`); }
+  constructor(readonly status: number, path: string, readonly detail?: string) { super(`${path} -> ${status}`); }
 }
 
-/** Shown when the backend refused with 429 (per-IP or daily AI budget) and the offline mock answered instead. */
-export const BUSY_NOTICE = 'The AI is busy — using offline mode for a few minutes.';
-const offlineNotice = (e: unknown): { notice?: string } => (e instanceof HttpError && e.status === 429 ? { notice: BUSY_NOTICE } : {});
+/** The backend answered 200 but with something that does not validate here. */
+class BadAnswer extends Error {}
+
+/** AI only: when the backend is reachable but the AI cannot answer, the player sees why and the world stays as it is. */
+export const AI_BUSY = 'The AI is busy right now. Please try again in a moment.';
+export const AI_BAD_ANSWER = 'The AI gave an answer that could not be used. Please try again.';
+/** Offline mode is only for a backend that cannot be reached at all (fetch itself failed); everything else is an AI error. */
+const unreachable = (e: unknown): boolean => e instanceof TypeError;
+const aiError = (e: unknown): { type: 'unsupported'; reason: string; source: Source } => ({
+  type: 'unsupported',
+  reason: e instanceof HttpError ? (e.detail ?? AI_BUSY).slice(0, 300) : e instanceof BadAnswer ? AI_BAD_ANSWER : AI_BUSY,
+  source: 'live',
+});
 
 /** Throws on network error, timeout, any non-2xx (incl. 429/5xx; an HttpError) or non-JSON body. */
 async function post(path: string, body: unknown, timeoutMs = 45000): Promise<Record<string, unknown>> {
   const r = await fetch(`${API_BASE}${path}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!r.ok) throw new HttpError(r.status, path);
+  if (!r.ok) {
+    const body: unknown = await r.json().catch(() => null);
+    const detail = typeof body === 'object' && body !== null ? (body as Record<string, unknown>).detail : undefined;
+    throw new HttpError(r.status, path, typeof detail === 'string' ? detail : undefined);
+  }
   const data: unknown = await r.json();
   if (typeof data !== 'object' || data === null) throw new Error(`${path}: bad response`);
   return data as Record<string, unknown>;
@@ -46,30 +60,32 @@ export async function health(): Promise<{ ok: boolean; provider: string } | null
 }
 
 export async function generateWorld(prompt: string): Promise<WorldResult> {
+  if (prompt.trim().length < 3) return { type: 'unsupported', reason: 'Describe your world in a few more words.', source: 'live' };
   try {
-    if (prompt.trim().length < 3) throw new Error('prompt too short');
-    const data = await post('/api/world', { prompt: clip(prompt, 600) });
+    const data = await post('/api/world', { prompt: clip(prompt, 600) }, 90000);
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
     const parsed = parseRecipe(data.recipe);
-    if (!parsed.ok) throw new Error(parsed.error);
+    if (!parsed.ok) throw new BadAnswer(parsed.error);
     return { type: 'recipe', recipe: parsed.recipe, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
-    console.warn('generateWorld fell back to offline mode:', e);
-    return { ...localWorld(prompt), ...offlineNotice(e) };
+    if (!unreachable(e)) { console.warn('generateWorld: AI unavailable:', e); return aiError(e); }
+    console.warn('generateWorld: backend unreachable, offline mode:', e);
+    return localWorld(prompt);
   }
 }
 
 export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext): Promise<EditResult> {
+  if (prompt.trim().length < 2) return { type: 'unsupported', reason: 'Type a change, like "make it night".', source: 'live' };
   try {
-    if (prompt.trim().length < 2) throw new Error('prompt too short');
-    const data = await post('/api/edit', { recipe, prompt: clip(prompt, 400), context: ctx });
+    const data = await post('/api/edit', { recipe, prompt: clip(prompt, 400), context: ctx }, 90000);
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
     const ops = opsSchema.safeParse(data.ops);
-    if (!ops.success) throw new Error(ops.error.message);
+    if (!ops.success) throw new BadAnswer(ops.error.message);
     return { type: 'ops', ops: ops.data, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
-    console.warn('editWorld fell back to offline mode:', e);
-    return { ...localEdit(recipe, prompt, ctx), ...offlineNotice(e) };
+    if (!unreachable(e)) { console.warn('editWorld: AI unavailable:', e); return aiError(e); }
+    console.warn('editWorld: backend unreachable, offline mode:', e);
+    return localEdit(recipe, prompt, ctx);
   }
 }
 

@@ -15,3 +15,10 @@ def test_validation_and_rate_limit(tmp_path):
     assert client.post("/api/world", json={"prompt": "x"}).status_code == 422
     assert client.post("/api/world", json={"prompt": "valley"}).status_code == 200
     assert client.post("/api/world", json={"prompt": "valley"}).status_code == 429
+
+
+def test_ai_failure_is_503_not_a_fake_world(tmp_path):
+    from tests.conftest import FakeLLM
+    client = TestClient(create_app(llm=FakeLLM("garbage", "garbage"), cache_dir=tmp_path))
+    r = client.post("/api/world", json={"prompt": "a quiet island"})
+    assert r.status_code == 503 and "AI" in r.json()["detail"]

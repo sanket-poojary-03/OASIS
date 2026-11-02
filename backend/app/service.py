@@ -21,6 +21,12 @@ class Completer(Protocol):
 log = logging.getLogger(__name__)
 
 
+class AIUnavailable(Exception):
+    """The AI could not give a usable answer (busy, down, or invalid twice). Never replaced by a fake keyword world."""
+
+    MESSAGE = "The AI is busy right now. Please try again in a moment."
+
+
 def _notes(data: dict) -> list[str]:
     notes = data.get("notes")
     if not isinstance(notes, list):
@@ -52,10 +58,8 @@ class WorldService:
             if out["type"] == "recipe":
                 self.cache.put(key, out)
             return out
-        log.warning("Falling back to mock world")
-        out = mock_world(prompt)
-        out["notes"] = ["The AI answer was unusable, so a preset world was used.", *out["notes"]]
-        return out
+        log.warning("AI unavailable for world prompt")
+        raise AIUnavailable(AIUnavailable.MESSAGE)
 
     def edit(self, req: EditRequest) -> dict:
         if self.llm is None:
@@ -68,11 +72,11 @@ class WorldService:
         out = self._ask(edit_system_prompt(req), req.prompt, validate)
         if out is not None:
             return out
-        log.warning("Falling back to mock edit")
-        return mock_edit(req)
+        log.warning("AI unavailable for edit")
+        raise AIUnavailable(AIUnavailable.MESSAGE)
 
     def _ask(self, system: str, user: str, validate: Callable[[dict], dict]) -> dict | None:
-        """Ask the LLM, validate, retry once with the error. None means fall back to the mock."""
+        """Ask the LLM, validate, retry once with the error. None means the AI is unavailable."""
         prompt = user
         for _ in range(2):
             try:

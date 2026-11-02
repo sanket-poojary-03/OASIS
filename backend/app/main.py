@@ -14,7 +14,7 @@ from .clientip import client_ip as forwarded_client
 from .llm import LLMClient
 from .ratelimit import RateLimiter
 from .schemas import AssetRequest, EditRequest, WorldRequest
-from .service import WorldService
+from .service import AIUnavailable, WorldService
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -77,12 +77,18 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
     @app.post("/api/world")
     def post_world(req: WorldRequest, request: Request) -> dict:
         guard(request)
-        return world.generate(req.prompt)
+        try:
+            return world.generate(req.prompt)
+        except AIUnavailable as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
 
     @app.post("/api/edit")
     def post_edit(req: EditRequest, request: Request) -> dict:
         guard(request)
-        return world.edit(req)
+        try:
+            return world.edit(req)
+        except AIUnavailable as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
 
     @app.post("/api/assets/resolve")
     def post_resolve(req: AssetRequest, request: Request) -> dict:

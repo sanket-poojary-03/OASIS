@@ -29,7 +29,7 @@ def test_client_posts_openai_compatible_request():
 
 
 def test_client_wraps_http_errors():
-    client = LLMClient("https://example.test/v1", "k", "m", transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    client = LLMClient("https://example.test/v1", "k", "m", transport=httpx.MockTransport(lambda r: httpx.Response(500)), sleep=lambda s: None)
     with pytest.raises(LLMError):
         client.complete("s", "u")
 
@@ -46,3 +46,51 @@ def test_client_rejects_odd_content_as_llm_error():
         lambda r: httpx.Response(200, json={"choices": [{"message": {"content": 5}}]})))
     with pytest.raises(LLMError):
         client.complete("s", "u")
+
+
+def _reply(text: str = '{"ok": true}') -> httpx.Response:
+    return httpx.Response(200, json={"choices": [{"message": {"content": text}}]})
+
+
+def test_busy_model_is_retried_then_succeeds():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content)["model"])
+        return httpx.Response(429, json={"error": "busy"}) if len(calls) == 1 else _reply()
+
+    client = LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler), sleep=lambda s: None)
+    assert client.complete("sys", "hi") == '{"ok": true}'
+    assert calls == ["m1", "m1"]
+
+
+def test_busy_model_falls_back_to_backup_model():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        model = json.loads(request.content)["model"]
+        calls.append(model)
+        return httpx.Response(503) if model == "m1" else _reply()
+
+    client = LLMClient("https://x.test/v1", "k", "m1", fallback_models=["m2"], transport=httpx.MockTransport(handler), sleep=lambda s: None)
+    assert client.complete("sys", "hi") == '{"ok": true}'
+    assert calls[-1] == "m2" and calls.count("m1") >= 2
+
+
+def test_bad_request_is_not_retried():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(400)
+
+    client = LLMClient("https://x.test/v1", "k", "m1", fallback_models=["m2"], transport=httpx.MockTransport(handler), sleep=lambda s: None)
+    with pytest.raises(LLMError):
+        client.complete("sys", "hi")
+    assert len(calls) == 1
+
+
+def test_fallback_models_from_env(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.setenv("LLM_FALLBACK_MODELS", " a/b , ,c/d ")
+    assert LLMClient.from_env().fallback_models == ["a/b", "c/d"]

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BUSY_NOTICE, editWorld, generateWorld, resolveAsset } from '../../src/api/client';
+import { AI_BUSY, AI_BAD_ANSWER, editWorld, generateWorld, resolveAsset } from '../../src/api/client';
 import { loadRecipeFixture } from '../fixtures';
 
 const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -7,22 +7,43 @@ const ctx = { player: { x: 0, z: 0 }, lookAt: null, lookingAt: null, placements:
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('client fallbacks', () => {
-  it('falls back to the offline world on 429 and on an invalid recipe', async () => {
-    vi.stubGlobal('fetch', reply(429, { detail: 'slow down' }));
-    expect((await generateWorld('a desert')).source).toBe('offline');
-    vi.stubGlobal('fetch', reply(200, { type: 'recipe', recipe: { nope: 1 }, notes: [], source: 'live' }));
-    expect((await generateWorld('a desert')).source).toBe('offline');
-  });
-
-  it('falls back to the local edit on network error or bad ops', async () => {
+describe('AI only: a reachable backend never gets swapped for the offline mock', () => {
+  it('429 / 503 / 500 from /api/world or /api/edit become an "AI busy" message, never a keyword world', async () => {
     const r = loadRecipeFixture('fishing-valley');
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
-    expect((await editWorld(r, 'make it night', ctx)).source).toBe('offline');
-    vi.stubGlobal('fetch', reply(200, { type: 'ops', ops: [{ op: 'bogus' }], notes: [], source: 'live' }));
-    expect((await editWorld(r, 'make it night', ctx)).source).toBe('offline');
+    for (const status of [429, 500, 503]) {
+      vi.stubGlobal('fetch', reply(status, { detail: 'The AI is busy right now. Please try again in a moment.' }));
+      expect(await generateWorld('a desert')).toEqual({ type: 'unsupported', reason: 'The AI is busy right now. Please try again in a moment.', source: 'live' });
+      expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'unsupported', source: 'live' });
+    }
   });
 
+  it('a non-text or missing detail uses the default busy wording', async () => {
+    vi.stubGlobal('fetch', reply(503, {}));
+    expect(await generateWorld('a desert')).toMatchObject({ type: 'unsupported', reason: AI_BUSY });
+  });
+
+  it('an invalid recipe or ops from the backend is an error message, not a fallback', async () => {
+    const r = loadRecipeFixture('fishing-valley');
+    vi.stubGlobal('fetch', reply(200, { type: 'recipe', recipe: { nope: 1 }, notes: [], source: 'live' }));
+    expect(await generateWorld('a desert')).toMatchObject({ type: 'unsupported', reason: AI_BAD_ANSWER });
+    vi.stubGlobal('fetch', reply(200, { type: 'ops', ops: [{ op: 'bogus' }], notes: [], source: 'live' }));
+    expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'unsupported', reason: AI_BAD_ANSWER });
+  });
+
+  it('a timeout is "AI busy" (the backend is up but slow), not offline', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); }));
+    expect(await generateWorld('a desert')).toMatchObject({ type: 'unsupported', reason: AI_BUSY });
+  });
+
+  it('only an unreachable backend uses offline mode, labelled offline', async () => {
+    const r = loadRecipeFixture('fishing-valley');
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    expect(await generateWorld('a desert')).toMatchObject({ type: 'recipe', source: 'offline' });
+    expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'ops', source: 'offline' });
+  });
+});
+
+describe('asset fallbacks', () => {
   it('treats none and failures as placeholder, and absolutises library urls', async () => {
     vi.stubGlobal('fetch', reply(200, { status: 'none' }));
     expect((await resolveAsset('dragon', 'prop', false)).status).toBe('none');
@@ -31,19 +52,6 @@ describe('client fallbacks', () => {
     vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'online', url: '/assets/x.glb', credit: 'by <b>x</b> CC-BY' }));
     const ok = await resolveAsset('chair', 'prop', false);
     expect(ok.status === 'ready' && ok.url).toMatch(/^http.*\/assets\/x\.glb$/);
-  });
-});
-
-describe('rate-limited AI (I4)', () => {
-  it('a 429 from /api/world or /api/edit falls back offline with a "busy" notice; other failures carry none', async () => {
-    const r = loadRecipeFixture('fishing-valley');
-    vi.stubGlobal('fetch', reply(429, { detail: 'Too many requests. Wait a few minutes.' }));
-    expect(await generateWorld('a desert')).toMatchObject({ type: 'recipe', source: 'offline', notice: BUSY_NOTICE });
-    expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'ops', source: 'offline', notice: BUSY_NOTICE });
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
-    expect((await generateWorld('a desert')).notice).toBeUndefined();
-    vi.stubGlobal('fetch', reply(500, {}));
-    expect((await editWorld(r, 'make it night', ctx)).notice).toBeUndefined();
   });
 });
 

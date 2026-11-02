@@ -1,7 +1,8 @@
 import json
+import pytest
 from app.cache import FileCache
 from app.schemas import FIXTURES_DIR, EditRequest
-from app.service import WorldService
+from app.service import AIUnavailable, WorldService
 from tests.conftest import FakeLLM
 
 RECIPE = json.loads((FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8"))
@@ -15,9 +16,9 @@ def test_live_edit(tmp_path):
     assert "lookAt" in llm.calls[0][0]
 
 
-def test_invalid_twice_falls_back_to_mock(tmp_path):
-    out = WorldService(FakeLLM('{"type":"ops","ops":[{"op":"explode"}]}', "nope"), FileCache(tmp_path)).edit(REQ)
-    assert out["source"] == "mock" and out["ops"] == [{"op": "setAtmosphere", "time": "night"}]
+def test_invalid_twice_raises_instead_of_mock(tmp_path):
+    with pytest.raises(AIUnavailable):
+        WorldService(FakeLLM('{"type":"ops","ops":[{"op":"explode"}]}', "nope"), FileCache(tmp_path)).edit(REQ)
 
 
 def test_unsupported_passes_through(tmp_path):
