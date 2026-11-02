@@ -6394,7 +6394,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `KEYWORDS`, `pickFixture(prompt)`, `fixtureRecipe(name)`, `localWorld(prompt)`, `localEdit(recipe, prompt, ctx)`
   - `class AssetModelSource implements ModelSource`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `web/tests/api/localMock.test.ts`:
 ```ts
@@ -6451,12 +6451,12 @@ describe('localMock', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run tests/api/localMock.test.ts`
 Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `web/src/api/types.ts`:
 ```ts
@@ -6676,12 +6676,12 @@ export class AssetModelSource implements ModelSource {
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run tests/api/localMock.test.ts && npx tsc --noEmit`
 Expected: PASS, with no type errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src/api web/src/render/assetModels.ts web/tests/api
