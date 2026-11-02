@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeEditContext } from '../../src/api/editContext';
+import { makeEditContext, MAX_CONTEXT_LABEL, MAX_CONTEXT_PLACEMENTS } from '../../src/api/editContext';
 import { localEdit } from '../../src/api/localMock';
 import { loadRecipeFixture } from '../fixtures';
 
@@ -54,5 +54,16 @@ describe('makeEditContext (strict /api/edit context)', () => {
     const ctx = makeEditContext({ player: { x: 0, z: 0 }, recipe, placements, hit: { x: 12.34, y: 4.5, z: -8.06 } });
     const res = localEdit(recipe, 'put a lantern here', ctx);
     expect(res).toMatchObject({ type: 'ops', ops: [{ op: 'addPlace', place: { where: [{ rel: 'at', x: 12.3, z: -8.1 }] } }] });
+  });
+
+  it('clamps placements and labels to the backend limits (m4: 200 entries, 60 chars)', () => {
+    const long = { ...recipe, places: [{ ...first, label: 'A very long name '.repeat(6) }] };
+    const many = Array.from({ length: 250 }, (_, i) => ({ id: i === 0 ? first.id : `spot-${i}`, x: i, z: 0 }));
+    const ctx = makeEditContext({ player: { x: 0, z: 0 }, recipe: long, placements: many });
+    expect(MAX_CONTEXT_PLACEMENTS).toBe(200);
+    expect(MAX_CONTEXT_LABEL).toBe(60);
+    expect(ctx.placements).toHaveLength(200);
+    expect(ctx.placements[0].label).toHaveLength(60);
+    for (const p of ctx.placements) expect(p.label.length).toBeLessThanOrEqual(60);
   });
 });

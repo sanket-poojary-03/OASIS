@@ -37,7 +37,7 @@ export function localWorld(prompt: string): WorldResult {
 export const TIME: Array<[RegExp, 'night' | 'dawn' | 'dusk' | 'day']> = [[/\b(night|midnight)\b/, 'night'], [/\b(dawn|sunrise|morning)\b/, 'dawn'], [/\b(dusk|sunset|evening)\b/, 'dusk'], [/\b(noon|midday|daytime|day)\b/, 'day']];
 export const WEATHER: Array<[RegExp, 'storm' | 'rain' | 'snow' | 'mist' | 'clear']> = [[/\b(storm|stormy|thunder\w*)\b/, 'storm'], [/\b(rain|rainy|raining)\b/, 'rain'], [/\b(snow|snowy|snowing)\b/, 'snow'], [/\b(mist|misty|fog|foggy)\b/, 'mist'], [/\b(clear|sunny)\b/, 'clear']];
 export const ATMOS = new Set(['rain', 'snow', 'fog', 'mist', 'storm', 'night', 'day', 'sunset', 'sunrise', 'dawn', 'dusk']);
-export const NEAR_THIS = /\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b/g;
+export const NEAR_THIS = /\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b(?:\s+(?!(?:in|over|where)\b)[a-z]+)?/g;
 export const ON_THIS = /\s+on\s+(?:(?:this|that|it)(?:\s+[a-z]+)?|top of\s+(?:this|that|it|the)(?:\s+[a-z]+)?)(?=\s*[.!]?$)/g;
 export const ADD = /\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|the|some)\s+)?(?<noun>[a-z][a-z \-]{1,60}?)(?:\s+(?:here|there|in front of me|where i'?m looking|where i am looking|over there))?\s*[.!]?$/;
 export const REMOVE = /\b(?:remove|delete|destroy)\b|\bget rid of\b/;

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .assets import AssetLibrary, AssetService, LLMPicker, MeshyClient, ModelCache, PolyPizzaFinder, SketchfabFinder, default_pick
 from .cache import FileCache
+from .clientip import client_ip as forwarded_client
 from .llm import LLMClient
 from .ratelimit import RateLimiter
 from .schemas import AssetRequest, EditRequest, WorldRequest
@@ -36,22 +37,30 @@ def default_assets(llm=None) -> AssetService:
     )
 
 
+def cors_origins(raw: str | None) -> list[str]:
+    """CORS_ORIGINS split on commas, entries stripped and empties dropped (m6); unset or empty means "*"."""
+    origins = [o.strip() for o in (raw if raw is not None else "*").split(",") if o.strip()]
+    return origins or ["*"]
+
+
 def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
-               asset_limiter: RateLimiter | None = None) -> FastAPI:
+               asset_limiter: RateLimiter | None = None, pick_limiter: RateLimiter | None = None) -> FastAPI:
     app = FastAPI(title="WorldSeed API")
-    app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=cors_origins(os.getenv("CORS_ORIGINS")), allow_methods=["*"], allow_headers=["*"])
     cache_root = cache_dir or BACKEND_DIR / ".cache"
     world = WorldService(llm, FileCache(cache_root / "llm"))
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
     # Separate budget for the external asset path (library/cache hits are free and never counted).
     asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
+    # Its own small budget for LLM model picks (I4): a pick never spends the player's world/edit allowance.
+    pick_limiter = pick_limiter or RateLimiter(per_ip=20, window=600, daily_cap=int(os.getenv("ASSET_PICK_DAILY_CAP", "200")))
     assets = assets or default_assets(llm)
     assets.library.root.mkdir(parents=True, exist_ok=True)
     app.mount("/files/library", StaticFiles(directory=str(assets.library.root)), name="library")
     app.mount("/files/generated", StaticFiles(directory=str(assets.cache.root)), name="generated")
 
     def client_ip(request: Request) -> str:
-        return request.client.host if request.client else "unknown"
+        return forwarded_client(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
 
     def guard(request: Request) -> None:
         msg = limiter.check(client_ip(request))
@@ -60,7 +69,10 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
 
     @app.get("/api/health")
     def health() -> dict:
-        return {"ok": True, "provider": "live" if llm else "mock", "model": getattr(llm, "model", None)}
+        out = {"ok": True, "provider": "live" if llm else "mock"}
+        if model := getattr(llm, "model", None):
+            out["model"] = model  # omitted in mock mode: no nulls reach the browser (m5)
+        return out
 
     @app.post("/api/world")
     def post_world(req: WorldRequest, request: Request) -> dict:
@@ -75,7 +87,7 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
     @app.post("/api/assets/resolve")
     def post_resolve(req: AssetRequest, request: Request) -> dict:
         ip = client_ip(request)
-        return assets.resolve(req, gate=lambda: asset_limiter.check(ip) is None, pick_gate=lambda: limiter.check(ip) is None)
+        return assets.resolve(req, gate=lambda: asset_limiter.check(ip) is None, pick_gate=lambda: pick_limiter.check(ip) is None)
 
     @app.get("/api/assets/jobs/{job_id}")
     def get_job(job_id: str) -> dict:

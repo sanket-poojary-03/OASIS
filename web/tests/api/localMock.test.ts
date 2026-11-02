@@ -98,4 +98,16 @@ describe('localMock', () => {
     const night = localEdit(r, 'put night', ctx());
     expect(night.type === 'ops' && night.ops).toEqual([{ op: 'setAtmosphere', time: 'night' }]);
   });
+
+  it.each(['put a lantern near this house', 'put a lantern next to that well', 'put a lantern by it', 'put a lantern near it in front of me'])('near-this allows a trailing noun: %s (m13)', (prompt) => {
+    const p = place(prompt, ctx({ lookAt: { x: 3, z: 4 }, lookingAt: 'campfire' }));
+    expect(p.asset).toBe('lantern');
+    expect(p.interaction).toBe('light');
+    expect(p.where).toEqual([{ rel: 'near', target: 'campfire', maxDist: 30 }, { rel: 'flat' }]);
+  });
+
+  it('the last demo step, "make it a clear day", sets day and clear weather', () => {
+    const res = localEdit(r, 'make it a clear day', ctx());
+    expect(res.type === 'ops' && res.ops).toEqual([{ op: 'setAtmosphere', time: 'day' }, { op: 'setAtmosphere', weather: 'clear' }]);
+  });
 });

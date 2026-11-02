@@ -5,5 +5,6 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 COPY backend/ /app/backend/
 COPY shared/ /app/shared/
 WORKDIR /app/backend
-ENV FORWARDED_ALLOW_IPS=*
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# X-Forwarded-For is not trusted by uvicorn (its '*' mode took the client-written leftmost entry): app/clientip.py reads
+# the client address from the right of the header, past Render's Cloudflare and internal hops (DECISIONS, m1).
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -5,7 +5,7 @@ from app.ratelimit import RateLimiter
 
 def test_health_and_world(tmp_path):
     client = TestClient(create_app(llm=None, cache_dir=tmp_path))
-    assert client.get("/api/health").json() == {"ok": True, "provider": "mock", "model": None}
+    assert client.get("/api/health").json() == {"ok": True, "provider": "mock"}  # no null model (m5)
     r = client.post("/api/world", json={"prompt": "a tropical island"})
     assert r.status_code == 200 and r.json()["recipe"]["terrain"]["shape"] == "island"
 

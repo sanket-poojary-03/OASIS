@@ -239,9 +239,14 @@ class XZ(Strict):
     y: float | None = None
 
 
+# Edit-context bounds (m4); web/src/api/editContext.ts clamps to the same, so a valid client never gets a 422.
+MAX_CONTEXT_PLACEMENTS = 200
+MAX_CONTEXT_LABEL = 60
+
+
 class PlacementSummary(Strict):
     id: Id
-    label: str
+    label: Annotated[str, Field(max_length=MAX_CONTEXT_LABEL)]
     x: float
     z: float
 
@@ -250,7 +255,7 @@ class EditContext(Strict):
     player: XZ
     lookAt: XZ | None = None
     lookingAt: Id | None = None
-    placements: list[PlacementSummary] = []
+    placements: Annotated[list[PlacementSummary], Field(max_length=MAX_CONTEXT_PLACEMENTS)] = []
 
 
 class EditRequest(Strict):

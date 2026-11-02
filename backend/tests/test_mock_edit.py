@@ -52,3 +52,14 @@ def test_candle_on_this_table_sets_y():
 def test_barrel_here_does_not_copy_y():
     out = mock_edit(req("put a barrel here", look_at={"x": 3, "y": 4.2, "z": 4}, looking_at="wall"))
     assert out["ops"][0]["place"]["where"] == [{"rel": "at", "x": 3, "z": 4}]
+
+
+def test_near_this_allows_a_trailing_noun():
+    for prompt in ("put a lantern near this house", "put a lantern next to that well", "put a lantern by it", "put a lantern near it in front of me"):
+        place = mock_edit(req(prompt, look_at={"x": 3, "z": 4}, looking_at="campfire"))["ops"][0]["place"]
+        assert place["asset"] == "lantern" and place["interaction"] == "light", prompt
+        assert place["where"] == [{"rel": "near", "target": "campfire", "maxDist": 30}, {"rel": "flat"}], prompt
+
+
+def test_clear_day_ends_the_demo_in_daylight():
+    assert mock_edit(req("make it a clear day"))["ops"] == [{"op": "setAtmosphere", "time": "day"}, {"op": "setAtmosphere", "weather": "clear"}]

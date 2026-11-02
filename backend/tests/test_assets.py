@@ -260,16 +260,38 @@ def test_meshy_is_gated_too(tmp_path):
     assert out == {"status": "none"} and meshy.created == []
 
 
-def test_llm_pick_is_charged_to_the_llm_limiter(tmp_path):
+def test_refused_llm_pick_falls_back_to_title_match(tmp_path):
     class Picker:
         uses_llm = True
 
         def __call__(self, q, c):
-            raise AssertionError("must not run when the LLM budget is spent")
+            raise AssertionError("must not run when the pick budget is spent")
 
     poly = FakeFinder("Poly Pizza", [cand("Giraffe")])
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=Picker())
     assert svc.resolve(AssetRequest(query="giraffe"), pick_gate=lambda: False)["status"] == "ready"  # fell back to title match
+
+
+def test_llm_picks_have_their_own_budget_and_never_spend_the_world_edit_one(tmp_path):
+    class Picker:
+        uses_llm = True
+
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, q, c):
+            self.calls += 1
+            return 0
+
+    picker = Picker()
+    poly = FakeFinder("Poly Pizza", [cand("Giraffe"), cand("Zebra")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=picker)
+    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc, limiter=RateLimiter(per_ip=1), pick_limiter=RateLimiter(per_ip=1)))
+    assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["source"] == "online"
+    assert picker.calls == 1
+    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 200  # world budget untouched (I4)
+    assert client.post("/api/assets/resolve", json={"query": "zebra"}).json()["source"] == "online"
+    assert picker.calls == 1  # pick budget spent: title matching chose instead
 
 
 def test_non_glb_download_is_rejected_and_nothing_is_cached(tmp_path):

@@ -41,7 +41,7 @@ def mock_world(prompt: str) -> dict:
 TIME_WORDS = [(r"\b(night|midnight)\b", "night"), (r"\b(dawn|sunrise|morning)\b", "dawn"), (r"\b(dusk|sunset|evening)\b", "dusk"), (r"\b(noon|midday|daytime|day)\b", "day")]
 WEATHER_WORDS = [(r"\b(storm|stormy|thunder\w*)\b", "storm"), (r"\b(rain|rainy|raining)\b", "rain"), (r"\b(snow|snowy|snowing)\b", "snow"), (r"\b(mist|misty|fog|foggy)\b", "mist"), (r"\b(clear|sunny)\b", "clear")]
 ATMOS_NOUNS = {"rain", "snow", "fog", "mist", "storm", "night", "day", "sunset", "sunrise", "dawn", "dusk"}
-NEAR_THIS = re.compile(r"\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b")
+NEAR_THIS = re.compile(r"\s+(?:near|next to|beside|by)\s+(?:this|that|it)\b(?:\s+(?!(?:in|over|where)\b)[a-z]+)?")
 ON_THIS = re.compile(r"\s+on\s+(?:(?:this|that|it)(?:\s+[a-z]+)?|top of\s+(?:this|that|it|the)(?:\s+[a-z]+)?)(?=\s*[.!]?$)")
 ADD = re.compile(r"\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|the|some)\s+)?(?P<noun>[a-z][a-z \-]{1,60}?)(?:\s+(?:here|there|in front of me|where i'?m looking|where i am looking|over there))?\s*[.!]?$")
 REMOVE = re.compile(r"\b(?:remove|delete|destroy)\b|\bget rid of\b")

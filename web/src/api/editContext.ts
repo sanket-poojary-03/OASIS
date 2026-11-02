@@ -2,6 +2,10 @@ import { pyRound } from '../core/pyround';
 import { clampCore, type Recipe } from '../core/recipe';
 import type { EditContext } from './types';
 
+/** Mirrors backend MAX_CONTEXT_PLACEMENTS / MAX_CONTEXT_LABEL (schemas.py): more would be a 422, i.e. a silent offline fallback. */
+export const MAX_CONTEXT_PLACEMENTS = 200;
+export const MAX_CONTEXT_LABEL = 60;
+
 /** What the crosshair hit: a point on terrain or on an object (`placeId` set when the object belongs to a place). */
 export interface LookHit { x: number; y: number; z: number; placeId?: string | null }
 
@@ -18,12 +22,13 @@ export interface EditContextInput {
  * The /api/edit context. The backend model is strict (extra keys give a 422, which the client silently turns into
  * offline mode), so only player, lookAt, lookingAt and placements {id,label,x,z} are sent, and absent values are
  * omitted rather than sent as null. lookAt is clamped to the core map; y is present only for a real surface hit.
+ * Placements and labels are clamped to the backend limits.
  */
 export function makeEditContext({ player, recipe, placements, override, hit }: EditContextInput): EditContext {
   const ctx: EditContext = {
     player: { x: player.x, z: player.z },
-    placements: placements.map((p) => ({
-      id: p.id, label: recipe.places.find((q) => q.id === p.id)?.label ?? p.id, x: Math.round(p.x), z: Math.round(p.z),
+    placements: placements.slice(0, MAX_CONTEXT_PLACEMENTS).map((p) => ({
+      id: p.id, label: (recipe.places.find((q) => q.id === p.id)?.label ?? p.id).slice(0, MAX_CONTEXT_LABEL), x: Math.round(p.x), z: Math.round(p.z),
     })),
   };
   if (override) {
