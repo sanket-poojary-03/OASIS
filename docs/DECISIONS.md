@@ -6,6 +6,10 @@
 - Endless chunked noise terrain plus a 1024 m authored core.
 
 ## 2026-11-02
+- Task 26 Part B (perf, applied pre-emptively; fps measurement per fixture on a mid-range laptop at 1080p is still pending on real hardware): view radius and sun shadow map are device-tier based (`render/deviceTier.ts`): narrow screen (<= 900px) or <= 4 cores gives VIEW 2 and a 1024 shadow map, otherwise VIEW 3 and 2048. Outside a browser (vitest) it reports the high tier.
+- Sun `castShadow` stays always true; at night its intensity is 0 so the shadow is invisible. Toggling it changed the light-state hash and recompiled every lit material (a hitch at dusk/dawn). The moon light has no shadows, so the readable night floor is unchanged.
+- Terrain trimesh colliders are built at most 2 per frame, nearest chunk first (`render/colliderBudget.ts`), so a teleport/world switch no longer builds up to 9 BVHs in one frame. The player's own chunk is first; `isReady` stays false until its collider exists. Replacement colliders for re-sent stale chunks are still built immediately in `receive`.
+- Renderer uses `antialias: false`: every frame goes through the PostFX composer, whose scene target is MSAA (4 samples, skipped at pixel ratio >= 2), so the canvas MSAA was a wasted extra cost.
 - Task 26 (I1): the Docker build context is the repo root, so ignore rules live in a root `.dockerignore` with root-relative patterns (node_modules, web/, backend/.venv, backend/.env, caches, generated assets, .git, .superpowers). `backend/.dockerignore` is not used.
 - Task 26 (I2): the uvicorn CMD passes `--proxy-headers --forwarded-allow-ips='*'` (and `FORWARDED_ALLOW_IPS=*` is set) so per-IP rate limits see the real client behind Render's proxy.
 - Task 26 (I3): the documented Render env list includes POLY_PIZZA_KEY, SKETCHFAB_TOKEN, ASSET_LLM_PICK and ASSET_DAILY_CAP; deploy verification includes "put a giraffe here". Credits list one CC0 family (Quaternius + KayKit), no Kenney.

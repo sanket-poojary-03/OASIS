@@ -10,7 +10,7 @@ export class Engine {
   private readonly updaters: Array<(dt: number, t: number) => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false } /* every frame goes through PostFX, whose scene target is multisampled */);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;

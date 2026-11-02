@@ -8,7 +8,10 @@ import { ChunkQueue } from './chunkQueue';
 import type { GrassSystem } from './grass';
 import type { ScatterAssets } from './scatterAssets';
 
-export const VIEW = 3;
+import { pickColliderBuilds } from './colliderBudget';
+import { VIEW_RADIUS } from './deviceTier';
+
+export const VIEW = VIEW_RADIUS;
 
 interface LiveChunk {
   cx: number;
@@ -74,14 +77,20 @@ export class ChunkManager {
         requested++;
       }
     }
+    const needCollider: Array<{ key: string; dist: number }> = [];
     for (const [k, c] of this.chunks) {
       const far = Math.max(Math.abs(c.cx - ccx), Math.abs(c.cz - ccz));
       if (far > VIEW + 1) { this.drop(k); continue; }
       const near = far <= 1;
-      if (near && !c.collider) c.collider = this.physics.addTerrain(c.positions, c.indices);
+      if (near && !c.collider) needCollider.push({ key: k, dist: (c.cx - ccx) ** 2 + (c.cz - ccz) ** 2 });
       if (!near && c.collider) { this.physics.removeCollider(c.collider); c.collider = null; }
       if (near && !c.grass && c.grassData.length) { c.grass = this.grass.build(c.grassData); this.group.add(c.grass); }
       if (!near && c.grass) this.dropGrass(c);
+    }
+    // Bounded per frame, nearest (the player's chunk) first; the rest wait for later frames.
+    for (const k of pickColliderBuilds(needCollider)) {
+      const c = this.chunks.get(k)!;
+      c.collider = this.physics.addTerrain(c.positions, c.indices);
     }
   }
 

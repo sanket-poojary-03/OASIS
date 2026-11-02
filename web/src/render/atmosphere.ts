@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../core/recipe';
+import { SHADOW_MAP_SIZE } from './deviceTier';
 
 export const TIME_HOURS: Record<Atmosphere['time'], number> = { dawn: 6.3, day: 12, dusk: 18.4, night: 23 };
 const FOG_DAY: Record<Atmosphere['weather'], number> = { clear: 0xbfd6ea, rain: 0x8a96a3, snow: 0xd8dee8, mist: 0xc9cfd6, storm: 0x5d6670 };
@@ -41,7 +42,7 @@ export class AtmosphereSystem {
     u.mieCoefficient.value = 0.004;
     u.mieDirectionalG.value = 0.8;
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
     const cam = this.sun.shadow.camera;
     cam.left = -60; cam.right = 60; cam.top = 60; cam.bottom = -60; cam.near = 1; cam.far = 600;
     this.sun.shadow.bias = -0.0005;
@@ -96,7 +97,8 @@ export class AtmosphereSystem {
     const day = THREE.MathUtils.smoothstep(this.sunDir.y, -0.08, 0.25);
     const overcast = this.spec.weather === 'storm' || this.spec.weather === 'rain' ? 0.5 : 1;
     this.sun.intensity = 3 * day * overcast;
-    this.sun.castShadow = day > 0.05;
+    // castShadow stays true: toggling it changes the light-state hash and recompiles every lit material (hitch).
+    // At night the sun intensity is 0, so its shadow is invisible.
     this.night = 1 - day;
     this.moon.intensity = MOON_INTENSITY * this.night * (overcast < 1 ? 0.6 : 1);
     this.hemi.intensity = HEMI_NIGHT_FLOOR + (1.02 - HEMI_NIGHT_FLOOR) * day;
