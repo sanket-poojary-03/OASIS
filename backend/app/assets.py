@@ -160,9 +160,10 @@ class LLMPicker:
         if hasattr(self.llm, "retries"):
             self.llm.retries = 1  # one try per model: a busy AI must not hold up model loading
         if hasattr(self.llm, "max_tokens"):
-            self.llm.max_tokens = 100  # the answer is {"index": n}
+            # The answer is {"index": n}, but reasoning models (Sarvam) think ~200 tokens first and count that against the cap.
+            self.llm.max_tokens = 1500
         if getattr(self.llm, "reasoning_effort", ""):
-            self.llm.reasoning_effort = "none"  # picking from a short list needs no thinking (and it would eat the 100 tokens)
+            self.llm.reasoning_effort = "low"  # the least Sarvam accepts ("none" is rejected with HTTP 400)
 
     def __call__(self, query: str, cands: list[Candidate]) -> int:
         lines = "\n".join(f"{i}: {c.title} ({c.tris or '?'} triangles)" for i, c in enumerate(cands))

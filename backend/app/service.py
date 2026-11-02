@@ -73,8 +73,12 @@ class WorldService:
         if hit:
             return {**hit, "source": "cache"}
         def validate(data: dict) -> dict:
-            recipe = Recipe.model_validate(data.get("recipe", data)).model_copy(update={"seed": prompt_seed(prompt)})
-            return {"type": "recipe", "recipe": dump(recipe), "notes": _notes(data), "source": "live"}
+            raw = data.get("recipe", data)
+            # Models often put their notes inside the recipe; move them out instead of rejecting a good world.
+            inner = raw.pop("notes", None) if isinstance(raw, dict) and raw is not data else None
+            recipe = Recipe.model_validate(raw).model_copy(update={"seed": prompt_seed(prompt)})
+            notes = _notes(data) + _notes({"notes": inner})
+            return {"type": "recipe", "recipe": dump(recipe), "notes": notes[:5], "source": "live"}
 
         out = self._ask(world_system_prompt(), prompt, validate, challenge=True)
         if out["type"] == "recipe":

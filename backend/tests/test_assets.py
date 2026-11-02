@@ -437,10 +437,10 @@ def test_llm_picker_caps_its_answer():
         def complete(self, s, u):
             return '{"index": 0}'
 
-    assert LLMPicker(Rec()).llm.max_tokens <= 200
+    assert LLMPicker(Rec()).llm.max_tokens <= 1500
 
 
-def test_llm_picker_turns_reasoning_off():
+def test_llm_picker_keeps_reasoning_low():
     from app.assets import LLMPicker
 
     class Rec:
@@ -449,4 +449,4 @@ def test_llm_picker_turns_reasoning_off():
         def complete(self, s, u):
             return '{"index": 0}'
 
-    assert LLMPicker(Rec()).llm.reasoning_effort == "none"
+    assert LLMPicker(Rec()).llm.reasoning_effort == "low"

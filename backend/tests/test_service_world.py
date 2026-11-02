@@ -144,3 +144,13 @@ def test_unusable_answers_say_so_not_busy(tmp_path):
     with pytest.raises(AIUnavailable) as e:
         WorldService(Down(), FileCache(tmp_path)).generate("an orchard")
     assert "busy" in str(e.value)
+
+
+def test_notes_put_inside_the_recipe_are_moved_not_rejected(tmp_path, valley_json):
+    data = json.loads(valley_json)
+    data["recipe"]["notes"] = ["The grid is approximate."]
+    data["notes"] = ["ok"]
+    llm = FakeLLM(json.dumps(data))
+    out = WorldService(llm, FileCache(tmp_path)).generate("a valley")
+    assert out["type"] == "recipe" and len(llm.calls) == 1
+    assert out["notes"] == ["ok", "The grid is approximate."] and "notes" not in out["recipe"]

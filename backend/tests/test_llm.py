@@ -105,7 +105,7 @@ def test_requests_cap_the_answer_length(monkeypatch):
 
     monkeypatch.delenv("LLM_MAX_TOKENS", raising=False)
     LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler)).complete("s", "u")
-    assert seen["body"]["max_tokens"] == 4000
+    assert seen["body"]["max_tokens"] == 8000
     LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler), max_tokens=200).complete("s", "u")
     assert seen["body"]["max_tokens"] == 200
 
@@ -142,4 +142,4 @@ def test_defaults_point_at_sarvam(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("LLM_API_KEY", "k")
     c = LLMClient.from_env()
-    assert c.base_url == "https://api.sarvam.ai/v1" and c.model == "sarvam-105b" and c.fallback_models == ["sarvam-105b-conversations"]
+    assert c.base_url == "https://api.sarvam.ai/v1" and c.model == "sarvam-105b-conversations" and c.fallback_models == ["sarvam-105b"]

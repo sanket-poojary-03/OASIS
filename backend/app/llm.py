@@ -42,7 +42,7 @@ class LLMClient:
     A busy model is retried with a short wait, then each backup model in turn, before giving up.
     """
 
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 45.0, transport: httpx.BaseTransport | None = None,
+    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 75.0, transport: httpx.BaseTransport | None = None,
                  fallback_models: list[str] | None = None, retries: int = 2, sleep: Callable[[float], None] = time.sleep,
                  max_tokens: int | None = None):
         self.base_url = base_url.rstrip("/")
@@ -53,8 +53,8 @@ class LLMClient:
         self.timeout = timeout
         self.transport = transport
         self.sleep = sleep
-        # Always cap the answer: OpenRouter reserves the cost of the longest possible answer up front (402 on a low balance).
-        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4000"))
+        # Always cap the answer (OpenRouter reserves its cost up front). 8000 leaves room for a reasoning model's ~2500 thinking tokens.
+        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "8000"))
         self.reasoning_effort = os.getenv("LLM_REASONING_EFFORT", "").strip()
 
     @classmethod
@@ -63,8 +63,10 @@ class LLMClient:
         if not key:
             return None
         # Default provider: Sarvam (OpenAI-compatible). Any other compatible endpoint works through the same three settings.
-        backups = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "sarvam-105b-conversations").split(",") if m.strip()]
-        return cls(os.getenv("LLM_BASE_URL", "https://api.sarvam.ai/v1"), key, os.getenv("LLM_MODEL", "sarvam-105b"), fallback_models=backups)
+        # Measured 2026-11-03: sarvam-105b-conversations answers in 1-4 s; sarvam-105b reasons first (15-85 s) and is the
+        # stronger backup for unusable answers.
+        backups = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "sarvam-105b").split(",") if m.strip()]
+        return cls(os.getenv("LLM_BASE_URL", "https://api.sarvam.ai/v1"), key, os.getenv("LLM_MODEL", "sarvam-105b-conversations"), fallback_models=backups)
 
     def complete(self, system: str, user: str, prefer_backup: bool = False) -> str:
         """`prefer_backup`: start with the backup models (a last try after the main model's answers were unusable)."""
