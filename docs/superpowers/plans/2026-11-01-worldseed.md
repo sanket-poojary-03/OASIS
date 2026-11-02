@@ -7902,7 +7902,7 @@ git push
 **Files:**
 - Create: `docs/SUBMISSION.md`
 
-- [ ] **Step 1: Write the submission text**
+- [x] **Step 1: Write the submission text**
 
 `docs/SUBMISSION.md`:
 ```markdown
