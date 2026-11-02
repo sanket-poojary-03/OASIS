@@ -7691,7 +7691,7 @@ Browser, with the backend running and the catalogue from Task 19b in place:
 
 Take 3 screenshots (valley at dawn, village at night, island beach) and save them to `docs/screenshots/`. They go in the README and the video.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add web/src web/tests docs/screenshots
