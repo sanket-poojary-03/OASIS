@@ -25,17 +25,25 @@ export class PostFX {
     addEventListener('resize', () => this.composer.setSize(innerWidth, innerHeight));
   }
 
-  /**
-   * `night` is 0 (day) … 1 (full night), from AtmosphereSystem.night. At night the bloom is stronger and its threshold
-   * lower, so emissive windows and the light/fire glows (which sit below the day threshold) glow softly.
-   */
+  /** `night` is 0 (day) … 1 (full night), from AtmosphereSystem.night; see `bloomFor`. */
   setNight(night: number | boolean): void {
-    const n = typeof night === 'boolean' ? (night ? 1 : 0) : Math.min(1, Math.max(0, night));
-    this.bloom.strength = 0.25 + 0.65 * n;
-    this.bloom.threshold = 0.85 - 0.3 * n;
+    const b = bloomFor(typeof night === 'boolean' ? (night ? 1 : 0) : night);
+    this.bloom.enabled = b.enabled;
+    this.bloom.strength = b.strength;
+    this.bloom.threshold = b.threshold;
   }
 
   render(): void {
     this.composer.render();
   }
+}
+
+/**
+ * Bloom is for the night: emissive windows and the light/fire glows. By day the only thing above any threshold is the
+ * HDR sky near the sun, which smeared a white haze over buildings and trees, so the pass is off in daylight and builds
+ * up through dusk. Threshold drops at night so the softer glows (below the dusk threshold) still bloom.
+ */
+export function bloomFor(night: number): { enabled: boolean; strength: number; threshold: number } {
+  const n = Math.min(1, Math.max(0, night));
+  return { enabled: n > 0.05, strength: 0.9 * n, threshold: 0.85 - 0.3 * n };
 }
