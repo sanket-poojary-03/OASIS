@@ -1,4 +1,5 @@
-import { BIOME_COLOR, biomeAt } from './biome';
+import { hashString, mulberry32 } from '../core/rng';
+import { BIOME_COLOR, biomeAt, type Biome } from './biome';
 import type { WorldField } from './field';
 import { scatterChunk, type ScatterItem } from './scatter';
 
@@ -13,6 +14,27 @@ export interface ChunkData {
   colors: Float32Array;
   indices: Uint32Array;
   scatter: ScatterItem[];
+  /** Wind-grass tufts packed as x, y, z, rotation, scale (see grassChunk). */
+  grass: Float32Array;
+}
+
+const GRASS_BIOMES: ReadonlySet<Biome> = new Set(['grass', 'forest', 'marsh', 'pine']);
+const GRASS_CELL = 2;
+
+/** Grass tufts every ~2 m on dry, gentle, grassy ground. Packed as x, y, z, rotation, scale. */
+export function grassChunk(field: WorldField, cx: number, cz: number): Float32Array {
+  const out: number[] = [];
+  const n = CHUNK_SIZE / GRASS_CELL;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const gx = cx * n + i, gz = cz * n + j;
+    const rng = mulberry32(hashString(`g:${field.recipe.seed}:${gx}:${gz}`));
+    const x = gx * GRASS_CELL + rng() * GRASS_CELL, z = gz * GRASS_CELL + rng() * GRASS_CELL;
+    if (rng() > 0.7) continue;
+    if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5)) continue;
+    if (!GRASS_BIOMES.has(biomeAt(field, x, z))) continue;
+    out.push(x, field.heightAt(x, z), z, rng() * Math.PI * 2, 0.7 + rng() * 0.6);
+  }
+  return new Float32Array(out);
 }
 
 export function computeChunk(field: WorldField, cx: number, cz: number): ChunkData {
@@ -41,5 +63,5 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     indices[p++] = a; indices[p++] = c; indices[p++] = b;
     indices[p++] = b; indices[p++] = c; indices[p++] = d;
   }
-  return { cx, cz, positions, normals, colors, indices, scatter: scatterChunk(field, cx, cz, CHUNK_SIZE) };
+  return { cx, cz, positions, normals, colors, indices, scatter: scatterChunk(field, cx, cz, CHUNK_SIZE), grass: grassChunk(field, cx, cz) };
 }

@@ -2,21 +2,22 @@ import { hashString, mulberry32 } from '../core/rng';
 import { biomeAt, type Biome } from './biome';
 import type { WorldField } from './field';
 
-export type ScatterKind = 'tree' | 'pine' | 'dead_tree' | 'bush' | 'rock' | 'cactus' | 'reed' | 'grass';
+/** Ground grass is not a scatter kind: it is the wind grass in ChunkData.grass (one grass, not cones plus blades). */
+export type ScatterKind = 'tree' | 'pine' | 'dead_tree' | 'bush' | 'rock' | 'cactus' | 'reed';
 export interface ScatterItem { kind: ScatterKind; x: number; y: number; z: number; rotation: number; scale: number }
 
 export const SCATTER_CELL = 4;
 
 /** Probability per 4 m cell; first match wins. */
 export const SCATTER_RULES: Record<Biome, Array<[ScatterKind, number]>> = {
-  sand: [['rock', 0.02], ['grass', 0.03]],
-  grass: [['grass', 0.3], ['bush', 0.05], ['tree', 0.04], ['rock', 0.02]],
-  forest: [['tree', 0.22], ['bush', 0.08], ['grass', 0.15], ['rock', 0.02]],
-  pine: [['pine', 0.24], ['rock', 0.04], ['grass', 0.06]],
+  sand: [['rock', 0.02]],
+  grass: [['bush', 0.05], ['tree', 0.04], ['rock', 0.02]],
+  forest: [['tree', 0.22], ['bush', 0.08], ['rock', 0.02]],
+  pine: [['pine', 0.24], ['rock', 0.04]],
   snow: [['pine', 0.06], ['rock', 0.05]],
   rock: [['rock', 0.08]],
   desert: [['cactus', 0.03], ['rock', 0.04], ['dead_tree', 0.01]],
-  marsh: [['reed', 0.3], ['dead_tree', 0.03], ['grass', 0.1]],
+  marsh: [['reed', 0.3], ['dead_tree', 0.03]],
 };
 
 export function scatterChunk(field: WorldField, cx: number, cz: number, size = 64): ScatterItem[] {

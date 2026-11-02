@@ -7275,7 +7275,7 @@ Goal: make the world something people want to explore. Every tree, rock, house, 
   - `resolveAsset(query, kind, allowGenerate, allowOnline = true, variant = 0)`
   - `ModelSource.load(asset, kind, variant?)`
 
-- [ ] **Step 1: Grass positions in chunk data (test first)**
+- [x] **Step 1: Grass positions in chunk data (test first)**
 
 Add to `web/tests/world/chunkData.test.ts`, inside the `describe`:
 ```ts

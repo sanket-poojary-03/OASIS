@@ -51,9 +51,6 @@ function build(kind: ScatterKind): THREE.BufferGeometry {
     case 'reed':
       for (const [x, z] of [[0, 0], [0.2, 0.1], [-0.15, 0.18]]) P.push(part(new THREE.CylinderGeometry(0.03, 0.04, 1.6, 3), 0x7a8a46, { x, y: 0.8, z }));
       break;
-    case 'grass':
-      for (const [x, z] of [[0, 0], [0.15, 0.1], [-0.12, 0.12], [0.05, -0.15]]) P.push(part(new THREE.ConeGeometry(0.08, 0.6, 3), 0x5f8f3a, { x, y: 0.3, z }));
-      break;
   }
   return mergeGeometries(P, false)!;
 }
