@@ -1,7 +1,7 @@
 import './styles.css';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { recipeSchema } from './core/recipe';
 import { Physics } from './physics/physics';
+import { Player } from './player/player';
 import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
 import { Engine } from './render/engine';
@@ -14,20 +14,28 @@ const fixtures = import.meta.glob('../../shared/fixtures/recipes/*.json', { eage
 void (async () => {
   const name = new URLSearchParams(location.search).get('w') ?? 'fishing-valley';
   const recipe = recipeSchema.parse(fixtures[`../../shared/fixtures/recipes/${name}.json`]);
-  const engine = new Engine(document.querySelector<HTMLCanvasElement>('#view')!);
+  const canvas = document.querySelector<HTMLCanvasElement>('#view')!;
+  const engine = new Engine(canvas);
   const physics = await Physics.create();
   const atmo = new AtmosphereSystem(engine.scene);
   const chunks = new ChunkManager(engine.scene, physics, new ScatterAssets());
+  const player = new Player(engine.camera, canvas, physics);
   const world = buildWorld(recipe);
-  console.log(world.log.join('\n'));
-  atmo.apply({ ...recipe.atmosphere, time: 'day' });
+  atmo.apply(recipe.atmosphere);
   chunks.setSnapshot(snapshotField(world.field));
-  const controls = new OrbitControls(engine.camera, engine.renderer.domElement);
-  engine.camera.position.set(world.spawn.x + 60, world.spawn.y + 60, world.spawn.z + 60);
-  controls.target.set(world.spawn.x, world.spawn.y, world.spawn.z);
+  player.teleport(world.spawn.x, world.spawn.y, world.spawn.z);
+  let pending = true;
+  canvas.addEventListener('click', () => player.controls.lock());
   engine.onUpdate((dt) => {
-    controls.update();
-    chunks.update(controls.target.x, controls.target.z);
+    const p = pending ? world.spawn : player.position;
+    chunks.update(p.x, p.z);
+    if (pending && chunks.isReady(world.spawn.x, world.spawn.z)) {
+      player.spawn(world.spawn.x, world.spawn.y, world.spawn.z);
+      player.enabled = true;
+      pending = false;
+    }
+    player.update(dt, world.field, (x, z) => chunks.isReady(x, z));
+    physics.step(dt);
     atmo.update(dt, engine.camera.position);
   });
   engine.start();

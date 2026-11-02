@@ -3548,7 +3548,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `Physics` (Task 13); `WorldField` (Task 5).
 - Produces: `class Player { controls: PointerLockControls; position: THREE.Vector3; enabled: boolean; seated: boolean; constructor(camera, dom, physics); teleport(x, y, z); spawn(x, y, z); lookRay(): THREE.Ray; update(dt, field) }`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 `web/src/player/player.ts`:
 ```ts
@@ -3653,7 +3653,7 @@ export class Player {
 }
 ```
 
-- [ ] **Step 2: Harness**
+- [x] **Step 2: Harness**
 
 Replace `web/src/main.ts` with:
 ```ts
@@ -3711,7 +3711,7 @@ Expected:
 - Walking far streams new terrain without falling through.
 - Esc releases the mouse.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/src/player web/src/main.ts
