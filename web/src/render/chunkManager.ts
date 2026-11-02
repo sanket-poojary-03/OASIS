@@ -53,6 +53,8 @@ export class ChunkManager {
     const wanted: Array<[number, number, number]> = [];
     for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) wanted.push([ccx + dx, ccz + dz, dx * dx + dz * dz]);
     wanted.sort((a, b) => a[2] - b[2]);
+    const inView = new Set(wanted.map(([cx, cz]) => key(cx, cz)));
+    this.queue.forgetExcept(inView);
     const now = performance.now();
     let requested = 0;
     for (const [cx, cz] of wanted) {
@@ -92,11 +94,13 @@ export class ChunkManager {
       return;
     }
     const d = msg.data;
+    if (!d || typeof d.cx !== 'number' || typeof d.cz !== 'number'
+      || !(d.positions instanceof Float32Array) || !(d.normals instanceof Float32Array) || !(d.colors instanceof Float32Array)
+      || !(d.indices instanceof Uint32Array) || !Array.isArray(d.scatter)) {
+      throw new Error('malformed chunk data');
+    }
     const k = key(d.cx, d.cz);
-    if (!d || !(d.positions instanceof Float32Array) || !(d.indices instanceof Uint32Array)) throw new Error('malformed chunk data');
-    this.queue.succeed(k);
-    const hadCollider = !!this.chunks.get(k)?.collider;
-    this.drop(k);
+    // Build everything that can fail before touching queue or chunk state.
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(d.positions, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
@@ -106,6 +110,9 @@ export class ChunkManager {
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.receiveShadow = true;
     const scatter = this.scatter.instance(d.scatter);
+    this.queue.succeed(k);
+    const hadCollider = !!this.chunks.get(k)?.collider;
+    this.drop(k);
     this.group.add(mesh, scatter);
     const chunk: LiveChunk = { cx: d.cx, cz: d.cz, mesh, scatter, positions: d.positions, indices: d.indices, collider: null, stale: false };
     if (hadCollider) chunk.collider = this.physics.addTerrain(d.positions, d.indices);
@@ -120,5 +127,6 @@ export class ChunkManager {
     for (const child of c.scatter.children) (child as THREE.InstancedMesh).dispose();
     if (c.collider) this.physics.removeCollider(c.collider);
     this.chunks.delete(k);
+    this.queue.forget(k);
   }
 }

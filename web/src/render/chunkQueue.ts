@@ -25,6 +25,14 @@ export class ChunkQueue {
     this.failures.set(key, { count, retryAt: now + RETRY_BACKOFF_MS * 2 ** (count - 1) });
   }
 
+  /** Chunk left the world (dropped/unloaded): clear its failure record so a return visit retries from scratch. */
+  forget(key: string): void { this.failures.delete(key); }
+
+  /** Clear failure records for every key not in `keep` (keys that left the view radius). Pending keys are untouched. */
+  forgetExcept(keep: Set<string>): void {
+    for (const k of [...this.failures.keys()]) if (!keep.has(k)) this.failures.delete(k);
+  }
+
   /** Worker-wide failure: release everything in flight so it is re-requested (counts as a failure each). */
   failAll(now: number): void { for (const k of [...this.pending]) this.fail(k, now); }
 

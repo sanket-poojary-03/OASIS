@@ -15,7 +15,11 @@ self.onmessage = (e: MessageEvent) => {
       field = restoreField(m.snapshot);
       return;
     }
-    if (!field || m.generation !== generation) return;
+    if (m.generation !== generation) return;
+    if (!field) {
+      post({ type: 'error', generation, cx: m.cx, cz: m.cz, message: 'field not initialised' });
+      return;
+    }
     const data = computeChunk(field, m.cx, m.cz);
     post({ type: 'chunk', generation, data }, [data.positions.buffer, data.normals.buffer, data.colors.buffer, data.indices.buffer]);
   } catch (err) {
