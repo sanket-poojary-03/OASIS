@@ -13,6 +13,8 @@ from urllib.parse import quote
 import httpx
 
 MAX_DOWNLOAD = 25 * 1024 * 1024  # bytes; one model file
+# Online finds stay small: a big file is almost always a textured scene or interior, not one object, and slow to load.
+ONLINE_MAX_DOWNLOAD = 8 * 1024 * 1024
 
 
 STOP = {"a", "an", "the", "of", "with", "and", "on", "in", "small", "big", "large", "old", "new", "tiny", "huge", "some"}
@@ -122,7 +124,7 @@ class PolyPizzaFinder:
 
     def download(self, cand: Candidate, dest: Path) -> None:
         with httpx.Client(timeout=15, transport=self.transport, follow_redirects=True) as c:
-            stream_to_file(c, cand.download, dest)
+            stream_to_file(c, cand.download, dest, cap=ONLINE_MAX_DOWNLOAD)
 
 
 class SketchfabFinder:
@@ -156,7 +158,7 @@ class SketchfabFinder:
             url = (r.json().get("glb") or {}).get("url")
             if not url:
                 raise RuntimeError("no GLB download offered")
-            stream_to_file(c, url, dest)
+            stream_to_file(c, url, dest, cap=ONLINE_MAX_DOWNLOAD)
 
 
 class MeshyClient:

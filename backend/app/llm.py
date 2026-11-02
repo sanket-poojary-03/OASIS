@@ -43,7 +43,8 @@ class LLMClient:
     """
 
     def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 45.0, transport: httpx.BaseTransport | None = None,
-                 fallback_models: list[str] | None = None, retries: int = 2, sleep: Callable[[float], None] = time.sleep):
+                 fallback_models: list[str] | None = None, retries: int = 2, sleep: Callable[[float], None] = time.sleep,
+                 max_tokens: int | None = None):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
@@ -52,6 +53,8 @@ class LLMClient:
         self.timeout = timeout
         self.transport = transport
         self.sleep = sleep
+        # Always cap the answer: OpenRouter reserves the cost of the longest possible answer up front (402 on a low balance).
+        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4000"))
 
     @classmethod
     def from_env(cls) -> "LLMClient | None":
@@ -87,6 +90,7 @@ class LLMClient:
         body: dict = {
             "model": model,
             "temperature": 0.4,
+            "max_tokens": self.max_tokens,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
         if os.getenv("LLM_JSON_MODE", "1") == "1":

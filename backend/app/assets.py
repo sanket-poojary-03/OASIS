@@ -139,6 +139,15 @@ def default_pick(query: str, cands: list[Candidate]) -> int:
     return best
 
 
+_SCENE_WORDS = {"interior", "interiors", "inside", "room", "rooms", "scene", "diorama", "environment"}
+
+
+def scene_like(title: str, query: str) -> bool:
+    """A whole room or scene rather than one object, unless the player asked for exactly that."""
+    words = lambda t: set(re.findall(r"[a-z]+", t.lower()))  # noqa: E731
+    return bool((words(title) & _SCENE_WORDS) - words(query))
+
+
 class LLMPicker:
     """One cheap LLM call to choose among search results by title (only for things not in the library)."""
 
@@ -148,11 +157,17 @@ class LLMPicker:
         self.llm = copy.copy(llm)
         if hasattr(self.llm, "timeout"):
             self.llm.timeout = min(float(self.llm.timeout), timeout)
+        if hasattr(self.llm, "retries"):
+            self.llm.retries = 1  # one try per model: a busy AI must not hold up model loading
+        if hasattr(self.llm, "max_tokens"):
+            self.llm.max_tokens = 100  # the answer is {"index": n}
 
     def __call__(self, query: str, cands: list[Candidate]) -> int:
         lines = "\n".join(f"{i}: {c.title} ({c.tris or '?'} triangles)" for i, c in enumerate(cands))
         try:
-            raw = self.llm.complete('Pick the 3D model that best matches the request. Reply with JSON {"index": n}, or {"index": -1} if none fits.',
+            raw = self.llm.complete('Pick the 3D model that best matches the request. It will stand in an open-world game, so choose ONE whole '
+                                    'object seen from outside (for a building: its exterior, never an interior, a room or a scene). When two fit '
+                                    'equally, prefer the lower triangle count. Reply with JSON {"index": n}, or {"index": -1} if none fits.',
                                     f"Request: {query}\nCandidates:\n{lines}")
             idx = int(extract_json(raw).get("index", -1))
         except Exception as e:  # noqa: BLE001 - fall back to title matching
@@ -243,18 +258,25 @@ class AssetService:
         for finder in self.finders:
             name = getattr(finder, "name", type(finder).__name__)
             try:
-                cands = [c for c in finder.search(query) if license_ok(c.license) and (c.tris is None or c.tris <= 30000)][:5]
-                if not cands:
-                    continue
+                cands = [c for c in finder.search(query)
+                         if license_ok(c.license) and (c.tris is None or c.tris <= 30000) and not scene_like(c.title, query)][:5]
                 pick = self.pick
                 if getattr(pick, "uses_llm", False) and pick_gate is not None and not pick_gate():
                     pick = default_pick
-                i = pick(query, cands)
-                if i < 0:
-                    continue
-                file = self._fetch(key, lambda dest, f=finder, c=cands[i]: f.download(c, dest))
-                self.cache.add(key, query, file, "online", cands[i].credit)
-                return self._ready(self.cache.index[key])
+                for _ in range(3):  # a pick that fails to download (too large, broken) gives way to the next best
+                    if not cands:
+                        break
+                    i = pick(query, cands)
+                    if i < 0:
+                        break
+                    try:
+                        file = self._fetch(key, lambda dest, f=finder, c=cands[i]: f.download(c, dest))
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("asset %r: %s download failed (%s), trying the next one", query, cands[i].title, e)
+                        cands = cands[:i] + cands[i + 1:]
+                        continue
+                    self.cache.add(key, query, file, "online", cands[i].credit)
+                    return self._ready(self.cache.index[key])
             except Exception as e:  # noqa: BLE001 - a failing source just means "try the next one"
                 log.warning("asset finder %s failed for %r: %s: %s", name, query, type(e).__name__, e)
                 continue

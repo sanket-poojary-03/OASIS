@@ -377,3 +377,64 @@ def test_generated_index_is_not_served_and_urls_are_encoded(tmp_path):
 def test_query_without_meaningful_tokens_is_none(tmp_path):
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [FakeFinder("P", [cand("a")])])
     assert svc.resolve(AssetRequest(query="the a")) == {"status": "none"}
+
+
+def test_interior_and_scene_models_are_skipped_unless_asked_for(tmp_path):
+    from app.assets import scene_like
+    assert scene_like("House interior", "house") and scene_like("Living Room", "house") and scene_like("Cafe scene", "cafe")
+    assert not scene_like("House interior", "house interior")  # the player asked for one
+    assert not scene_like("Coffee Shop", "cafe") and not scene_like("Roomba", "robot")
+    poly = FakeFinder("Poly Pizza", [cand("Giraffe interior"), cand("Giraffe")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=lambda q, cs: 0)
+    assert svc.resolve(AssetRequest(query="giraffe"))["credit"].startswith("Giraffe by")
+
+
+def test_too_large_model_tries_the_next_candidate(tmp_path):
+    class Heavy(FakeFinder):
+        def download(self, cand, dest):
+            self.downloads += 1
+            if cand.title == "Giraffe big":
+                raise ValueError("model file too large")
+            dest.write_bytes(b"glTF")
+
+    poly = Heavy("Poly Pizza", [cand("Giraffe big"), cand("Giraffe")])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=lambda q, cs: 0)
+    out = svc.resolve(AssetRequest(query="giraffe"))
+    assert out["status"] == "ready" and out["credit"].startswith("Giraffe by") and poly.downloads == 2
+
+
+def test_online_download_cap_is_small():
+    from app.asset_sources import ONLINE_MAX_DOWNLOAD
+    assert ONLINE_MAX_DOWNLOAD <= 8 * 1024 * 1024
+
+
+def test_llm_picker_asks_for_an_outside_view_and_gets_one_try():
+    from app.assets import LLMPicker
+
+    class Rec:
+        model, timeout, retries, fallback_models = "m", 45.0, 2, ["b"]
+
+        def __init__(self):
+            self.system = ""
+
+        def complete(self, s, u):
+            self.system = s
+            return '{"index": 1}'
+
+    llm = Rec()
+    picker = LLMPicker(llm)
+    assert picker("cafe", [cand("Coffee Shop"), cand("Coffee Shop")]) == 1
+    assert picker.llm.retries == 1 and llm.retries == 2  # the shared client is untouched
+    assert "outside" in picker.llm.system and "interior" in picker.llm.system
+
+
+def test_llm_picker_caps_its_answer():
+    from app.assets import LLMPicker
+
+    class Rec:
+        model, timeout, retries, fallback_models, max_tokens = "m", 45.0, 2, [], 6000
+
+        def complete(self, s, u):
+            return '{"index": 0}'
+
+    assert LLMPicker(Rec()).llm.max_tokens <= 200

@@ -94,3 +94,17 @@ def test_fallback_models_from_env(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "k")
     monkeypatch.setenv("LLM_FALLBACK_MODELS", " a/b , ,c/d ")
     assert LLMClient.from_env().fallback_models == ["a/b", "c/d"]
+
+
+def test_requests_cap_the_answer_length(monkeypatch):
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return _reply()
+
+    monkeypatch.delenv("LLM_MAX_TOKENS", raising=False)
+    LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler)).complete("s", "u")
+    assert seen["body"]["max_tokens"] == 4000
+    LLMClient("https://x.test/v1", "k", "m1", transport=httpx.MockTransport(handler), max_tokens=200).complete("s", "u")
+    assert seen["body"]["max_tokens"] == 200
