@@ -37,10 +37,18 @@ export class Avatar {
   private animated = false;
   private readonly dir = new THREE.Vector3();
   private readonly flat = new THREE.Vector3();
+  /** Gear worn on top of whichever character is on (the rocket booster); moved onto each new model. */
+  private readonly gear: THREE.Object3D[] = [];
 
   constructor(private readonly scene: THREE.Scene) {
     this.model.root.visible = false;
     scene.add(this.model.root);
+  }
+
+  /** Wear `o` (positioned relative to the feet, facing +z) on this and every later character. */
+  attach(o: THREE.Object3D): void {
+    this.gear.push(o);
+    this.model.root.add(o);
   }
 
   /** True once the animated pack model replaced the procedural figure. */
@@ -51,6 +59,7 @@ export class Avatar {
     next.root.position.copy(this.model.root.position);
     next.root.rotation.y = this.model.root.rotation.y;
     next.root.visible = this.thirdPerson;
+    for (const o of this.gear) next.root.add(o);
     this.scene.remove(this.model.root);
     this.model.dispose();
     this.model = next;

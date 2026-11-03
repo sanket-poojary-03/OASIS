@@ -10,6 +10,7 @@ import { Wildlife } from './logic/wildlife';
 import { Physics } from './physics/physics';
 import { Avatar } from './player/avatar';
 import { CharacterRoster } from './player/characters';
+import { Booster } from './render/booster';
 import { Player } from './player/player';
 import { loadArt } from './render/artLoader';
 import { AssetModelSource } from './render/assetModels';
@@ -64,6 +65,8 @@ export class App {
   private artDirty = false;
   /** The playable characters (bundled; B cycles them). */
   readonly characters: CharacterRoster;
+  private readonly booster: Booster;
+  private readonly feet = new THREE.Vector3();
   private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
 
   private constructor(
@@ -88,6 +91,8 @@ export class App {
     objects.onReady.push((root, info) => this.interactions.register(root, info));
     objects.onCleared.push(() => this.interactions.clear());
     objects.onLoading.push((e) => this.ui?.notices.loading(e));
+    this.booster = new Booster(engine.scene);
+    avatar.attach(this.booster.pack);
     this.characters = new CharacterRoster(avatar);
     void this.characters.start();
   }
@@ -340,6 +345,9 @@ export class App {
     } else if (this.built) {
       this.player.update(dt, this.built.field, this.isReady);
       this.avatar.update(dt, this.engine.camera, this.player.position, this.player.moving, this.player.running, this.groundAt);
+      const jet = this.player.jetpack;
+      this.booster.update(dt, t, jet.firing, this.feet.copy(this.player.position).setY(this.player.position.y - 0.9));
+      this.ui?.setFuel(jet.fuel, jet.firing);
     }
     if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
     this.physics.step(dt);

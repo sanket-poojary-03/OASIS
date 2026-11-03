@@ -4,6 +4,7 @@ import type { Collider, KinematicCharacterController, RigidBody } from '@dimforg
 import type { Physics } from '../physics/physics';
 import type { WorldField } from '../world/field';
 import { fallbackStep } from './fallbackStep';
+import { JET, Jetpack } from './jetpack';
 
 const EYE = 0.75; // capsule centre → eye height offset
 
@@ -16,6 +17,8 @@ export class Player {
   moving = false;
   /** Moving with Shift held. */
   running = false;
+  /** The rocket booster: hold Space in the air to fly while it has fuel. */
+  readonly jetpack = new Jetpack();
   private readonly body: RigidBody;
   private readonly collider: Collider;
   private readonly controller: KinematicCharacterController;
@@ -93,8 +96,9 @@ export class Player {
     }
     const surface = field.isWater(t.x, t.z) ? field.waterSurfaceAt(t.x, t.z) : null;
     const swimming = surface !== null && t.y < surface + 0.3;
-    const speed = swimming ? 3 : running ? 10 : 5;
     const grounded = this.controller.computedGrounded();
+    const boosting = this.jetpack.firing;
+    const speed = swimming ? 3 : boosting ? (running ? JET.boostSpeed : JET.speed) : running ? 10 : 5;
     if (swimming) {
       const target = (surface! - 0.5 - t.y) * 3;
       this.vy += (target - this.vy) * Math.min(1, dt * 4);
@@ -104,6 +108,7 @@ export class Player {
     } else {
       this.vy -= 20 * dt;
     }
+    this.vy = this.jetpack.update(dt, this.vy, active && this.keys.has('Space'), !swimming && !grounded);
     this.controller.computeColliderMovement(this.collider, { x: this.move.x * speed * dt, y: this.vy * dt, z: this.move.z * speed * dt });
     const m = this.controller.computedMovement();
     const nx = t.x + m.x, nz = t.z + m.z;

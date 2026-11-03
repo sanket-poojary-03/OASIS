@@ -44,4 +44,14 @@ describe('Avatar', () => {
     expect(figure(scene)).toHaveLength(1);
     expect(figure(scene)[0].visible).toBe(true);
   });
+
+  it('worn gear (the booster) moves onto every new character', () => {
+    const { avatar } = rig();
+    const pack = new THREE.Group();
+    avatar.attach(pack);
+    const first = pack.parent;
+    avatar.use(fakeTemplate(1.8));
+    expect(pack.parent).not.toBe(first);
+    expect(pack.parent?.parent).not.toBeNull(); // on the new model's root, which is in the scene
+  });
 });

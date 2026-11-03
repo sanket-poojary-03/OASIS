@@ -49,3 +49,9 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding
 .notice-icon.miss { background: #e0a43a; color: #1b1405; }
 @keyframes notice-spin { to { transform: rotate(360deg); } }
 @keyframes notice-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.fuel { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(8,12,24,.7); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 6px 10px; }
+.fuel-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #ffb35a; }
+.fuel-bar { width: 160px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.fuel-fill { height: 100%; width: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff6a2a, #ffc25a); transition: width .1s linear; }
+.fuel.low .fuel-fill { background: #ff4a3a; }
+.fuel.low .fuel-label { color: #ff6a5a; }

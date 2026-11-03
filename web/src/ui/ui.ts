@@ -49,6 +49,8 @@ export class UI {
   private readonly checks = el('div', 'checks hidden');
   private readonly source = el('div', 'source');
   private readonly toastEl = el('div', 'toast hidden');
+  private readonly fuel = el('div', 'fuel hidden');
+  private readonly fuelFill = el('div', 'fuel-fill');
   private readonly back = el('button', 'secondary hidden', 'Back to my world');
   /** Top-right progress notices (models loading for places added while playing). */
   readonly notices = new Notices();
@@ -81,9 +83,11 @@ export class UI {
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
     this.hud.append(
       el('div', 'crosshair', '+'),
-      el('div', 'help', 'WASD move · Shift run · Space jump/swim · E use · T talk to the world · V camera · B character · U undo · C checks · N new world'),
-      this.source, newWorld,
+      el('div', 'help', 'WASD move · Shift run · Space jump/swim (hold in air: rocket booster) · E use · T talk to the world · V camera · B character · U undo · C checks · N new world'),
+      this.source, newWorld, this.fuel,
     );
+    this.fuel.append(el('div', 'fuel-label', 'BOOST'), el('div', 'fuel-bar'));
+    this.fuel.lastElementChild!.append(this.fuelFill);
     // command bar
     this.commandInput.placeholder = 'Tell the world what to change… e.g. “make it night”, “put a lighthouse there”';
     this.commandInput.maxLength = 400;
@@ -116,6 +120,13 @@ export class UI {
     this.back.classList.remove('hidden');
     this.showStart(true);
   }
+  /** Booster fuel (0..1): shown while firing or refilling, hidden when full. */
+  setFuel(fuel: number, firing: boolean): void {
+    this.fuel.classList.toggle('hidden', fuel >= 1 && !firing);
+    this.fuel.classList.toggle('low', fuel < 0.2);
+    this.fuelFill.style.width = `${Math.round(fuel * 100)}%`;
+  }
+
   setHealth(text: string): void { this.healthLine.textContent = text; }
 
   setBusy(text: string | null): void {
