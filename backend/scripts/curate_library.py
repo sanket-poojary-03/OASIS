@@ -13,15 +13,16 @@ are: for each textured .glb, `npx @gltf-transform/cli resize f.glb t.glb --width
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
-import struct
 import sys
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.asset_match import glb_size  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1] / "assets" / "library"
 OUT = ROOT / "quaternius"
@@ -184,52 +185,6 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
-# ---- a glTF bounding box (node TRS applied; skins ignored) to catch flat, giant or tiny models ----
-def _mat(t=(0, 0, 0), r=(0, 0, 0, 1), s=(1, 1, 1)):
-    x, y, z, w = r
-    m = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
-         [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
-         [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
-    return [[m[i][0] * s[0], m[i][1] * s[1], m[i][2] * s[2], t[i]] for i in range(3)] + [[0, 0, 0, 1]]
-
-
-def _mul(a, b):
-    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
-
-
-def glb_size(data: bytes) -> tuple[float, float, float] | None:
-    n = struct.unpack_from("<I", data, 12)[0]
-    j = json.loads(data[20:20 + n])
-    lo, hi = [math.inf] * 3, [-math.inf] * 3
-
-    def visit(i, parent):
-        nd = j["nodes"][i]
-        if "matrix" in nd:  # column-major
-            mm = nd["matrix"]
-            local = [[mm[c * 4 + r] for c in range(4)] for r in range(4)]
-        else:
-            local = _mat(nd.get("translation", (0, 0, 0)), nd.get("rotation", (0, 0, 0, 1)), nd.get("scale", (1, 1, 1)))
-        m = _mul(parent, local)
-        if "mesh" in nd:
-            for p in j["meshes"][nd["mesh"]]["primitives"]:
-                a = j["accessors"][p["attributes"]["POSITION"]]
-                for cx in (a["min"][0], a["max"][0]):
-                    for cy in (a["min"][1], a["max"][1]):
-                        for cz in (a["min"][2], a["max"][2]):
-                            v = [m[r][0] * cx + m[r][1] * cy + m[r][2] * cz + m[r][3] for r in range(3)]
-                            for k in range(3):
-                                lo[k], hi[k] = min(lo[k], v[k]), max(hi[k], v[k])
-        for c in nd.get("children", []):
-            visit(c, m)
-
-    scene = j["scenes"][j.get("scene", 0)]
-    for r in scene["nodes"]:
-        visit(r, _mat())
-    if lo[0] == math.inf:
-        return None
-    return tuple(round(hi[k] - lo[k], 3) for k in range(3))
-
-
 def main() -> None:
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     catalogue_path = Path(sys.argv[1]) if len(sys.argv) > 1 else None
@@ -261,7 +216,7 @@ def main() -> None:
                     path.write_bytes(r.content)
                 size = glb_size(path.read_bytes())
                 entries.append({"id": slug(rel), "file": rel, "tags": sorted(set(tags)), "license": LICENSE, "source": "quaternius",
-                                "title": title, "poly": m["ID"], "size": size})
+                                "title": title, "poly": m["ID"], "size": [round(v, 3) for v in size] if size else None})
                 report.append(f"{rel}  {size}  {path.stat().st_size // 1024} KB")
     manifest = ROOT / "manifest.json"
     old = [e for e in json.loads(manifest.read_text(encoding="utf-8")) if not e["file"].startswith("quaternius/")] if manifest.exists() else []

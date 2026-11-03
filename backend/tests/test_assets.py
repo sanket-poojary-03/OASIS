@@ -137,13 +137,7 @@ def test_generate_with_meshy_then_budget(tmp_path):
     assert "low-poly" in meshy.created[0]
 
 
-def test_generation_is_landmark_only(tmp_path):
-    meshy = FakeMeshy()
-    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], meshy=meshy, max_generations=5, spawn=lambda f, *a: f(*a))
-    for kind in ("prop", "structure", "settlement"):
-        assert svc.resolve(AssetRequest(query="purple dragon statue", kind=kind, allowGenerate=True)) == {"status": "none"}
-    assert meshy.created == []
-    assert svc.resolve(AssetRequest(query="purple dragon statue", kind="landmark", allowGenerate=True))["status"] == "pending"
+# Generation for any kind (the user's choice, 2026-11-03): tests/test_asset_match.py::test_nothing_anywhere_then_generate_any_kind
 
 
 def test_default_pick_prefers_title_match():

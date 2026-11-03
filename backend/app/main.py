@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .asset_match import LLMAlternatives
 from .assets import AssetLibrary, AssetService, LLMPicker, MeshyClient, ModelCache, PolyPizzaFinder, SketchfabFinder, default_pick
 from .cache import FileCache
 from .clientip import client_ip as forwarded_client
@@ -34,6 +35,7 @@ def default_assets(llm=None) -> AssetService:
         max_generations=int(os.getenv("MESHY_MAX_GENERATIONS", "5")),
         refine=os.getenv("MESHY_REFINE", "0") == "1",
         pick=LLMPicker(llm) if llm and os.getenv("ASSET_LLM_PICK", "1") == "1" else default_pick,
+        alternatives=LLMAlternatives(llm) if llm and os.getenv("ASSET_LLM_PICK", "1") == "1" else None,
     )
 
 
