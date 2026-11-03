@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Collider } from '@dimforge/rapier3d-compat';
-import { editWorld, generateWorld } from './api/client';
+import { briefWorld, editWorld, generateWorld } from './api/client';
 import { makeEditContext, type LookHit } from './api/editContext';
 import type { EditContext, EditResult, Source } from './api/types';
 import { applyOps, describeOps, OpError, type ApplyResult, type Op } from './core/ops';
@@ -200,7 +200,12 @@ export class App {
     this.working = true;
     try {
       ui?.setBusy('Imagining your world…');
-      const res = await generateWorld(prompt);
+      const brief = await briefWorld(prompt);
+      if (brief.brief) {
+        ui?.setBrief(brief);
+        ui?.setBusy('Designing every place in it…');
+      }
+      const res = await generateWorld(prompt, brief.brief);
       this.noteAnswer(res);
       if (res.type === 'unsupported') { ui?.setBusy(null); ui?.toast(res.reason); return false; }
       ui?.setBusy('Shaping terrain, carving rivers, placing everything…');

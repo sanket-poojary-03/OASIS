@@ -46,11 +46,11 @@ def cors_origins(raw: str | None) -> list[str]:
 
 
 def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
-               asset_limiter: RateLimiter | None = None, pick_limiter: RateLimiter | None = None) -> FastAPI:
+               asset_limiter: RateLimiter | None = None, pick_limiter: RateLimiter | None = None, world_llm=None) -> FastAPI:
     app = FastAPI(title="WorldSeed API")
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(os.getenv("CORS_ORIGINS")), allow_methods=["*"], allow_headers=["*"])
     cache_root = cache_dir or BACKEND_DIR / ".cache"
-    world = WorldService(llm, FileCache(cache_root / "llm"))
+    world = WorldService(llm, FileCache(cache_root / "llm"), world_llm)
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
     # Separate budget for the external asset path (library/cache hits are free and never counted).
     asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
@@ -74,6 +74,8 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
         out = {"ok": True, "provider": "live" if llm else "mock"}
         if model := getattr(llm, "model", None):
             out["model"] = model  # omitted in mock mode: no nulls reach the browser (m5)
+        if world_llm is not None and (wm := getattr(world_llm, "model", None)) and wm != out.get("model"):
+            out["worldModel"] = wm
         return out
 
     @app.post("/api/brief")
@@ -110,4 +112,5 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
 
 
 load_dotenv(BACKEND_DIR / ".env")
-app = create_app(LLMClient.from_env())
+_llm = LLMClient.from_env()
+app = create_app(_llm, world_llm=_llm.for_world() if _llm else None)

@@ -59,10 +59,28 @@ export async function health(): Promise<{ ok: boolean; provider: string } | null
   }
 }
 
-export async function generateWorld(prompt: string): Promise<WorldResult> {
+/** The prompt enhancer: the player's words grown into a detailed world brief (shown while the world is built from it).
+ * Never fails: offline, busy or slow gives an empty brief, and the world is then built from the player's own words. */
+export async function briefWorld(prompt: string): Promise<{ brief: string; title?: string }> {
+  if (prompt.trim().length < 3) return { brief: '' };
+  try {
+    const data = await post('/api/brief', { prompt: clip(prompt, 600) }, 35000);
+    const brief = typeof data.brief === 'string' ? clip(data.brief.trim(), 3000) : '';
+    const title = typeof data.title === 'string' && data.title.trim() ? clip(data.title.trim(), 80) : undefined;
+    return brief ? { brief, ...(title ? { title } : {}) } : { brief: '' };
+  } catch (e) {
+    console.warn('briefWorld: no brief, building from the prompt alone:', e);
+    return { brief: '' };
+  }
+}
+
+/** Whole worlds can take a minute on the strong world model (and its retries). */
+const WORLD_TIMEOUT_MS = 180000;
+
+export async function generateWorld(prompt: string, brief = ''): Promise<WorldResult> {
   if (prompt.trim().length < 3) return { type: 'unsupported', reason: 'Describe your world in a few more words.', source: 'live' };
   try {
-    const data = await post('/api/world', { prompt: clip(prompt, 600) }, 90000);
+    const data = await post('/api/world', { prompt: clip(prompt, 600), ...(brief ? { brief: clip(brief, 3000) } : {}) }, WORLD_TIMEOUT_MS);
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
     const parsed = parseRecipe(data.recipe);
     if (!parsed.ok) throw new BadAnswer(parsed.error);

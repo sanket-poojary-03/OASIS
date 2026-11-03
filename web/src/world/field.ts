@@ -6,6 +6,10 @@ import { SegmentIndex, traceRiver, type Lake, type Vec2 } from './river';
 
 export interface Pad { x: number; z: number; radius: number; y: number }
 export interface Road { points: Vec2[]; width: number; bridges: boolean[] }
+/** A paved square (a city grid's blocks): centre, half side, and its turn (radians). */
+export interface Paved { x: number; z: number; half: number; angle: number }
+/** Paving fades out over this many metres past its edge. */
+const PAVED_EDGE = 3;
 
 export interface WorldField {
   readonly recipe: Recipe;
@@ -16,6 +20,7 @@ export interface WorldField {
   readonly lakes: Lake[];
   readonly pads: Pad[];
   readonly roads: Road[];
+  readonly paved: Paved[];
   meander(z: number): number;
   baseHeight(x: number, z: number): number;
   heightAt(x: number, z: number): number;
@@ -26,10 +31,13 @@ export interface WorldField {
   detailNoise(x: number, z: number): number;
   addPad(p: Pad): void;
   addRoad(r: Road): void;
+  addPaved(p: Paved): void;
+  /** 1 on paving (city ground: no grass, no trees, concrete colour), fading to 0 just past its edge. */
+  pavedAt(x: number, z: number): number;
   isReserved(x: number, z: number, margin: number): boolean;
 }
 
-export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[] };
+export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[]; paved?: Paved[] };
 
 const RIVER_WET = 16;
 const RIVER_CARVE_WIDTH = 26;
@@ -118,6 +126,7 @@ export function createField(recipe: Recipe): WorldField {
   // ---- pads & roads ----
   const pads: Pad[] = [];
   const roads: Road[] = [];
+  const paved: Paved[] = [];
   const roadIndex = new SegmentIndex(32);
 
   // 0 in the water channel, 1 well clear of it; pad influence fades with this so there is no seam.
@@ -169,11 +178,21 @@ export function createField(recipe: Recipe): WorldField {
   };
 
   return {
-    recipe, amplitude, seaLevelY, hasSea, river, lakes, pads, roads,
+    recipe, amplitude, seaLevelY, hasSea, river, lakes, pads, roads, paved,
     meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt,
     detailNoise: (x, z) => nD(x, z),
     addPad: (p) => { pads.push({ ...p }); },
     addRoad: (r) => { roads.push(r); roadIndex.addPolyline(r.points); },
+    addPaved: (p) => { paved.push({ ...p }); },
+    pavedAt: (x, z) => {
+      let w = 0;
+      for (const p of paved) {
+        const dx = x - p.x, dz = z - p.z, c = Math.cos(p.angle), s = Math.sin(p.angle);
+        const d = Math.max(Math.abs(dx * c + dz * s), Math.abs(-dx * s + dz * c)) - p.half;
+        if (d < PAVED_EDGE) w = Math.max(w, 1 - smoothstep(0, PAVED_EDGE, d));
+      }
+      return w;
+    },
     isReserved: (x, z, margin) => {
       for (const p of pads) if (Math.hypot(x - p.x, z - p.z) < p.radius + margin) return true;
       return roads.length > 0 && roadIndex.distance(x, z, 16 + margin) < 2 + margin;
@@ -182,12 +201,13 @@ export function createField(recipe: Recipe): WorldField {
 }
 
 export function snapshotField(f: WorldField): FieldSnapshot {
-  return { recipe: f.recipe, pads: f.pads.map((p) => ({ ...p })), roads: f.roads.map((r) => ({ ...r, points: [...r.points], bridges: [...r.bridges] })) };
+  return { recipe: f.recipe, pads: f.pads.map((p) => ({ ...p })), roads: f.roads.map((r) => ({ ...r, points: [...r.points], bridges: [...r.bridges] })), paved: f.paved.map((p) => ({ ...p })) };
 }
 
 export function restoreField(s: FieldSnapshot): WorldField {
   const f = createField(s.recipe);
   for (const p of s.pads) f.addPad(p);
   for (const r of s.roads) f.addRoad(r);
+  for (const p of s.paved ?? []) f.addPaved(p);
   return f;
 }

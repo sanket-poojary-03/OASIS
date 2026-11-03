@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import logging
@@ -67,6 +68,20 @@ class LLMClient:
         # stronger backup for unusable answers.
         backups = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "sarvam-105b").split(",") if m.strip()]
         return cls(os.getenv("LLM_BASE_URL", "https://api.sarvam.ai/v1"), key, os.getenv("LLM_MODEL", "sarvam-105b-conversations"), fallback_models=backups)
+
+    def for_world(self) -> "LLMClient":
+        """The client for whole worlds: LLM_WORLD_MODEL (on LLM_WORLD_BASE_URL) when set, with this client's models as its
+        backups; otherwise this client. Measured 2026-11-04: glm5.3-flash builds twice the places and props of
+        sarvam-105b-conversations with fewer slips, in ~25 s instead of ~6 s; edits and briefs stay on the fast model."""
+        model = os.getenv("LLM_WORLD_MODEL", "").strip()
+        if not model or model == self.model:
+            return self
+        c = copy.copy(self)
+        c.model = model
+        c.base_url = os.getenv("LLM_WORLD_BASE_URL", self.base_url).strip().rstrip("/") or self.base_url
+        c.fallback_models = [m for m in [self.model, *self.fallback_models] if m != model]
+        c.timeout = max(self.timeout, float(os.getenv("LLM_WORLD_TIMEOUT", "120")))
+        return c
 
     def complete(self, system: str, user: str, prefer_backup: bool = False) -> str:
         """`prefer_backup`: start with the backup models (a last try after the main model's answers were unusable)."""

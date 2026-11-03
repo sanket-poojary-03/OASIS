@@ -39,6 +39,7 @@ export class UI {
   private readonly healthLine = el('div', 'health');
   private readonly busy = el('div', 'busy hidden');
   private readonly busyText = el('div', 'busy-text');
+  private readonly busyBrief = el('div', 'busy-brief hidden');
   private readonly logList = el('ul', 'log');
   private readonly hud = el('div', 'hud hidden');
   private readonly hint = el('div', 'hint hidden');
@@ -77,7 +78,7 @@ export class UI {
     actions.append(go, demo, this.back);
     this.start.append(this.prompt, chips, actions, this.healthLine);
     // busy overlay
-    this.busy.append(this.busyText, this.logList);
+    this.busy.append(this.busyText, this.busyBrief, this.logList);
     // hud
     const newWorld = el('button', 'secondary new-world', 'New world (N)');
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
@@ -132,7 +133,16 @@ export class UI {
   setBusy(text: string | null): void {
     this.busy.classList.toggle('hidden', text === null);
     if (text !== null) this.busyText.textContent = text;
-    else this.logList.replaceChildren();
+    else { this.logList.replaceChildren(); this.setBrief(null); }
+  }
+
+  /** The AI's world brief while the world is built from it (model-written: textContent only). */
+  setBrief(brief: { title?: string; brief: string } | null): void {
+    this.busyBrief.classList.toggle('hidden', !brief?.brief);
+    this.busyBrief.replaceChildren();
+    if (!brief?.brief) return;
+    if (brief.title) this.busyBrief.append(el('div', 'busy-brief-title', brief.title));
+    this.busyBrief.append(el('p', 'busy-brief-text', brief.brief));
   }
 
   log(line: string): void {

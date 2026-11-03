@@ -39,11 +39,15 @@ export const MAX_GROUP = 60;
  * How a group (settlement) is arranged: any repeated thing (houses, towers, tents, stalls, trees) in a village street,
  * a city grid, a ring around a centre piece, a line along one street, or scattered loosely.
  */
+/** The most extra member types one group mixes in. */
+export const MAX_VARIANTS = 4;
 export const layoutSchema = z.strictObject({
   pattern: z.enum(LAYOUT_PATTERNS).default('village'),
   count: z.number().int().min(1).max(MAX_GROUP).optional(),
   height: z.enum(LAYOUT_HEIGHTS).default('low'),
   centre: z.string().min(2).max(60).optional(),
+  /** Other members besides the place's asset (a downtown of glass towers, office blocks and apartment towers). */
+  variants: z.array(z.string().min(2).max(80)).max(MAX_VARIANTS).optional(),
 });
 
 /** Small things that belong around a place (barrels by a market, benches in a park); code scatters them nearby. */

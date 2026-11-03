@@ -61,7 +61,7 @@ export function scatterChunk(field: WorldField, cx: number, cz: number, size = 6
     if (!kind) continue;
     if (field.isWater(x, z)) continue;
     if (!ON_SLOPES.has(kind) && field.slopeAt(x, z) > 0.6) continue;
-    if (field.isReserved(x, z, 2)) continue;
+    if (field.isReserved(x, z, 2) || field.pavedAt(x, z) > 0) continue;
     out.push({ kind, x, y: field.heightAt(x, z), z, rotation: rng() * Math.PI * 2, scale: 0.75 + rng() * 0.6, variant: Math.floor(rng() * VARIANTS) });
   }
   return out;

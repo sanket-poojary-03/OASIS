@@ -47,3 +47,22 @@ def test_brief_route_and_world_route_take_a_brief(tmp_path):
     r = client.post("/api/world", json={"prompt": "a valley", "brief": "A long brief."})
     assert r.status_code == 200 and r.json()["type"] == "recipe"
     assert client.post("/api/brief", json={"prompt": "x"}).status_code == 422
+
+
+def test_worlds_use_the_world_model_briefs_and_edits_the_fast_one(tmp_path, valley_json):
+    fast, strong = FakeLLM(BRIEF), FakeLLM(valley_json)
+    strong.model = "strong-model"
+    svc = WorldService(fast, FileCache(tmp_path), world_llm=strong)
+    svc.brief("a city")
+    assert svc.generate("a city", brief="A city of towers...")["source"] == "live"
+    assert len(fast.calls) == 1 and len(strong.calls) == 1
+    assert "world designer" in fast.calls[0][0] and "Recipe JSON Schema" in strong.calls[0][0]
+
+
+def test_layout_variants_are_repaired_not_fatal():
+    from app.service import repair_recipe
+    raw = {"places": [{"id": "d", "kind": "settlement", "layout": {"pattern": "grid", "variants": "office tower"}},
+                      {"id": "e", "kind": "settlement", "layout": {"pattern": "grid", "variants": ["Office Tower", "office tower", {"asset": "hotel"}, 3, "x", "a", "b", "c", "d"]}}]}
+    out = repair_recipe(raw)["places"]
+    assert out[0]["layout"]["variants"] == ["office tower"]
+    assert out[1]["layout"]["variants"] == ["Office Tower", "hotel"]

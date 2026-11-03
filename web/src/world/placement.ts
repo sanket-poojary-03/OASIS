@@ -65,13 +65,14 @@ function padFor(p: Placement): Pad {
 
 function siteProblem(field: WorldField, x: number, z: number, r: number, maxSlope: number, placed: Map<string, Placement>, relax: boolean): string | null {
   if (Math.abs(x) > CORE_HALF - r || Math.abs(z) > CORE_HALF - r) return 'outside the world core';
+  // The cheap test first: in a full world most candidates overlap a place, and terrain samples are the cost.
+  for (const p of placed.values()) if (Math.hypot(p.x - x, p.z - z) < p.radius + r + (relax ? 0 : GAP)) return `overlapping ${p.id}`;
   let slope = 0;
   for (const [dx, dz] of [[0, 0], [r * 0.7, 0], [-r * 0.7, 0], [0, r * 0.7], [0, -r * 0.7]]) {
     if (field.isWater(x + dx, z + dz)) return 'in water';
     slope = Math.max(slope, field.slopeAt(x + dx, z + dz));
+    if (slope > maxSlope * (relax ? 2 : 1)) return 'too steep';
   }
-  if (slope > maxSlope * (relax ? 2 : 1)) return 'too steep';
-  for (const p of placed.values()) if (Math.hypot(p.x - x, p.z - z) < p.radius + r + (relax ? 0 : GAP)) return `overlapping ${p.id}`;
   return null;
 }
 

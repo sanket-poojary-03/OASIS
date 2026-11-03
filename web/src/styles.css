@@ -55,3 +55,7 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding
 .fuel-fill { height: 100%; width: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff6a2a, #ffc25a); transition: width .1s linear; }
 .fuel.low .fuel-fill { background: #ff4a3a; }
 .fuel.low .fuel-label { color: #ff6a5a; }
+.busy-brief { max-width: min(640px, 86vw); max-height: 42vh; overflow-y: auto; padding: 14px 18px; border-radius: 12px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); animation: brief-in .5s ease-out; }
+.busy-brief-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; letter-spacing: .02em; }
+.busy-brief-text { margin: 0; font-size: 14px; line-height: 1.55; opacity: .85; white-space: pre-wrap; }
+@keyframes brief-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

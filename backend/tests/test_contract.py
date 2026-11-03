@@ -57,7 +57,10 @@ def test_group_layout_matches_the_browser_schema():
                               "layout": {"pattern": "grid", "count": 40, "height": "tall", "centre": "fountain"}})
     assert dump(p)["layout"] == {"pattern": "grid", "count": 40, "height": "tall", "centre": "fountain"}
     assert dump(Place.model_validate({"id": "camp", "kind": "settlement", "label": "C", "asset": "tent", "layout": {}}))["layout"] == {"pattern": "village", "height": "low"}
-    for bad in ({"pattern": "spiral"}, {"count": 61}, {"count": 0}, {"centre": "x"}, {"pattern": "grid", "extra": 1}):
+    v = Place.model_validate({"id": "downtown", "kind": "settlement", "label": "D", "asset": "glass tower", "layout": {"pattern": "grid", "variants": ["office tower", "hotel"]}})
+    assert dump(v)["layout"]["variants"] == ["office tower", "hotel"]
+    for bad in ({"pattern": "spiral"}, {"count": 61}, {"count": 0}, {"centre": "x"}, {"pattern": "grid", "extra": 1},
+                {"variants": ["a", "b", "c", "d", "e"]}, {"variants": ["x"]}):
         with _pytest.raises(_VE):
             Place.model_validate({"id": "camp", "kind": "settlement", "label": "C", "asset": "tent", "layout": bad})
 

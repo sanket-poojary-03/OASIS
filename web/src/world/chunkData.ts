@@ -20,6 +20,8 @@ export interface ChunkData {
 
 const GRASS_BIOMES: ReadonlySet<Biome> = new Set(['grass', 'forest', 'marsh', 'pine']);
 const GRASS_CELL = 2;
+/** City paving: light concrete, a touch warm. */
+export const PAVED_COLOUR: readonly [number, number, number] = [0.5, 0.49, 0.47];
 
 /** Grass tufts every ~2 m on dry, gentle, grassy ground. Packed as x, y, z, rotation, scale. */
 export function grassChunk(field: WorldField, cx: number, cz: number): Float32Array {
@@ -30,7 +32,7 @@ export function grassChunk(field: WorldField, cx: number, cz: number): Float32Ar
     const rng = mulberry32(hashString(`g:${field.recipe.seed}:${gx}:${gz}`));
     const x = gx * GRASS_CELL + rng() * GRASS_CELL, z = gz * GRASS_CELL + rng() * GRASS_CELL;
     if (rng() > 0.7) continue;
-    if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5)) continue;
+    if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5) || field.pavedAt(x, z) > 0.2) continue;
     if (!GRASS_BIOMES.has(biomeAt(field, x, z))) continue;
     out.push(x, field.heightAt(x, z), z, rng() * Math.PI * 2, 0.7 + rng() * 0.6);
   }
@@ -53,7 +55,9 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     const dz = (field.heightAt(x, z + 1) - field.heightAt(x, z - 1)) / 2;
     const len = Math.hypot(dx, 1, dz);
     normals[k] = -dx / len; normals[k + 1] = 1 / len; normals[k + 2] = -dz / len;
-    const [r, g, b] = groundColor(biomeAt(field, x, z), tint);
+    let [r, g, b] = groundColor(biomeAt(field, x, z), tint);
+    const pave = field.pavedAt(x, z);
+    if (pave > 0) { r += (PAVED_COLOUR[0] - r) * pave; g += (PAVED_COLOUR[1] - g) * pave; b += (PAVED_COLOUR[2] - b) * pave; }
     const shade = 1 + field.detailNoise(x * 0.05, z * 0.05) * 0.06;
     colors[k] = r * shade; colors[k + 1] = g * shade; colors[k + 2] = b * shade;
   }

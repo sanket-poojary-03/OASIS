@@ -1,6 +1,6 @@
 import type { Interaction, Layout, Place, PlaceSize } from '../core/recipe';
 import { hashString, mulberry32 } from '../core/rng';
-import type { Road, WorldField } from './field';
+import type { Paved, Road, WorldField } from './field';
 import type { Placement } from './placement';
 import { siteIsDry, type Building } from './settlement';
 
@@ -29,6 +29,20 @@ const SCATTER_GAP = 9;
 const MEMBER_FOOTPRINT = 8;
 const LOW_HEIGHT: Record<PlaceSize, number> = { small: 5, medium: 6, large: 7 };
 const STREET_SAMPLE = 8;
+
+/** Where a street lamp can stand: a kerb corner of a grid crossing, facing the crossing. */
+export interface Spot { x: number; z: number; rotation: number }
+/** Lamps stand this far from the crossing's centre along both streets (just off the asphalt). */
+const KERB = STREET_WIDTH / 2 + 0.8;
+
+export interface GroupLayout { buildings: Building[]; spine: Road; streets: Road[]; paved?: Paved; lampSpots: Spot[] }
+
+/** A member's asset: the place's own, or (with layout.variants) a deterministic mix, so a city is not one tower repeated. */
+export function memberAsset(place: Place, seed: number): (index: number) => string {
+  const all = [place.asset, ...(place.layout?.variants ?? [])];
+  if (all.length === 1) return () => place.asset;
+  return (i) => all[Math.floor(mulberry32(seed ^ hashString(`${place.id}:member:${i}`))() * all.length)];
+}
 
 export const groupCount = (layout: Layout, size: PlaceSize): number => layout.count ?? DEFAULT_COUNT[layout.pattern][size];
 
@@ -77,7 +91,7 @@ function street(field: WorldField, ax: number, az: number, bx: number, bz: numbe
   return out;
 }
 
-export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: WorldField, seed: number): { buildings: Building[]; spine: Road; streets: Road[] } {
+export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: WorldField, seed: number): GroupLayout {
   const rng = mulberry32(seed ^ hashString(`${place.id}:${layout.pattern}`));
   const count = groupCount(layout, place.size);
   const angle = rng() * Math.PI;
@@ -88,6 +102,9 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
   const memberInteraction: Interaction = place.interaction !== 'none' ? place.interaction : BUILDING_LIKE.test(place.asset) ? 'door' : 'none';
   const buildings: Building[] = [];
   const streets: Road[] = [];
+  const lampSpots: Spot[] = [];
+  const assetOf = memberAsset(place, seed);
+  let paved: Paved | undefined;
 
   const centreAsset = layout.centre ?? (layout.pattern === 'grid' ? 'fountain' : undefined);
   if (centreAsset) {
@@ -101,9 +118,10 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
     if (members() >= count || !inRadius(x, z) || !siteIsDry(field, x, z, MEMBER_FOOTPRINT)) return false;
     if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < (b.kind === 'centre' ? gap * 0.8 : gap))) return false;
     const t = Math.hypot(x - pl.x, z - pl.z) / (pl.radius * 0.8);
+    const n = members();
     buildings.push({
-      id: `${place.id}-house-${members()}`, placeId: place.id, x, z, y: field.heightAt(x, z), rotation, kind: 'house',
-      asset: place.asset, footprint: MEMBER_FOOTPRINT, interaction: memberInteraction,
+      id: `${place.id}-house-${n}`, placeId: place.id, x, z, y: field.heightAt(x, z), rotation, kind: 'house',
+      asset: assetOf(n), footprint: MEMBER_FOOTPRINT, interaction: memberInteraction,
       height: heightFor(layout, place.size, rng, t), maxWidth,
     });
     return true;
@@ -127,6 +145,14 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
         const o = -ext + k * CELL;
         const a1 = at(-ext, o), a2 = at(ext, o), b1 = at(o, -ext), b2 = at(o, ext);
         streets.push(...street(field, a1.x, a1.z, a2.x, a2.z), ...street(field, b1.x, b1.z, b2.x, b2.z));
+      }
+      // City ground is paved, and every crossing gets a lamp on one kerb corner (alternating, so streets are lit evenly).
+      paved = { x: pl.x, z: pl.z, half: ext + STREET_WIDTH / 2, angle };
+      for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
+        const sa = (i + j) % 2 ? 1 : -1, sl = i % 2 ? 1 : -1;
+        const p = at(-ext + i * CELL + sa * KERB, -ext + j * CELL + sl * KERB);
+        if (field.isWater(p.x, p.z)) continue;
+        lampSpots.push({ ...p, rotation: Math.atan2(-sa * dir.x - sl * side.x, -sa * dir.z - sl * side.z) });
       }
       break;
     }
@@ -170,5 +196,5 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
     spine = main.shift() ?? { points: [{ x: pl.x, z: pl.z }, { x: pl.x + dir.x, z: pl.z + dir.z }], width: 4, bridges: [false] };
     streets.push(...main);
   }
-  return { buildings, spine, streets };
+  return { buildings, spine, streets, paved, lampSpots };
 }

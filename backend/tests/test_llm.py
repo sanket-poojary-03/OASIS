@@ -143,3 +143,14 @@ def test_defaults_point_at_sarvam(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "k")
     c = LLMClient.from_env()
     assert c.base_url == "https://api.sarvam.ai/v1" and c.model == "sarvam-105b-conversations" and c.fallback_models == ["sarvam-105b"]
+
+
+def test_world_client_from_env(monkeypatch):
+    base = LLMClient("https://api.example/v1", "k", "fast", fallback_models=["slow"])
+    monkeypatch.delenv("LLM_WORLD_MODEL", raising=False)
+    assert base.for_world() is base
+    monkeypatch.setenv("LLM_WORLD_MODEL", "glm5.3-flash")
+    monkeypatch.setenv("LLM_WORLD_BASE_URL", "https://api.example/v2/")
+    w = base.for_world()
+    assert (w.model, w.base_url, w.fallback_models) == ("glm5.3-flash", "https://api.example/v2", ["fast", "slow"])
+    assert w.timeout >= 120 and (base.model, base.base_url) == ("fast", "https://api.example/v1")

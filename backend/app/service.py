@@ -133,6 +133,7 @@ def repair_recipe(raw):
         if not isinstance(place, dict):
             continue
         _drivable(place)
+        _repair_variants(place.get("layout"))
         if "size" in place:
             place["size"] = _SIZE_WORDS.get(str(place["size"]).lower(), "medium")
         if isinstance(place.get("where"), list):
@@ -140,6 +141,23 @@ def repair_recipe(raw):
     if isinstance(raw.get("paths"), list):
         raw["paths"] = [p for p in raw["paths"] if not isinstance(p, dict) or (p.get("from") in ids and p.get("to") in ids)]
     return raw
+
+
+def _repair_variants(layout) -> None:
+    """layout.variants as short, distinct strings (4 at most): a bad list must not cost the world its downtown."""
+    if not isinstance(layout, dict) or "variants" not in layout:
+        return
+    raw = layout["variants"]
+    items = raw if isinstance(raw, list) else [raw] if isinstance(raw, str) else []
+    out: list[str] = []
+    for v in items:
+        v = (v.get("asset", "") if isinstance(v, dict) else str(v)).strip()[:80] if isinstance(v, (str, dict)) else ""
+        if len(v) >= 2 and v.lower() not in (o.lower() for o in out):
+            out.append(v)
+    if out:
+        layout["variants"] = out[:4]
+    else:
+        layout.pop("variants")
 
 
 def _repair_relation(rel, ids: set):
@@ -186,8 +204,9 @@ def _notes(data: dict) -> list[str]:
 
 
 class WorldService:
-    def __init__(self, llm: Completer | None, cache: FileCache):
+    def __init__(self, llm: Completer | None, cache: FileCache, world_llm: Completer | None = None):
         self.llm = llm
+        self.world_llm = world_llm or llm  # whole worlds may use a stronger, slower model than briefs and edits
         self.cache = cache
 
     def brief(self, prompt: str) -> dict:
@@ -220,7 +239,7 @@ class WorldService:
     def generate(self, prompt: str, brief: str | None = None) -> dict:
         if self.llm is None:
             return mock_world(prompt)
-        key = self.cache.key("world", PROMPT_VERSION, self.llm.model, prompt.strip().lower(), *([brief.strip()] if brief else []))
+        key = self.cache.key("world", PROMPT_VERSION, self.world_llm.model, prompt.strip().lower(), *([brief.strip()] if brief else []))
         try:
             hit = self.cache.get(key)
         except (OSError, ValueError):
@@ -240,7 +259,7 @@ class WorldService:
                 notes.insert(0, f"Left out {len(dropped)} place{'s' if len(dropped) > 1 else ''} the AI described unclearly: {', '.join(dropped)[:150]}.")
             return {"type": "recipe", "recipe": dump(recipe), "notes": notes[:5], "source": "live"}
 
-        out = self._ask(world_system_prompt(), world_user_message(prompt, brief), validate, challenge=True)
+        out = self._ask(world_system_prompt(), world_user_message(prompt, brief), validate, challenge=True, llm=self.world_llm)
         if out["type"] == "recipe":
             self.cache.put(key, out)
         return out
@@ -256,20 +275,21 @@ class WorldService:
 
         return self._ask(edit_system_prompt(req), req.prompt, validate)
 
-    def _ask(self, system: str, user: str, validate: Callable[[dict], dict], challenge: bool = False) -> dict:
+    def _ask(self, system: str, user: str, validate: Callable[[dict], dict], challenge: bool = False, llm: Completer | None = None) -> dict:
         """Ask the LLM, validate, retry once with the error; after two unusable answers, one last try on the backup
         model when the client has one. Raises AIUnavailable (busy, or unusable answers), never returns a fake world.
 
         `challenge`: a refusal is questioned once (models refuse ordinary requests like "a modern city"); a second
         refusal stands.
         """
+        llm = llm or self.llm
         prompt = user
-        backup = bool(getattr(self.llm, "fallback_models", None))
+        backup = bool(getattr(llm, "fallback_models", None))
         tries, failure = 0, AIUnavailable.MESSAGE
         while tries < (3 if backup else 2):  # a challenged refusal does not use up a try
             tries += 1
             try:
-                raw = self.llm.complete(system, user, prefer_backup=True) if tries == 3 else self.llm.complete(system, user)
+                raw = llm.complete(system, user, prefer_backup=True) if tries == 3 else llm.complete(system, user)
                 data = extract_json(raw)
                 if data.get("type") == "unsupported":
                     reason = str(data.get("reason", "Not supported"))[:300]

@@ -110,3 +110,23 @@ describe('asset transport vs definitive none', () => {
     expect(await assetJob('j1')).toEqual({ status: 'none' });
   });
 });
+
+describe('the world brief', () => {
+  it('is fetched, then sent with the world; any failure is an empty brief, never an error', async () => {
+    const { briefWorld } = await import('../../src/api/client');
+    vi.stubGlobal('fetch', reply(200, { brief: 'A tall glass downtown by the sea, with...', title: 'Glass Bay', source: 'live' }));
+    expect(await briefWorld('a city')).toEqual({ brief: 'A tall glass downtown by the sea, with...', title: 'Glass Bay' });
+    vi.stubGlobal('fetch', reply(503, { detail: 'busy' }));
+    expect(await briefWorld('a city')).toEqual({ brief: '' });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
+    expect(await briefWorld('a city')).toEqual({ brief: '' });
+    const r = loadRecipeFixture('fishing-valley');
+    const f = reply(200, { type: 'recipe', recipe: r, notes: [], source: 'live' });
+    vi.stubGlobal('fetch', f);
+    await generateWorld('a city', 'A tall glass downtown');
+    await generateWorld('a city');
+    const bodies = (f.mock.calls as unknown as Array<[string, RequestInit]>).map((c) => JSON.parse(String(c[1].body)));
+    expect(bodies[0]).toEqual({ prompt: 'a city', brief: 'A tall glass downtown' });
+    expect(bodies[1]).toEqual({ prompt: 'a city' });
+  });
+});

@@ -2,12 +2,12 @@ import type { Recipe } from '../core/recipe';
 import { runChecks, type Check } from './checks';
 import { createField, type Road, type WorldField } from './field';
 import { findSpawn, solvePlacements, type Placement } from './placement';
+import { scatterProps, type Extra, type StreetGroup } from './props';
 import { findPath, roadNetwork, type RoadNode } from './roads';
+import { layoutSettlement, type Building } from './settlement';
 
 /** The spawn point's id in the road network. */
 const SPAWN = '__spawn';
-import { scatterProps, type Extra } from './props';
-import { layoutSettlement, type Building } from './settlement';
 
 export interface BuiltWorld {
   recipe: Recipe;
@@ -38,12 +38,17 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
 
   const buildings: Building[] = [];
   const roads: Road[] = [];
+  const groups = new Map<string, StreetGroup>();
   for (const place of recipe.places) {
     if (place.kind !== 'settlement') continue;
     const pl = placements.find((p) => p.id === place.id);
     if (!pl) continue;
-    const { buildings: b, spine, streets } = layoutSettlement(place, pl, field, recipe.seed);
+    const { buildings: b, spine, streets, paved, lampSpots } = layoutSettlement(place, pl, field, recipe.seed);
     for (const road of [spine, ...streets]) { field.addRoad(road); roads.push(road); }
+    if (paved) field.addPaved(paved);
+    // Grids and high streets put their props along the kerbs; villages, rings and scatters keep them around.
+    const pattern = place.layout?.pattern;
+    if (pattern === 'grid' || pattern === 'line') groups.set(place.id, { streets: [spine, ...streets], buildings: b, lampSpots });
     buildings.push(...b);
     log.push(`Laid out ${b.length} buildings in ${place.label}`);
   }
@@ -67,7 +72,7 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
     }
   }
   const checks = runChecks(field, placements, spawn);
-  const extras = scatterProps(recipe, placements, field); // after roads: never on one
+  const extras = scatterProps(recipe, placements, field, groups); // after roads: never on one
   if (extras.length) log.push(`Scattered ${extras.length} details around the places`);
   return { recipe, field, placements, buildings, roads, extras, spawn, checks, log };
 }

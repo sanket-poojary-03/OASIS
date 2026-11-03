@@ -86,6 +86,8 @@ class Layout(Strict):
     count: Annotated[int, Field(ge=1, le=60)] | None = None
     height: LayoutHeight = "low"
     centre: Annotated[str, Field(min_length=2, max_length=60)] | None = None
+    # Other members besides the place's asset (a downtown of glass towers, office blocks and apartment towers).
+    variants: Annotated[list[Annotated[str, Field(min_length=2, max_length=80)]], Field(max_length=4)] | None = None
 
 
 class PlaceProp(Strict):

@@ -53,18 +53,41 @@ export function chaikin(points: Vec2[], iterations = 2): Vec2[] {
   return out;
 }
 
+/** Terrain samples on one lattice over the core, shared by every road of a field (a big world builds dozens). */
+interface Samples { cell: number; pads: number; side: number; slope: Float32Array; water: Uint8Array; done: Uint8Array }
+const samplesOf = new WeakMap<WorldField, Samples>();
+
+function samples(field: WorldField, cell: number): Samples {
+  let s = samplesOf.get(field);
+  // Roads never change the terrain; pads do, so a new pad (or another cell size) starts afresh.
+  if (!s || s.cell !== cell || s.pads !== field.pads.length) {
+    const side = Math.floor((CORE_HALF * 2) / cell) + 1;
+    s = { cell, pads: field.pads.length, side, slope: new Float32Array(side * side), water: new Uint8Array(side * side), done: new Uint8Array(side * side) };
+    samplesOf.set(field, s);
+  }
+  return s;
+}
+
 export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Road | null {
   const pad = 160;
-  const minX = Math.max(-CORE_HALF, Math.min(from.x, to.x) - pad), maxX = Math.min(CORE_HALF, Math.max(from.x, to.x) + pad);
-  const minZ = Math.max(-CORE_HALF, Math.min(from.z, to.z) - pad), maxZ = Math.min(CORE_HALF, Math.max(from.z, to.z) + pad);
-  const cols = Math.ceil((maxX - minX) / cell) + 1, rows = Math.ceil((maxZ - minZ) / cell) + 1;
+  const S = samples(field, cell);
+  const snap = (v: number, up: boolean) => Math.max(0, Math.min(S.side - 1, (up ? Math.ceil : Math.floor)((v + CORE_HALF) / cell)));
+  const c0 = snap(Math.min(from.x, to.x) - pad, false), c1 = snap(Math.max(from.x, to.x) + pad, true);
+  const r0 = snap(Math.min(from.z, to.z) - pad, false), r1 = snap(Math.max(from.z, to.z) + pad, true);
+  const minX = -CORE_HALF + c0 * cell, minZ = -CORE_HALF + r0 * cell;
+  const cols = c1 - c0 + 1, rows = r1 - r0 + 1;
   const n = cols * rows;
   const px = (c: number) => minX + c * cell, pz = (r: number) => minZ + r * cell;
   const slope = new Float32Array(n), water = new Uint8Array(n);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const i = r * cols + c;
-    slope[i] = field.slopeAt(px(c), pz(r));
-    water[i] = field.isWater(px(c), pz(r)) ? 1 : 0;
+    const i = r * cols + c, k = (r0 + r) * S.side + (c0 + c);
+    if (!S.done[k]) {
+      S.slope[k] = field.slopeAt(px(c), pz(r));
+      S.water[k] = field.isWater(px(c), pz(r)) ? 1 : 0;
+      S.done[k] = 1;
+    }
+    slope[i] = S.slope[k];
+    water[i] = S.water[k];
   }
   const cellOf = (p: Vec2) => {
     const c = Math.max(0, Math.min(cols - 1, Math.round((p.x - minX) / cell)));

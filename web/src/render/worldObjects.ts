@@ -105,6 +105,8 @@ interface Spec { asset: string; kind: PlaceKind; variant: number; height: number
 
 /** Heights of scattered props by size: a crate, a bench or barrel, a street lamp or parked car. */
 const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large: 3.2 };
+/** Street lamps at city crossings stand taller than a large prop. */
+const STREET_LAMP_HEIGHT = 4.6;
 
 /** What a scattered prop can do, from what it is (lantern → light, bench → sit, crate → push, car → drive). */
 function extraInteraction(asset: string): Interaction {
@@ -177,7 +179,7 @@ export class WorldObjects {
       const place = world.recipe.places.find((p) => p.id === e.placeId);
       const interaction = extraInteraction(e.asset);
       specs.push({
-        asset: e.asset, kind: 'prop', variant: Number(e.id.split('-').pop()) || 0, height: interaction === 'drive' ? VEHICLE_HEIGHT[e.size] : EXTRA_HEIGHT[e.size],
+        asset: e.asset, kind: 'prop', variant: Number(e.id.split('-').pop()) || 0, height: interaction === 'drive' ? VEHICLE_HEIGHT[e.size] : e.id.includes('-lamp-') ? STREET_LAMP_HEIGHT : EXTRA_HEIGHT[e.size],
         x: e.x, y: e.y, z: e.z, rotation: e.rotation, extra: true,
         info: { placeId: e.placeId, objectId: e.id, label: `${place?.label ?? e.placeId} — ${e.asset}`, reasons: [`belongs around ${place?.label ?? e.placeId}`], warnings: [], source: 'placeholder', interaction, kind: 'prop' },
       });

@@ -1,7 +1,7 @@
 import type { Interaction, Place } from '../core/recipe';
 import { hashString, mulberry32 } from '../core/rng';
 import type { Road, WorldField } from './field';
-import { layoutGroup } from './layouts';
+import { layoutGroup, memberAsset, type GroupLayout } from './layouts';
 import type { Placement } from './placement';
 
 export interface Building {
@@ -61,7 +61,7 @@ function dryExtent(field: WorldField, pl: Placement, dir: { x: number; z: number
   return { back: run(-1), fwd: run(1) };
 }
 
-export function layoutSettlement(place: Place, pl: Placement, field: WorldField, seed: number): { buildings: Building[]; spine: Road; streets: Road[] } {
+export function layoutSettlement(place: Place, pl: Placement, field: WorldField, seed: number): GroupLayout {
   if (place.layout && place.layout.pattern !== 'village') return layoutGroup(place, place.layout, pl, field, seed);
   const rng = mulberry32(seed ^ hashString(`${place.id}:layout`));
   const angle = rng() * Math.PI;
@@ -94,6 +94,7 @@ export function layoutSettlement(place: Place, pl: Placement, field: WorldField,
     asset: centreKind === 'market' ? 'market stall' : 'stone well', footprint: CENTRE_FOOTPRINT, interaction: 'none',
   }];
 
+  const assetOf = memberAsset(place, seed);
   const houseInteraction: Interaction = place.interaction !== 'none' ? place.interaction : 'door';
   const cap = place.layout?.count ?? CAP[place.size];
   const tryHouse = (t: number, s: number, jitter: number): boolean => {
@@ -107,7 +108,7 @@ export function layoutSettlement(place: Place, pl: Placement, field: WorldField,
       buildings.push({
         id: `${place.id}-house-${buildings.length - 1}`, placeId: place.id, x, z, y: field.heightAt(x, z),
         rotation: Math.atan2(-side.x * s, -side.z * s), kind: 'house',
-        asset: place.asset, footprint: HOUSE_FOOTPRINT, interaction: houseInteraction,
+        asset: assetOf(buildings.length - 1), footprint: HOUSE_FOOTPRINT, interaction: houseInteraction,
       });
       return true;
     }
@@ -125,5 +126,5 @@ export function layoutSettlement(place: Place, pl: Placement, field: WorldField,
       }
     }
   }
-  return { buildings, spine, streets: [] };
+  return { buildings, spine, streets: [], lampSpots: [] };
 }

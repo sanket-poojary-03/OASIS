@@ -1,4 +1,4 @@
-# WorldSeed: session handoff (2026-11-03)
+# WorldSeed: session handoff (2026-11-04)
 
 Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (the newest entries are under `## 2026-11-03`).
 
@@ -24,6 +24,7 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
   - `LLM_BASE_URL=https://api.sarvam.ai/v1`
   - `LLM_MODEL=sarvam-105b-conversations`: answers in 1–4 s, no reasoning step.
   - `LLM_FALLBACK_MODELS=sarvam-105b`: reasons first, 15–85 s. Used for busy errors and as the last try after two unusable answers.
+  - `LLM_WORLD_MODEL=glm5.3-flash` with `LLM_WORLD_BASE_URL=https://api.sarvam.ai/v2` (since 2026-11-04, the user's choice): whole worlds only, 13–43 s, about twice the places and props. Briefs and live edits stay on `LLM_MODEL`. Unset both to go back.
   - `LLM_REASONING_EFFORT` is unset. Measured: `low` was worse (7.5k thinking tokens, cut off), and `none` is rejected with HTTP 400.
   - `LLM_MAX_TOKENS` defaults to 8000. The per-call timeout is 75 s, and the browser waits 90 s.
 - **Old provider:** the OpenRouter settings are kept *commented out* in `backend/.env`. That account had $0 credit, and Google's shared pool returned 429 on about 1 in 3 calls.
@@ -51,6 +52,11 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | 2dad3e8 | **Model library.** 186 curated Quaternius CC0 models (`backend/scripts/curate_library.py`), textures 512 px WebP, 40 MB. Trees, rocks and bushes are real models when the backend is up. No rabbit model (Quaternius' are upright characters). |
 | c3040ef | **Smarter finder.** AI-confirmed partial library matches, alternative search words, flat models rejected for buildings, Meshy for any kind. |
 | (next) | **No placeholders with a server.** Objects appear only with their real model; misses are left out with a notice; stand-ins only offline; 4x footprint cap. |
+| bbe7645 | **Varied nature.** 17 scatter kinds, every library variant, oak/birch/autumn groves, ground cover. |
+| 0fb9b84 | **Roads everywhere.** A spanning tree of roads over every place and the spawn, plus the AI's paths. |
+| c51a727 | **Prompt enhancer.** `/api/brief`; up to 24 places with props; sturdier repairs; invalid places dropped one by one. |
+| 361b08c | **Props around places.** Deterministic, off roads and plots, real models with interactions. |
+| (next) | **GLM-5.3 Flash for worlds, great cities, brief on screen.** World model split; `layout.variants`; paved city blocks; street lamps at crossings; kerb props and parked cars; prompt p9; builds about 2× faster. |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
 ## User preferences (also in memory)
