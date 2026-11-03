@@ -75,6 +75,7 @@ void (async () => {
     else if (e.code === 'KeyN') { e.preventDefault(); newWorld(); }
     else if (e.code === 'KeyE') { if (app.player.controls.isLocked) app.interact(); }
     else if (e.code === 'KeyU') app.undo();
+    else if (e.code === 'KeyB') void app.characters.next().then((name) => ui.toast(`Playing as ${name}${app.avatar.thirdPerson ? '' : ' · V to see yourself'}`));
     else if (e.code === 'KeyV') ui.toast(app.avatar.toggle() ? 'Third-person view · V for first person' : 'First-person view');
     else if (e.code === 'KeyC') ui.toggleChecks();
   });

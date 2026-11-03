@@ -7,11 +7,12 @@
 | Stylized Nature MegaKit | Quaternius | https://quaternius.com/packs/stylizednaturemegakit.html | CC0 1.0 | trees, pines, bushes, rocks, flowers |
 | Medieval Village MegaKit | Quaternius | https://quaternius.com/packs/medievalvillagemegakit.html | CC0 1.0 | house prefabs, well, market stall, village props |
 | Ultimate Animated Animal Pack | Quaternius | https://quaternius.com/packs/ultimateanimatedanimals.html | CC0 1.0 | deer, rabbits and other animated wildlife |
-| KayKit Adventurers | Kay Lousberg (KayKit) | https://kaylousberg.itch.io/kaykit-adventurers | CC0 1.0 | the animated third-person player |
+| Adventurer, Astronaut, Hooded Adventurer (animated) | Quaternius | https://poly.pizza/u/Quaternius | CC0 1.0 | the three playable characters (B switches), bundled in `web/public/models/characters/` |
+| Sports Car | Quaternius | https://poly.pizza/u/Quaternius | CC0 1.0 | the driveable car, bundled in `web/public/models/vehicles/` |
 
 The team adds the packs to the repository: it downloads them, copies the chosen models into `backend/assets/library/`
-and runs `python scripts/build_manifest.py`. Until a model is there, its object, tree, animal or player is drawn with a
-procedural fallback shape. CC0 needs no attribution; we credit the authors anyway.
+and runs `python scripts/build_manifest.py`. Until a model is there, its object, tree or animal is drawn with a procedural
+fallback shape. The characters and the car are bundled with the web app, so they work without the backend. CC0 needs no attribution; we credit the authors anyway.
 
 ## Models found while you play
 

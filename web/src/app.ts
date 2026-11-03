@@ -9,6 +9,7 @@ import { InteractionSystem } from './logic/interactions';
 import { Wildlife } from './logic/wildlife';
 import { Physics } from './physics/physics';
 import { Avatar } from './player/avatar';
+import { CharacterRoster } from './player/characters';
 import { Player } from './player/player';
 import { loadArt } from './render/artLoader';
 import { AssetModelSource } from './render/assetModels';
@@ -61,6 +62,8 @@ export class App {
   private backendSeen = false;
   /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
   private artDirty = false;
+  /** The playable characters (bundled; B cycles them). */
+  readonly characters: CharacterRoster;
   private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
 
   private constructor(
@@ -85,6 +88,8 @@ export class App {
     objects.onReady.push((root, info) => this.interactions.register(root, info));
     objects.onCleared.push(() => this.interactions.clear());
     objects.onLoading.push((e) => this.ui?.notices.loading(e));
+    this.characters = new CharacterRoster(avatar);
+    void this.characters.start();
   }
 
   static async create(canvas: HTMLCanvasElement, models: ModelSource = new AssetModelSource()): Promise<App> {
@@ -114,7 +119,7 @@ export class App {
   startArt(): void {
     if (this.artStarted) return;
     this.artStarted = true;
-    void loadArt(this.scatter, this.wildlife, this.avatar, { onScatter: () => { this.artDirty = true; } }).then((r) => {
+    void loadArt(this.scatter, this.wildlife, { onScatter: () => { this.artDirty = true; } }).then((r) => {
       console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
     });
   }
