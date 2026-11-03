@@ -23,6 +23,7 @@ import { Engine } from './render/engine';
 import { GrassSystem } from './render/grass';
 import { setNightGlow } from './render/nightGlow';
 import { PostFX } from './render/postfx';
+import { RangeCuller, TERRAIN_RANGE } from './render/rangeCull';
 import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './render/roads';
 import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
@@ -52,6 +53,7 @@ export class App {
   /** Exactly one for the page lifetime: its fixed pool of 6 PointLights is created once, so shaders never recompile on reload. */
   readonly interactions: InteractionSystem;
   private roads: THREE.Group | null = null;
+  private readonly culler = new RangeCuller(TERRAIN_RANGE);
   private bridgeColliders: Collider[] = [];
   private spawnPending: { x: number; y: number; z: number } | null = null;
   private history: Snapshot[] = [];
@@ -177,6 +179,10 @@ export class App {
     if (this.roads) { this.engine.scene.remove(this.roads); disposeGroup(this.roads); }
     this.roads = buildRoadMeshes(built.field, built.roads);
     this.engine.scene.add(this.roads);
+    // Nothing is drawn past the loaded terrain (it would hang in the sky): roads, water and placed objects.
+    this.culler.track(this.roads);
+    this.culler.track(this.water.group);
+    this.culler.track(this.objects.group, true);
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
     if (respawn) this.vehicles.reset(); // before objects: a new world's cars never inherit old poses
@@ -396,6 +402,7 @@ export class App {
     this.physics.step(dt);
     this.atmosphere.update(dt, this.engine.camera.position);
     this.water.update(this.engine.camera.position);
+    this.culler.update(dt, this.engine.camera.position);
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
     this.postfx.setNight(this.atmosphere.night);
     this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor (DECISIONS 2026-11-02)

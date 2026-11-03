@@ -3,6 +3,7 @@ import type { Collider } from '@dimforge/rapier3d-compat';
 import type { Physics } from '../physics/physics';
 import type { Road, WorldField } from '../world/field';
 import type { Vec2 } from '../world/river';
+import { pieces } from './rangeCull';
 import { ribbonData, ribbonGeometry } from './ribbon';
 
 const roadMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5e, roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
@@ -32,9 +33,12 @@ export function roadY(field: Pick<WorldField, 'waterSurfaceAt' | 'heightAt'>, x:
 export function buildRoadMeshes(field: WorldField, roads: Road[]): THREE.Group {
   const group = new THREE.Group();
   for (const road of roads) {
-    const mesh = new THREE.Mesh(ribbonGeometry(densify(road.points, road.bridges).points, road.width / 2, (x, z) => roadY(field, x, z)), roadMat);
-    mesh.receiveShadow = true;
-    group.add(mesh);
+    // In ~45 m pieces, so the parts beyond the loaded terrain can be hidden (RangeCuller).
+    for (const run of pieces(densify(road.points, road.bridges).points)) {
+      const mesh = new THREE.Mesh(ribbonGeometry(run, road.width / 2, (x, z) => roadY(field, x, z)), roadMat);
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    }
   }
   return group;
 }

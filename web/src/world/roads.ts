@@ -68,6 +68,10 @@ function samples(field: WorldField, cell: number): Samples {
   return s;
 }
 
+/** Slope (rise over run, ~22 degrees) above which a road cell gets STEEP_COST extra per unit of slope. */
+const STEEP = 0.4;
+const STEEP_COST = 80;
+
 export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Road | null {
   const pad = 160;
   const S = samples(field, cell);
@@ -116,7 +120,8 @@ export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Roa
       const nb = nr * cols + nc;
       if (closed[nb]) continue;
       const step = (dr && dc ? Math.SQRT2 : 1) * cell;
-      const cost = g[cur] + step * (1 + 12 * slope[nb]) + (water[nb] ? 60 : 0);
+      // Steep ground costs far more past STEEP: a car cannot climb ~38 degrees, so roads take the longer, gentler way.
+      const cost = g[cur] + step * (1 + 12 * slope[nb] + STEEP_COST * Math.max(0, slope[nb] - STEEP)) + (water[nb] ? 60 : 0);
       if (cost < g[nb]) { g[nb] = cost; came[nb] = cur; heap.push(cost + h(nb), nb); }
     }
   }

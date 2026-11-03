@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { WorldField } from '../world/field';
 import { disposeGroup } from './dispose';
+import { pieces } from './rangeCull';
 import { ribbonGeometry } from './ribbon';
 
 export { disposeGroup };
@@ -24,10 +25,11 @@ export class WaterSystem {
     if (field.hasSea) {
       this.sea = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.material);
       this.sea.position.y = field.seaLevelY;
+      this.sea.userData.alwaysVisible = true; // follows the viewer; open sea to the horizon is right
       this.group.add(this.sea);
     }
     if (field.river.length > 1) {
-      this.group.add(new THREE.Mesh(ribbonGeometry(field.river, 18, (x, z) => field.baseHeight(x, z) - 1.5), this.material));
+      for (const run of pieces(field.river, 8)) this.group.add(new THREE.Mesh(ribbonGeometry(run, 18, (x, z) => field.baseHeight(x, z) - 1.5), this.material));
     }
     for (const l of field.lakes) {
       const lake = new THREE.Mesh(new THREE.CircleGeometry(l.radius, 48).rotateX(-Math.PI / 2), this.material);

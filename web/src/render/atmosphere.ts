@@ -1,13 +1,11 @@
 import * as THREE from 'three';
-import { CHUNK_SIZE } from '../world/chunkData';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../core/recipe';
-import { SHADOW_MAP_SIZE, VIEW_RADIUS } from './deviceTier';
+import { SHADOW_MAP_SIZE } from './deviceTier';
+import { TERRAIN_RANGE } from './rangeCull';
 
 export const TIME_HOURS: Record<Atmosphere['time'], number> = { dawn: 6.3, day: 12, dusk: 18.4, night: 23 };
 const FOG_DAY: Record<Atmosphere['weather'], number> = { clear: 0xbfd6ea, rain: 0x8a96a3, snow: 0xd8dee8, mist: 0xc9cfd6, storm: 0x5d6670 };
-/** The radius of terrain always loaded around the camera (VIEW chunks), less a margin for the chunk being streamed in. */
-const TERRAIN_RANGE = VIEW_RADIUS * CHUNK_SIZE - 8;
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 const FOG_EXTRA: Record<Atmosphere['weather'], number> = { clear: 0, rain: 0.004, snow: 0.005, mist: 0.012, storm: 0.008 };
 /**
