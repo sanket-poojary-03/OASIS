@@ -11,6 +11,8 @@ import { Physics } from './physics/physics';
 import { Avatar } from './player/avatar';
 import { CharacterRoster } from './player/characters';
 import { Booster } from './render/booster';
+import { loadCarTemplate } from './render/vehicleModel';
+import { Vehicles } from './logic/vehicles';
 import { Player } from './player/player';
 import { loadArt } from './render/artLoader';
 import { AssetModelSource } from './render/assetModels';
@@ -66,6 +68,8 @@ export class App {
   /** The playable characters (bundled; B cycles them). */
   readonly characters: CharacterRoster;
   private readonly booster: Booster;
+  /** Drivable cars: one parked at every spawn, plus 'drive' places. */
+  readonly vehicles: Vehicles;
   private readonly feet = new THREE.Vector3();
   private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
 
@@ -88,8 +92,15 @@ export class App {
       heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
       isReady: this.isReady,
     });
+    this.vehicles = new Vehicles(engine.scene, physics, player, {
+      heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
+      isWater: (x, z) => this.built?.field.isWater(x, z) ?? false,
+      isReady: this.isReady,
+    }, () => loadCarTemplate());
     objects.onReady.push((root, info) => this.interactions.register(root, info));
+    objects.onReady.push((root, info) => { if (info.interaction === 'drive') this.vehicles.adopt(root, info); });
     objects.onCleared.push(() => this.interactions.clear());
+    objects.onCleared.push(() => this.vehicles.dropAdopted());
     objects.onLoading.push((e) => this.ui?.notices.loading(e));
     this.booster = new Booster(engine.scene);
     avatar.attach(this.booster.pack);
@@ -169,6 +180,7 @@ export class App {
     this.engine.scene.add(this.roads);
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
+    if (respawn) this.vehicles.reset(); // before objects: a new world's cars never inherit old poses
     this.objects.rebuild(built, wait); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
     this.ui?.setChecks(built.checks);
@@ -317,6 +329,9 @@ export class App {
   private get reach(): number { return this.avatar.thirdPerson ? REACH_THIRD : REACH_FIRST; }
 
   interact(): void {
+    if (this.vehicles.driving) { this.vehicles.exit(); return; }
+    const car = this.vehicles.nearest(this.player.lookRay(), this.reach);
+    if (car) { this.vehicles.enter(car); return; }
     const item = this.interactions.nearest(this.player.lookRay(), this.reach);
     if (item) this.interactions.use(item);
   }
@@ -336,12 +351,17 @@ export class App {
       this.player.spawn(s.x, s.y, s.z);
       this.player.enabled = true;
       this.spawnPending = null;
+      void this.vehicles.parkNear(s.x, s.z);
     }
+    this.avatar.riding = !!this.vehicles.driving; // also after a world edit put the driver out
     if (this.cinematic) {
       const c = this.cinematic;
       this.cineAngle += dt * c.speed;
       this.engine.camera.position.set(c.x + Math.cos(this.cineAngle) * c.radius, c.y + c.height, c.z + Math.sin(this.cineAngle) * c.radius);
       this.engine.camera.lookAt(c.x, c.y + 4, c.z);
+    } else if (this.built && this.vehicles.driving) {
+      this.vehicles.update(dt, this.engine.camera);
+      this.ui?.setFuel(this.player.jetpack.fuel, false);
     } else if (this.built) {
       this.player.update(dt, this.built.field, this.isReady);
       this.avatar.update(dt, this.engine.camera, this.player.position, this.player.moving, this.player.running, this.groundAt);
@@ -369,8 +389,13 @@ export class App {
   /** Interaction hint (only while walking with the pointer locked) and the place card under the crosshair. */
   private updateLook(ui: UI): void {
     if (this.cinematic || ui.startOpen) { ui.setHint(null); ui.setCard(null); return; }
-    const item = this.player.controls.isLocked ? this.interactions.nearest(this.player.lookRay(), this.reach) : null;
-    ui.setHint(item ? this.interactions.hint(item) : null);
+    const locked = this.player.controls.isLocked;
+    if (this.vehicles.driving) ui.setHint(locked ? this.vehicles.hint(null) : null);
+    else {
+      const car = locked ? this.vehicles.nearest(this.player.lookRay(), this.reach) : null;
+      const item = locked && !car ? this.interactions.nearest(this.player.lookRay(), this.reach) : null;
+      ui.setHint(car ? this.vehicles.hint(car) : item ? this.interactions.hint(item) : null);
+    }
     const hit = this.pick(this.objects.pickables(), 80);
     ui.setCard(hit ? this.objects.infoFor(hit.object) : null);
   }

@@ -20,10 +20,11 @@ export class Player {
   /** The rocket booster: hold Space in the air to fly while it has fuel. */
   readonly jetpack = new Jetpack();
   private readonly body: RigidBody;
-  private readonly collider: Collider;
+  readonly collider: Collider;
   private readonly controller: KinematicCharacterController;
   private vy = 0;
-  private readonly keys = new Set<string>();
+  /** Keys held right now (vehicles read them while driving). */
+  readonly keys = new Set<string>();
   private readonly fwd = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
   private readonly move = new THREE.Vector3();

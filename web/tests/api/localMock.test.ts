@@ -49,6 +49,12 @@ describe('localMock', () => {
     expect(winter.type === 'ops' && winter.ops).toContainEqual({ op: 'setAtmosphere', weather: 'snow' });
   });
 
+  it('vehicles are drivable props; carts and carpets are not', () => {
+    expect(place('add a red jeep here', ctx({ lookAt: { x: 5, z: 5 } })).interaction).toBe('drive');
+    expect(place('add a car', ctx()).interaction).toBe('drive');
+    expect(place('add a carpet', ctx()).interaction).toBe('none');
+  });
+
   it('add here uses lookAt (rounded) and applies cleanly', () => {
     const res = localEdit(r, 'put a lantern here', ctx({ lookAt: { x: 12.4, z: -40 } }));
     const p = place('put a lantern here', ctx({ lookAt: { x: 12.4, z: -40 } }));

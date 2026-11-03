@@ -34,6 +34,7 @@ function placeholderFigure(): AnimatedModel {
 export class Avatar {
   thirdPerson = false;
   private model: AnimatedModel = placeholderFigure();
+  private inCar = false;
   private animated = false;
   private readonly dir = new THREE.Vector3();
   private readonly flat = new THREE.Vector3();
@@ -58,7 +59,7 @@ export class Avatar {
     const next = animatedClone(t);
     next.root.position.copy(this.model.root.position);
     next.root.rotation.y = this.model.root.rotation.y;
-    next.root.visible = this.thirdPerson;
+    next.root.visible = this.thirdPerson && !this.inCar;
     for (const o of this.gear) next.root.add(o);
     this.scene.remove(this.model.root);
     this.model.dispose();
@@ -67,9 +68,16 @@ export class Avatar {
     this.scene.add(next.root);
   }
 
+  /** Sitting in a car: the figure is hidden whatever the view. */
+  get riding(): boolean { return this.inCar; }
+  set riding(v: boolean) {
+    this.inCar = v;
+    this.model.root.visible = this.thirdPerson && !v;
+  }
+
   toggle(): boolean {
     this.thirdPerson = !this.thirdPerson;
-    this.model.root.visible = this.thirdPerson;
+    this.model.root.visible = this.thirdPerson && !this.inCar;
     return this.thirdPerson;
   }
 

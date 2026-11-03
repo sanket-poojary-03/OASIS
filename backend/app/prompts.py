@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p6"
+PROMPT_VERSION = "p7"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -32,7 +32,8 @@ Rules:
   structure = one building (cabin, shrine, dock);
   prop = small object (campfire, bench, barrel, lantern).
 - "asset" is a short visual description of ONE 3D model, e.g. "ruined stone watchtower". It is used to find or generate the model.
-- interaction makes it usable: door (buildings), light (lamps, lighthouses), fire (campfires), sound (bells, gongs), sit (benches), push (barrels, crates); otherwise "none".
+- interaction makes it usable: door (buildings), light (lamps, lighthouses), fire (campfires), sound (bells, gongs), sit (benches), push (barrels, crates),
+  drive (cars, jeeps, trucks, buggies, rovers: kind prop, the player can get in and drive them); otherwise "none".
 - terrain.shape: island (sea all round; seaLevel 0.25-0.4), valley, canyon, mountains, hills, plains. seaLevel 0 = no sea.
 - climate.temperature 0 frozen .. 1 scorching; climate.moisture 0 dry .. 1 lush.
 - water.river true if a river/stream is mentioned or it fits a valley or canyon; water.lake true for lakes/ponds.
@@ -90,7 +91,8 @@ Rules:
 - Time and weather words -> setAtmosphere.
 - Colour changes ("make the sea purple", "turn the ground black", "an orange sky") -> setPalette with "#rrggbb" colours
   (ground, water, sky). It recolours without rebuilding.
-- Keep place rules from the world prompt: kind, asset, interaction, relations.
+- Keep place rules from the world prompt: kind, asset, interaction, relations. interaction: door (buildings), light (lamps),
+  fire (campfires), sound (bells), sit (benches), push (barrels, crates), drive (cars, jeeps, trucks, buggies, rovers: kind prop).
 - To add a whole group ("build a city here", "a camp of tents by the lake", "plant an orchard"), add ONE settlement whose asset is
   the repeated thing, with layout {pattern: village|grid|ring|line|scatter, count 1-60, height low|mixed|tall, centre: optional piece}:
   grid for cities, ring for camps/colonies/stone circles, line for harbours/streets, scatter for orchards/ruins.

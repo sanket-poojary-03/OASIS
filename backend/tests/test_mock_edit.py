@@ -21,6 +21,13 @@ def test_add_here_uses_look_at():
     assert op["place"]["where"] == [{"rel": "at", "x": 12.4, "z": -40}]
 
 
+def test_vehicles_are_drivable_props_but_carts_and_carpets_are_not():
+    place = mock_edit(req("add a red jeep here", look_at={"x": 5, "z": 5}))["ops"][0]["place"]
+    assert place["interaction"] == "drive" and place["kind"] == "prop"
+    assert mock_edit(req("add a car"))["ops"][0]["place"]["interaction"] == "drive"
+    assert mock_edit(req("add a carpet"))["ops"][0]["place"]["interaction"] == "none"
+
+
 def test_add_landmark_without_look_at_and_unique_id():
     out = mock_edit(req("build a tower"))
     place = out["ops"][0]["place"]

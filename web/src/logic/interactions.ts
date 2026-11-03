@@ -14,7 +14,8 @@ export interface InteractEnv {
   isReady(x: number, z: number): boolean;
 }
 
-type Usable = Exclude<Interaction, 'none'>;
+/** Vehicles ('drive') are driven by logic/vehicles.ts, not set up here. */
+type Usable = Exclude<Interaction, 'none' | 'drive'>;
 
 const LABEL: Record<Usable, [string, string]> = {
   door: ['Open door', 'Close door'],
@@ -67,7 +68,7 @@ export class InteractionSystem {
    */
   register(root: THREE.Group, info: ObjectInfo): void {
     const previous = this.unregister(root);
-    if (info.interaction === 'none') return;
+    if (info.interaction === 'none' || info.interaction === 'drive') return;
     const size = root.userData.size as THREE.Vector3;
     const item: InteractItem = { root, info, type: info.interaction, on: info.interaction === 'fire', manual: false, halfHeight: size.y / 2, lightY: 0 };
     if (previous?.type === 'light' && previous.manual) { item.on = previous.on; item.manual = true; }

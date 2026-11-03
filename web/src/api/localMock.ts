@@ -65,7 +65,7 @@ export const ADD = /\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|th
 export const REMOVE = /\b(?:remove|delete|destroy)\b|\bget rid of\b/;
 export const LANDMARK = /tower|castle|lighthouse|statue|temple|obelisk|windmill|arch|monument/;
 export const STRUCTURE = /house|cabin|hut|shrine|tent|lodge|well|dock|cottage|barn|inn|stall/;
-export const INTERACT: Array<[RegExp, Interaction]> = [[/lamp|lantern|light|torch|candle/, 'light'], [/campfire|bonfire|fire/, 'fire'], [/bell|gong/, 'sound'], [/bench|chair|seat|stool/, 'sit'], [/barrel|crate|box/, 'push'], [/house|cabin|hut|cottage|lodge|barn|inn/, 'door']];
+export const INTERACT: Array<[RegExp, Interaction]> = [[/\b(?:car|jeep|truck|buggy|rover|kart|van|tractor|motorbike)s?\b/, 'drive'], [/lamp|lantern|light|torch|candle/, 'light'], [/campfire|bonfire|fire/, 'fire'], [/bell|gong/, 'sound'], [/bench|chair|seat|stool/, 'sit'], [/barrel|crate|box/, 'push'], [/house|cabin|hut|cottage|lodge|barn|inn/, 'door']];
 
 const ok = (ops: Op[]): EditResult => ({ type: 'ops', ops, notes: [], source: 'offline' });
 const no = (reason: string): EditResult => ({ type: 'unsupported', reason, source: 'offline' });

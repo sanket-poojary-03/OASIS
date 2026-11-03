@@ -66,7 +66,9 @@ ADD = re.compile(r"\b(?:add|put|place|build|spawn|create|bring)\s+(?:(?:an|a|the
 REMOVE = re.compile(r"\b(?:remove|delete|destroy)\b|\bget rid of\b")
 LANDMARK = re.compile(r"tower|castle|lighthouse|statue|temple|obelisk|windmill|arch|monument")
 STRUCTURE = re.compile(r"house|cabin|hut|shrine|tent|lodge|well|dock|cottage|barn|inn|stall")
-INTERACTIONS = [(r"lamp|lantern|light|torch|candle", "light"), (r"campfire|bonfire|fire", "fire"), (r"bell|gong", "sound"), (r"bench|chair|seat|stool", "sit"), (r"barrel|crate|box", "push"), (r"house|cabin|hut|cottage|lodge|barn|inn", "door")]
+INTERACTIONS = [(r"\b(?:car|jeep|truck|buggy|rover|kart|van|tractor|motorbike)s?\b", "drive"), (r"lamp|lantern|light|torch|candle", "light"), (r"campfire|bonfire|fire", "fire"), (r"bell|gong", "sound"), (r"bench|chair|seat|stool", "sit"), (r"barrel|crate|box", "push"), (r"house|cabin|hut|cottage|lodge|barn|inn", "door")]
+# Words naming a drivable vehicle (service.repair_* uses it too: a vehicle the AI left as scenery can still be driven).
+VEHICLE = re.compile(INTERACTIONS[0][0])
 
 
 def _slug(noun: str, existing: set[str]) -> str:

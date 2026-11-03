@@ -43,6 +43,10 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | 74a3ad4, c2ed538 | **Switch to Sarvam**, then fix the model roles from measurements. Notes the model puts inside the recipe are moved out instead of rejected. |
 | 066ba03 | **Parked minors closed.** `clientip` unwraps IPv4-mapped hops and skips every non-global address; `httpx2` dropped, pytest moved to `requirements-dev.txt`; the health line corrects itself after a late backend wake; test warn spies restored. |
 | 2d179b5 | **Prompt colours.** Optional recipe `palette {ground, water, sky}` (#rrggbb) and a `setPalette` op in both schemas (fixture `ops/red-planet.json`). It tints biomes, grass, water and a translucent sky dome. Colour words are repaired to hex. Prompt p6. Tests: web 283, backend 111 + 10 skipped. |
+| 354b603 | **No stand-in house while an added asset loads.** Places added with T wait for their model; a top-right spinner notice per place, then a tick or "no model found, simple shape". |
+| 3594255 | **Characters.** Three bundled Quaternius CC0 animated characters (Adventurer, Astronaut, Hooded Ranger) in `web/public/models/characters/`; B switches. |
+| f5de08b | **Rocket booster.** Hold Space in the air (after 0.2 s) to fly; fuel 4 s, refills on the ground; flames, glow, roar, BOOST bar. |
+| (next) | **Driveable cars.** `drive` interaction (both schemas, prompts p7, mocks, repair safety net); bundled sports car parked at every spawn; E in/out, WASD, Space brake, Shift boost, chase camera. |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
 ## User preferences (also in memory)
@@ -62,6 +66,7 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 
    Then re-dispatch Task 19b (tagging contract in `rulings.md`). Possible follow-up: houses you can enter (wall colliders with a doorway gap), or houses assembled from the Quaternius modular kit.
 3. **Visual polish ideas:**
+   - **Browser check needed** for this session's features: the loading notices (T → "add a giraffe here"), B characters, holding Space to fly, E on the parked car, and driving up hills, into a house and toward water.
    - ~~Ground and sea colour should follow the prompt~~ (done, 2d179b5). Needs a visual check in the browser: "a red planet…", then "make the sky orange", at day and at night.
    - Fill empty outer city plots with parks or trees.
    - The zen garden came out backwards (the temple as a scatter group, trees placed singly), so tune the prompt further.

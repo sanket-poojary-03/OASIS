@@ -180,3 +180,14 @@ def test_palette_colour_names_and_short_hex_are_repaired_unknown_ones_dropped():
     ops = repair_ops([{"op": "setPalette", "ground": "purple", "sky": "#FFAA00"}, {"op": "removePlace", "id": "x"}])
     assert ops == [{"op": "setPalette", "ground": "#6c3483", "sky": "#FFAA00"}, {"op": "removePlace", "id": "x"}]
     assert repair_ops("nope") == "nope"
+
+
+def test_vehicles_are_made_drivable_when_the_model_forgets():
+    from app.service import repair_ops, repair_recipe
+    raw = {"places": [{"id": "j", "kind": "prop", "label": "Jeep", "asset": "red jeep", "interaction": "none"},
+                      {"id": "c", "kind": "prop", "label": "Cart", "asset": "wooden cart"},
+                      {"id": "b", "kind": "structure", "label": "Bus stop", "asset": "bus stop shelter", "interaction": "none"}]}
+    out = repair_recipe(raw)["places"]
+    assert [p.get("interaction") for p in out] == ["drive", None, "none"]
+    ops = repair_ops([{"op": "addPlace", "place": {"id": "t", "kind": "prop", "label": "Truck", "asset": "pickup truck", "interaction": "none"}}])
+    assert ops[0]["place"]["interaction"] == "drive"

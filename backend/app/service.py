@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from .cache import FileCache
 from .llm import LLMError, extract_json
-from .mock import mock_edit, mock_world, prompt_seed
+from .mock import VEHICLE, mock_edit, mock_world, prompt_seed
 from .prompts import PROMPT_VERSION, edit_system_prompt, world_system_prompt
 from .schemas import EditRequest, Recipe, dump, dump_ops, ops_adapter
 
@@ -88,12 +88,20 @@ def _repair_palette(pal: dict) -> dict:
     return out
 
 
+def _drivable(place) -> None:
+    """A car, jeep, truck, buggy or rover the model left without an interaction can be driven: the LLM proposes, code decides."""
+    if isinstance(place, dict) and place.get("interaction", "none") == "none" and VEHICLE.search(str(place.get("asset", "")).lower()):
+        place["interaction"] = "drive"
+
+
 def repair_ops(raw):
-    """Colour slips in setPalette ops (the same repair as a recipe palette); everything else is left to the schema."""
+    """Colour slips in setPalette ops (the same repair as a recipe palette) and vehicles left undrivable."""
     if isinstance(raw, list):
         for i, op in enumerate(raw):
             if isinstance(op, dict) and op.get("op") == "setPalette":
                 raw[i] = {"op": "setPalette", **_repair_palette({k: v for k, v in op.items() if k != "op"})}
+            elif isinstance(op, dict) and op.get("op") == "addPlace":
+                _drivable(op.get("place"))
     return raw
 
 
@@ -110,6 +118,7 @@ def repair_recipe(raw):
     for place in raw["places"]:
         if not isinstance(place, dict):
             continue
+        _drivable(place)
         if "size" in place:
             place["size"] = _SIZE_WORDS.get(str(place["size"]).lower(), "medium")
         for rel in place.get("where") or []:

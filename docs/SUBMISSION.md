@@ -16,7 +16,7 @@ Prompt-to-3D tools usually stop at a picture or a small fixed board, and models 
 4. Any object you ask for goes through a model finder: tagged CC0 library, then cache, then Poly Pizza and Sketchfab (CC0 or CC-BY only, credited in the place card), then Meshy text-to-3D for landmarks only (capped), then a procedural placeholder.
 
 ## Working logic
-Day/night cycle, weather, doors, lamps that light at night, campfires, bells, seats, pushable props (physics), wildlife that flees from you, swimming, and a checks panel that confirms every place is on solid ground and reachable on foot. A self-running demo mode shows the full flow in about a minute.
+Day/night cycle, weather, doors, lamps that light at night, campfires, bells, seats, pushable props (physics), driveable cars (one parked at every spawn, plus any car, jeep or rover the AI adds), a rocket-booster jetpack, three switchable animated characters, wildlife that flees from you, swimming, and a checks panel that confirms every place is on solid ground and reachable on foot. A self-running demo mode shows the full flow in about a minute.
 
 ## Always works
 Without the backend, the web app falls back to an offline mode that mirrors the backend's mock and uses bundled example worlds. When the backend is up, every world comes from the AI: a busy AI retries, then switches to a backup model, and if that fails too it says so honestly and keeps your world instead of showing a fake one.

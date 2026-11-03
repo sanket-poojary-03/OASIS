@@ -83,7 +83,7 @@ export class UI {
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
     this.hud.append(
       el('div', 'crosshair', '+'),
-      el('div', 'help', 'WASD move · Shift run · Space jump/swim (hold in air: rocket booster) · E use · T talk to the world · V camera · B character · U undo · C checks · N new world'),
+      el('div', 'help', 'WASD move · Shift run · Space jump/swim (hold in air: rocket booster) · E use / drive · T talk to the world · V camera · B character · U undo · C checks · N new world'),
       this.source, newWorld, this.fuel,
     );
     this.fuel.append(el('div', 'fuel-label', 'BOOST'), el('div', 'fuel-bar'));

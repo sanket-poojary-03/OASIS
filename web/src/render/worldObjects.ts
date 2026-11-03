@@ -44,6 +44,9 @@ const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
   prop: { small: 1, medium: 1.6, large: 2.4 },
 };
 
+/** Drivable vehicles are car-sized whatever kind the AI gave them (a "structure" car must not be 6 m tall). */
+const VEHICLE_HEIGHT: Record<PlaceSize, number> = { small: 1.3, medium: 1.5, large: 2.6 };
+
 /**
  * A placed copy of a loaded model. SkeletonUtils.clone gives a rigged model its own bones (Object3D.clone would keep
  * skinning it with the template's bones, which are not in the scene: drawn at the origin, unscaled). Unrigged models
@@ -133,7 +136,7 @@ export class WorldObjects {
       const place = world.recipe.places.find((p) => p.id === pl.id);
       if (!place || place.kind === 'settlement') continue;
       specs.push({
-        asset: place.asset, kind: place.kind, variant: 0, height: HEIGHT[place.kind][place.size], x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
+        asset: place.asset, kind: place.kind, variant: 0, height: place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : HEIGHT[place.kind][place.size], x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
         info: { placeId: pl.id, objectId: pl.id, label: place.label, description: place.description, reasons: pl.reasons, warnings: pl.warnings, source: 'placeholder', interaction: place.interaction, kind: place.kind },
       });
     }
@@ -238,7 +241,8 @@ export class WorldObjects {
   private refreshCollider(e: Entry): void {
     if (e.collider) { this.physics.removeCollider(e.collider); e.collider = null; }
     const size = e.root.userData.size as THREE.Vector3;
-    if (e.spec.info.interaction === 'push' || size.y < 1.2) return;
+    // Pushed props and vehicles get their own moving bodies (interactions, vehicles); flat things need none.
+    if (e.spec.info.interaction === 'push' || e.spec.info.interaction === 'drive' || size.y < 1.2) return;
     e.collider = this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation);
   }
 
