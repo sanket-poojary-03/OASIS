@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 FIXTURES_DIR = Path(__file__).resolve().parents[2] / "shared" / "fixtures"
 CORE_HALF = 512
+# The most places one recipe holds (mirrors web MAX_PLACES); also the most AI paths.
+MAX_PLACES = 24
 
 Id = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")]
 Unit = Annotated[float, Field(ge=0, le=1)]
@@ -86,6 +88,13 @@ class Layout(Strict):
     centre: Annotated[str, Field(min_length=2, max_length=60)] | None = None
 
 
+class PlaceProp(Strict):
+    """Small things that belong around a place (barrels by a market, benches in a park); code scatters them nearby."""
+    asset: Annotated[str, Field(min_length=2, max_length=80)]
+    count: Annotated[int, Field(ge=1, le=6)] = 3
+    size: Size = "medium"
+
+
 class Place(Strict):
     id: Id
     kind: Kind
@@ -97,6 +106,7 @@ class Place(Strict):
     description: Annotated[str, Field(max_length=280)] | None = None
     where: Annotated[list[Relation], Field(max_length=4)] = []
     layout: Layout | None = None
+    props: Annotated[list[PlaceProp], Field(max_length=4)] = []
 
 
 class Terrain(Strict):
@@ -153,8 +163,8 @@ class Recipe(Strict):
     water: Water
     atmosphere: Atmosphere
     palette: Palette | None = None
-    places: Annotated[list[Place], Field(max_length=12)]
-    paths: Annotated[list[Path_], Field(max_length=12)] = []
+    places: Annotated[list[Place], Field(max_length=MAX_PLACES)]
+    paths: Annotated[list[Path_], Field(max_length=MAX_PLACES)] = []
     life: Annotated[list[Life], Field(max_length=4)] = []
 
     @model_validator(mode="after")
@@ -259,6 +269,12 @@ ops_adapter: TypeAdapter[list[Op]] = TypeAdapter(OpsList)
 
 # ---- API models ----
 class WorldRequest(Strict):
+    prompt: Annotated[str, Field(min_length=3, max_length=600)]
+    # The enhanced world brief from /api/brief, when the browser asked for one first.
+    brief: Annotated[str, Field(max_length=3000)] | None = None
+
+
+class BriefRequest(Strict):
     prompt: Annotated[str, Field(min_length=3, max_length=600)]
 
 

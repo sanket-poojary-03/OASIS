@@ -7,7 +7,8 @@
   "water": { "river": true, "lake": false },
   "atmosphere": { "time": "dawn", "weather": "mist", "fog": 0.6, "wind": 0.3 },
   "places": [
-    { "id": "village", "kind": "settlement", "label": "Riverside fishing village", "asset": "wooden fishing cottage", "style": "wooden fishing", "size": "small", "interaction": "door", "where": [{ "rel": "by_water" }, { "rel": "flat" }] },
+    { "id": "village", "kind": "settlement", "label": "Riverside fishing village", "asset": "wooden fishing cottage", "style": "wooden fishing", "size": "small", "interaction": "door", "where": [{ "rel": "by_water" }, { "rel": "flat" }],
+      "props": [{ "asset": "wooden barrel", "count": 4, "size": "small" }, { "asset": "wooden crate", "count": 3, "size": "small" }, { "asset": "street lantern", "count": 3, "size": "large" }] },
     { "id": "tower", "kind": "landmark", "label": "Old watchtower", "asset": "ruined stone watchtower", "size": "medium", "interaction": "none", "description": "A crumbling stone tower that once watched the valley road.", "where": [{ "rel": "highest" }, { "rel": "visible_from", "target": "village" }] },
     { "id": "campfire", "kind": "prop", "label": "Fishermen's campfire", "asset": "campfire with stones", "size": "small", "interaction": "fire", "where": [{ "rel": "near", "target": "village", "maxDist": 30 }] }
   ],

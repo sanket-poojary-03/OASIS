@@ -14,7 +14,7 @@ from .cache import FileCache
 from .clientip import client_ip as forwarded_client
 from .llm import LLMClient
 from .ratelimit import RateLimiter
-from .schemas import AssetRequest, EditRequest, WorldRequest
+from .schemas import AssetRequest, BriefRequest, EditRequest, WorldRequest
 from .service import AIUnavailable, WorldService
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -76,11 +76,16 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
             out["model"] = model  # omitted in mock mode: no nulls reach the browser (m5)
         return out
 
+    @app.post("/api/brief")
+    def post_brief(req: BriefRequest, request: Request) -> dict:
+        guard(request)
+        return world.brief(req.prompt)
+
     @app.post("/api/world")
     def post_world(req: WorldRequest, request: Request) -> dict:
         guard(request)
         try:
-            return world.generate(req.prompt)
+            return world.generate(req.prompt, req.brief)
         except AIUnavailable as e:
             raise HTTPException(status_code=503, detail=str(e)) from e
 

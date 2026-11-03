@@ -46,6 +46,14 @@ export const layoutSchema = z.strictObject({
   centre: z.string().min(2).max(60).optional(),
 });
 
+/** Small things that belong around a place (barrels by a market, benches in a park); code scatters them nearby. */
+export const MAX_PLACE_PROPS = 4;
+export const placePropSchema = z.strictObject({
+  asset: z.string().min(2).max(80),
+  count: z.number().int().min(1).max(6).default(3),
+  size: z.enum(PLACE_SIZES).default('medium'),
+});
+
 export const placeSchema = z.strictObject({
   id: idSchema,
   kind: z.enum(PLACE_KINDS),
@@ -57,6 +65,7 @@ export const placeSchema = z.strictObject({
   description: z.string().max(280).optional(),
   where: z.array(relationSchema).max(4).default([]),
   layout: layoutSchema.optional(),
+  props: z.array(placePropSchema).max(MAX_PLACE_PROPS).optional(),
 });
 
 /** A colour as #rrggbb (the LLM chooses colours, never code). */
@@ -75,7 +84,7 @@ export const atmosphereSchema = z.strictObject({
 });
 
 /** The most places one recipe can hold (mirrors backend `Recipe.places` max_length). */
-export const MAX_PLACES = 12;
+export const MAX_PLACES = 24;
 
 export const recipeSchema = z
   .strictObject({
@@ -88,7 +97,7 @@ export const recipeSchema = z
     atmosphere: atmosphereSchema,
     palette: paletteSchema.optional(),
     places: z.array(placeSchema).max(MAX_PLACES),
-    paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(12).default([]),
+    paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(MAX_PLACES).default([]),
     life: z.array(z.strictObject({ kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) })).max(4).default([]),
   })
   .superRefine((r, ctx) => {
@@ -117,6 +126,7 @@ export type Interaction = (typeof INTERACTIONS)[number];
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 export type PlaceSize = (typeof PLACE_SIZES)[number];
 export type Layout = z.infer<typeof layoutSchema>;
+export type PlaceProp = z.infer<typeof placePropSchema>;
 export type LifeKind = (typeof LIFE_KINDS)[number];
 
 export function parseRecipe(data: unknown): { ok: true; recipe: Recipe } | { ok: false; error: string } {

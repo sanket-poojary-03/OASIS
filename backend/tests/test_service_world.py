@@ -191,3 +191,52 @@ def test_vehicles_are_made_drivable_when_the_model_forgets():
     assert [p.get("interaction") for p in out] == ["drive", None, "none"]
     ops = repair_ops([{"op": "addPlace", "place": {"id": "t", "kind": "prop", "label": "Truck", "asset": "pickup truck", "interaction": "none"}}])
     assert ops[0]["place"]["interaction"] == "drive"
+
+
+def test_bigger_worlds_slips_are_repaired_extra_fields_and_unknown_targets():
+    from app.service import repair_recipe
+    raw = {"places": [
+        {"id": "spire", "kind": "landmark", "label": "Spire", "asset": "glass spire", "where": [{"rel": "highest", "target": "obsidian"}, {"rel": "flat", "maxDist": 5}]},
+        {"id": "canal", "kind": "structure", "label": "Canal", "asset": "canal lock", "where": [{"rel": "near", "target": "river", "maxDist": 40}, {"rel": "direction", "dir": "east", "of": "sea"}, {"rel": "near", "target": "spire"}]},
+    ], "paths": [{"from": "spire", "to": "canal"}, {"from": "canal", "to": "harbour"}]}
+    out = repair_recipe(raw)
+    spire, canal = out["places"]
+    assert spire["where"] == [{"rel": "highest"}, {"rel": "flat"}]
+    assert canal["where"] == [{"rel": "direction", "dir": "east"}, {"rel": "near", "target": "spire"}]
+    assert out["paths"] == [{"from": "spire", "to": "canal"}]
+
+
+def test_relation_keys_and_kind_words_are_repaired_and_road_places_dropped():
+    from app.service import repair_recipe
+    raw = {"places": [
+        {"id": "town", "kind": "district", "label": "Town", "asset": "house"},
+        {"id": "spire", "kind": "monument", "label": "Spire", "asset": "spire", "where": [{"rel": "visible_from", "of": "town"}, {"rel": "near", "from": "town", "maxDist": 50, "minDist": 3}]},
+        {"id": "main-road", "kind": "path", "label": "Main road", "asset": "road"},
+        {"id": "shop", "kind": "building", "label": "Shop", "asset": "shop", "where": [{"rel": "near", "target": "main-road"}]},
+    ], "paths": [{"from": "town", "to": "main-road"}]}
+    out = repair_recipe(raw)
+    assert [p["id"] for p in out["places"]] == ["town", "spire", "shop"]  # roads are built automatically
+    assert [p["kind"] for p in out["places"]] == ["settlement", "landmark", "structure"]
+    assert out["places"][1]["where"] == [{"rel": "visible_from", "target": "town"}, {"rel": "near", "target": "town", "maxDist": 50}]
+    assert out["places"][2]["where"] == [] and out["paths"] == []
+
+
+def test_compass_words_are_repaired_and_unknown_directions_dropped():
+    from app.service import repair_recipe
+    raw = {"places": [{"id": "a", "kind": "landmark", "label": "A", "asset": "x"},
+                      {"id": "b", "kind": "prop", "label": "B", "asset": "y", "where": [{"rel": "direction", "dir": "SouthWest", "of": "a"}, {"rel": "direction", "dir": "inland"}, {"rel": "direction", "dir": "northern"}]}]}
+    assert repair_recipe(raw)["places"][1]["where"] == [{"rel": "direction", "dir": "south", "of": "a"}, {"rel": "direction", "dir": "north"}]
+
+
+def test_a_few_bad_places_are_left_out_not_the_whole_world(tmp_path, valley_json):
+    from app.service import keep_valid_places
+    data = json.loads(valley_json)["recipe"]
+    data["places"].append({"id": "odd", "kind": "landmark", "label": "Odd", "asset": "thing", "size": 7})
+    data["places"].append({"id": "odd2", "kind": "prop", "label": "", "asset": "thing", "where": [{"rel": "near", "target": "odd"}]})
+    recipe, dropped = keep_valid_places(data)
+    assert [p.id for p in recipe.places] == ["village", "tower", "campfire"] and dropped == ["Odd", "odd2"]
+    reply = json.loads(valley_json)
+    reply["recipe"] = data
+    out = WorldService(FakeLLM(json.dumps(reply)), FileCache(tmp_path)).generate("valley")
+    # in the service the size slip of "Odd" is repaired first, so only the nameless one is left out
+    assert len(out["recipe"]["places"]) == 4 and any("Left out 1 place" in n and "odd2" in n for n in out["notes"])

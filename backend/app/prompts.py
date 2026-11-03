@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p7"
+PROMPT_VERSION = "p8"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -20,7 +20,7 @@ __SCHEMA__
 Rules:
 - Never give coordinates, except when the user states explicit coordinates; then use {"rel":"at","x":..,"z":..} with values in -512..512.
 - Say WHERE with relations: highest, lowest, flat, by_water, near(target,maxDist), far_from(target,minDist), direction(dir, of?), visible_from(target). North is negative z.
-- At most 12 places. kind:
+- At most 24 places. kind:
   settlement = a GROUP of many repeated things laid out automatically: a village, city, camp, harbour, colony, market, orchard,
     stone circle... "asset" is the ONE repeated thing (e.g. "thatched cottage", "glass skyscraper", "canvas tent", "space habitat dome",
     "apple tree"). Optional "layout" says how they are arranged:
@@ -47,12 +47,18 @@ Rules:
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
   e.g. "modern apartment block") plus landmarks and structures (towers, plazas, stations). Indoor or abstract requests: make the
   closest outdoor world. Explain any compromise in notes.
-- Make the world feel full and alive: aim for 5-9 places. Usually one or two groups (settlement + layout) plus landmarks, structures
+- Make the world feel full, varied and alive: aim for 12-20 places spread over different areas (not all in one spot). Usually one or two groups (settlement + layout) plus landmarks, structures
   and several usable props (lanterns, benches, wells, campfires, bells, carts, crates) placed near the things they belong to.
   Anything that comes in numbers is a group, not one landmark: gravestones in a graveyard, tents in a camp, trees in an orchard,
   stalls in a market, boats in a harbour. Examples: a city = a tall grid + a park + a station + a monument + street lamps;
   a space colony = a ring of domes + a launch tower + rovers + a landing pad; a haunted forest = a ruined castle + a scatter of
   gravestones + a crooked chapel + lanterns. Connect the main places with paths and add fitting life.
+- Rivers, streams, lakes, ponds, the sea and waterfalls are terrain (water.river, water.lake, terrain.seaLevel), never places.
+  Bridges appear by themselves where roads cross water, and roads join all places by themselves.
+- props (optional, up to 4 per place): small things that belong around THAT place; the engine scatters them nearby, so they add
+  detail without using a place slot: {"asset":"wooden barrel","count":1-6,"size":"small|medium|large"}. E.g. a market: crates,
+  barrels, sacks; a plaza: benches, street lamps; a harbour: crates, rowboats, rope coils; a city street: street lights, benches,
+  bins, parked cars; a camp: logs, crates, lanterns. Give most places 1-3 kinds of props.
 - highest, lowest, flat and by_water take no other fields. size is only small, medium or large. Use unsupported ONLY for harmful content, never because a place is unusual.
 - "version": 1, any integer "seed".
 
@@ -60,6 +66,21 @@ Example recipe for "a misty pine valley with a river, a small fishing village on
 __EXAMPLE__
 
 Respond with the JSON object only."""
+
+BRIEF_TEMPLATE = """You are the world designer for an open-world 3D exploration game. Expand the player's short request into a rich,
+specific world brief that a level builder will turn into a 3D world. The player's request is the heart of the world: if they
+ask for a city, the world IS a city and most places are city things (towers, plazas, stations, parks, streets); a forest
+world is mostly forest places; and so on. Keep everything the player asked for and only add what fits it. Keep the world
+Earth-like (green land, blue sky and sea) unless the player asks for something else. Write 150-250 words covering:
+- the land: terrain shape, water (river, lake or sea), climate and vegetation, time of day and weather;
+- 12-18 distinct, named places spread over different areas: buildings, landmarks, groups of things (a village, a city district,
+  a camp, an orchard, a harbour), each a concrete visible object or building with where it sits relative to the others (on the
+  hill, by the river, north of the town), so the world has many places worth walking or driving to. Rivers, lakes, the sea and
+  hills are the land, not places;
+- small details around places (lanterns by the inn, benches in the plaza, crates at the dock, parked cars on the street);
+- roads linking the main places, and fitting wildlife.
+Only outdoor things that can be seen. No story, quests, characters or feelings. Reply with ONE JSON object and nothing else:
+{"title": "short world title", "brief": "the brief"}"""
 
 EDIT_TEMPLATE = """You edit a live 3D world while the player walks around in it.
 Turn the player's request into a short list of edit operations. Respond with ONE JSON object and nothing else:
@@ -98,6 +119,17 @@ Rules:
   grid for cities, ring for camps/colonies/stone circles, line for harbours/streets, scatter for orchards/ruins.
 
 Respond with the JSON object only."""
+
+
+def brief_system_prompt() -> str:
+    return BRIEF_TEMPLATE
+
+
+def world_user_message(prompt: str, brief: str | None) -> str:
+    """The world request: the enhanced brief when there is one, always with the player's own words (they win)."""
+    if not brief:
+        return prompt
+    return f"World brief:\n{brief}\n\nThe player's own words (these win if anything differs): {prompt}"
 
 
 def world_system_prompt() -> str:
