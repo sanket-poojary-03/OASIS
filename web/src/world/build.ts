@@ -6,6 +6,7 @@ import { findPath, roadNetwork, type RoadNode } from './roads';
 
 /** The spawn point's id in the road network. */
 const SPAWN = '__spawn';
+import { scatterProps, type Extra } from './props';
 import { layoutSettlement, type Building } from './settlement';
 
 export interface BuiltWorld {
@@ -14,6 +15,8 @@ export interface BuiltWorld {
   placements: Placement[];
   buildings: Building[];
   roads: Road[];
+  /** Props scattered around places (place.props). */
+  extras: Extra[];
   spawn: { x: number; y: number; z: number };
   checks: Check[];
   log: string[];
@@ -64,5 +67,7 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
     }
   }
   const checks = runChecks(field, placements, spawn);
-  return { recipe, field, placements, buildings, roads, spawn, checks, log };
+  const extras = scatterProps(recipe, placements, field); // after roads: never on one
+  if (extras.length) log.push(`Scattered ${extras.length} details around the places`);
+  return { recipe, field, placements, buildings, roads, extras, spawn, checks, log };
 }

@@ -5,6 +5,7 @@ import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
 import type { Building } from '../world/settlement';
+import { INTERACT } from '../api/localMock';
 import { fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
 import { surfaceOf } from './meshCollider';
@@ -99,7 +100,17 @@ function shadows(o: THREE.Object3D): void {
   o.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = true; m.receiveShadow = true; } });
 }
 
-interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo }
+/** `extra`: a prop scattered around its place (place.props): waits for its model silently, never in the place's notice. */
+interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean }
+
+/** Heights of scattered props by size: a crate, a bench or barrel, a street lamp or parked car. */
+const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large: 3.2 };
+
+/** What a scattered prop can do, from what it is (lantern → light, bench → sit, crate → push, car → drive). */
+function extraInteraction(asset: string): Interaction {
+  const a = asset.toLowerCase();
+  return INTERACT.find(([re]) => re.test(a))?.[1] ?? 'none';
+}
 interface Entry { root: THREE.Group; spec: Spec; collider: Collider | null }
 
 /** A group member's own height (city towers), else the size's house height; centre pieces by what they are. */
@@ -162,6 +173,15 @@ export class WorldObjects {
         info: { placeId: place.id, objectId: b.id, label: buildingLabel(b, place.label, !!place.layout), description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
       });
     }
+    for (const e of world.extras ?? []) {
+      const place = world.recipe.places.find((p) => p.id === e.placeId);
+      const interaction = extraInteraction(e.asset);
+      specs.push({
+        asset: e.asset, kind: 'prop', variant: Number(e.id.split('-').pop()) || 0, height: interaction === 'drive' ? VEHICLE_HEIGHT[e.size] : EXTRA_HEIGHT[e.size],
+        x: e.x, y: e.y, z: e.z, rotation: e.rotation, extra: true,
+        info: { placeId: e.placeId, objectId: e.id, label: `${place?.label ?? e.placeId} — ${e.asset}`, reasons: [`belongs around ${place?.label ?? e.placeId}`], warnings: [], source: 'placeholder', interaction, kind: 'prop' },
+      });
+    }
     const labels = new Map(world.recipe.places.map((p) => [p.id, p.label]));
     const present = new Set(specs.map((s) => s.info.placeId));
     // Notices for the places that changed (or the whole new world); without stand-ins, kept places wait silently.
@@ -173,7 +193,7 @@ export class WorldObjects {
     this.pending = new Map();
     for (const s of specs) {
       const id = s.info.placeId;
-      if (!waitIds.has(id)) continue;
+      if (s.extra || !waitIds.has(id)) continue;
       const p = this.pending.get(id) ?? { left: 0, missing: false, announced: announce.has(id) };
       p.left++;
       this.pending.set(id, p);
@@ -181,7 +201,7 @@ export class WorldObjects {
     for (const [id, p] of this.pending) {
       if (p.announced && !this.waiting.has(id)) { this.waiting.set(id, labels.get(id) ?? id); this.emit(id, labels.get(id) ?? id, 'loading'); }
     }
-    for (const s of specs) this.spawn(s, version, this.pending.has(s.info.placeId));
+    for (const s of specs) this.spawn(s, version, s.extra ? !this.standIns : this.pending.has(s.info.placeId));
   }
 
   private emit(placeId: string, label: string, state: LoadingEvent['state']): void {
@@ -228,7 +248,7 @@ export class WorldObjects {
     if (!wait) placeholder();
     void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
       if (version !== this.version) return;
-      if (wait) this.settle(s.info.placeId, !res);
+      if (wait && !s.extra) this.settle(s.info.placeId, !res);
       if (!res) { if (wait && this.standIns) placeholder(); return; } // with a server: no model, no object
       const content = this.fit(normalizeTo(cloneModel(res.object), s.height), s);
       addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
