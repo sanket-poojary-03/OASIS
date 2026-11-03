@@ -180,7 +180,8 @@ export class App {
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
     if (respawn) this.vehicles.reset(); // before objects: a new world's cars never inherit old poses
-    this.objects.rebuild(built, wait); // clear() → onCleared → interactions.clear(), then onReady → register per object
+    this.objects.standIns = !this.backendSeen; // stand-in shapes only offline; with a server, real models or nothing
+    this.objects.rebuild(built, wait, respawn); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
     this.ui?.setChecks(built.checks);
     if (respawn) {

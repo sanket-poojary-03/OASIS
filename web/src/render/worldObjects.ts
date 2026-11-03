@@ -31,8 +31,11 @@ export interface ModelSource {
   reset?(): void;
 }
 
-/** A place added while playing waits for its model: loading, then ready, missing (simple shape shown) or cancelled. */
-export interface LoadingEvent { placeId: string; label: string; state: 'loading' | 'ready' | 'missing' | 'cancelled' }
+/**
+ * A place waiting for its model: loading, then ready, missing or cancelled. `shape`: on a miss, a simple stand-in shape
+ * is shown instead (offline mode only); otherwise the place is left out.
+ */
+export interface LoadingEvent { placeId: string; label: string; state: 'loading' | 'ready' | 'missing' | 'cancelled'; shape?: boolean }
 
 export class NullModelSource implements ModelSource {
   async load(): Promise<null> { return null; }
@@ -44,6 +47,9 @@ const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
   structure: { small: 4, medium: 6, large: 9 },
   prop: { small: 1, medium: 1.6, large: 2.4 },
 };
+
+/** Widest a single building or landmark may be, in multiples of its fitted height. */
+export const MAX_ASPECT = 4;
 
 /** Drivable vehicles are car-sized whatever kind the AI gave them (a "structure" car must not be 6 m tall). */
 const VEHICLE_HEIGHT: Record<PlaceSize, number> = { small: 1.3, medium: 1.5, large: 2.6 };
@@ -118,8 +124,13 @@ export class WorldObjects {
   private version = 0;
   /** Places still waiting for their first model (label by id); they keep waiting across rebuilds. */
   private readonly waiting = new Map<string, string>();
-  /** This rebuild's objects still loading per waiting place, and whether any found no model. */
-  private pending = new Map<string, { left: number; missing: boolean }>();
+  /** This rebuild's objects still loading per waiting place, whether any found no model, and whether it has a notice. */
+  private pending = new Map<string, { left: number; missing: boolean; announced: boolean }>();
+  /**
+   * Stand-in shapes allowed: only in offline mode (no server to find models). With a server, every object shows its
+   * real model or nothing: the user never wants procedural placeholders.
+   */
+  standIns = true;
 
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly models: ModelSource) {
     scene.add(this.group);
@@ -129,7 +140,7 @@ export class WorldObjects {
    * `wait`: places added or changed while playing. They show nothing until their model arrives (no stand-in house
    * first), and onLoading reports their progress; the simple shape appears only if no model is found.
    */
-  rebuild(world: BuiltWorld, wait: ReadonlySet<string> = new Set()): void {
+  rebuild(world: BuiltWorld, wait: ReadonlySet<string> = new Set(), announceAll = false): void {
     this.clear();
     const version = ++this.version;
     const specs: Spec[] = [];
@@ -152,8 +163,10 @@ export class WorldObjects {
       });
     }
     const labels = new Map(world.recipe.places.map((p) => [p.id, p.label]));
-    const waitIds = new Set([...wait, ...this.waiting.keys()]);
     const present = new Set(specs.map((s) => s.info.placeId));
+    // Notices for the places that changed (or the whole new world); without stand-ins, kept places wait silently.
+    const announce = new Set([...wait, ...this.waiting.keys(), ...(announceAll ? present : [])]);
+    const waitIds = this.standIns ? announce : present;
     for (const [id, label] of [...this.waiting]) {
       if (!present.has(id)) { this.waiting.delete(id); this.emit(id, label, 'cancelled'); }
     }
@@ -161,18 +174,19 @@ export class WorldObjects {
     for (const s of specs) {
       const id = s.info.placeId;
       if (!waitIds.has(id)) continue;
-      const p = this.pending.get(id) ?? { left: 0, missing: false };
+      const p = this.pending.get(id) ?? { left: 0, missing: false, announced: announce.has(id) };
       p.left++;
       this.pending.set(id, p);
     }
-    for (const id of this.pending.keys()) {
-      if (!this.waiting.has(id)) { this.waiting.set(id, labels.get(id) ?? id); this.emit(id, labels.get(id) ?? id, 'loading'); }
+    for (const [id, p] of this.pending) {
+      if (p.announced && !this.waiting.has(id)) { this.waiting.set(id, labels.get(id) ?? id); this.emit(id, labels.get(id) ?? id, 'loading'); }
     }
     for (const s of specs) this.spawn(s, version, this.pending.has(s.info.placeId));
   }
 
   private emit(placeId: string, label: string, state: LoadingEvent['state']): void {
-    for (const cb of this.onLoading) cb({ placeId, label, state });
+    const e: LoadingEvent = state === 'missing' ? { placeId, label, state, shape: this.standIns } : { placeId, label, state };
+    for (const cb of this.onLoading) cb(e);
   }
 
   /** One object of a waiting place has its model (or none); the place is done when all of its objects are. */
@@ -182,6 +196,7 @@ export class WorldObjects {
     p.missing ||= missing;
     if (--p.left > 0) return;
     this.pending.delete(placeId);
+    if (!p.announced) return;
     const label = this.waiting.get(placeId) ?? placeId;
     this.waiting.delete(placeId);
     this.emit(placeId, label, p.missing ? 'missing' : 'ready');
@@ -214,7 +229,7 @@ export class WorldObjects {
     void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
       if (version !== this.version) return;
       if (wait) this.settle(s.info.placeId, !res);
-      if (!res) { if (wait) placeholder(); return; }
+      if (!res) { if (wait && this.standIns) placeholder(); return; } // with a server: no model, no object
       const content = this.fit(normalizeTo(cloneModel(res.object), s.height), s);
       addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
       this.setContent(root, content);
@@ -227,7 +242,10 @@ export class WorldObjects {
 
   private fit(content: THREE.Group, s: Spec): THREE.Group {
     // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
-    return s.maxWidth ? (fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group) : content;
+    if (s.maxWidth) return fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group;
+    // Models are fitted by height, so a low, wide one balloons (a 6 m-tall manhole cover was 100 m across): cap the
+    // footprint of buildings and landmarks at MAX_ASPECT times their height. Props (rugs, bridges, docks) keep theirs.
+    return s.kind === 'prop' ? content : (fitWidth(content, s.height * MAX_ASPECT) as THREE.Group);
   }
 
   private setContent(root: THREE.Group, content: THREE.Group): void {

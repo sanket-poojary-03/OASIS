@@ -47,6 +47,10 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | 3594255 | **Characters.** Three bundled Quaternius CC0 animated characters (Adventurer, Astronaut, Hooded Ranger) in `web/public/models/characters/`; B switches. |
 | f5de08b | **Rocket booster.** Hold Space in the air (after 0.2 s) to fly; fuel 4 s, refills on the ground; flames, glow, roar, BOOST bar. |
 | (next) | **Driveable cars.** `drive` interaction (both schemas, prompts p7, mocks, repair safety net); bundled sports car parked at every spawn; E in/out, WASD, Space brake, Shift boost, chase camera. |
+| 3bedfe4 | **Nothing floats.** Model-shaped (trimesh) colliders for placed models; cars sit on the terrain under their wheels (terrain filtered out of their Rapier queries); feet include the controller's 5 cm skin. |
+| 2dad3e8 | **Model library.** 186 curated Quaternius CC0 models (`backend/scripts/curate_library.py`), textures 512 px WebP, 40 MB. Trees, rocks and bushes are real models when the backend is up. No rabbit model (Quaternius' are upright characters). |
+| c3040ef | **Smarter finder.** AI-confirmed partial library matches, alternative search words, flat models rejected for buildings, Meshy for any kind. |
+| (next) | **No placeholders with a server.** Objects appear only with their real model; misses are left out with a notice; stand-ins only offline; 4x footprint cap. |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
 ## User preferences (also in memory)

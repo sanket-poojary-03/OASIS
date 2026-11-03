@@ -76,6 +76,18 @@ describe('WorldObjects colliders follow the model', () => {
   });
 });
 
+describe('WorldObjects footprint cap', () => {
+  it('a low, wide model fitted to a landmark height is shrunk to at most 4x as wide as tall', async () => {
+    const cover = new THREE.Group();
+    cover.add(new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.5, 12))); // 10 m wide, 0.5 m tall
+    const { objects } = rig(cover);
+    objects.rebuild(world); // a small landmark: fitted to 10 m tall → 200 m wide before the cap
+    await flush();
+    const size = new THREE.Box3().setFromObject(objects.group.children[0].getObjectByName('content')!).getSize(new THREE.Vector3());
+    expect(Math.max(size.x, size.z)).toBeLessThanOrEqual(40.01);
+  });
+});
+
 describe('WorldObjects: places added while playing wait for their model (no stand-in house first)', () => {
   function deferred() {
     let resolve!: (v: Awaited<ReturnType<ModelSource['load']>>) => void;
@@ -127,6 +139,27 @@ describe('WorldObjects: places added while playing wait for their model (no stan
     d.resolve({ object: skinnedTemplate(), source: 'library' });
     await flush();
     expect(events.at(-1)).toBe('cancelled:statue:Statue');
+  });
+
+  it('with a server (no stand-ins): a new world announces every place, shows nothing until models arrive, leaves misses out', async () => {
+    const { d, objects, events, ready } = waitRig();
+    objects.standIns = false;
+    objects.rebuild(world, new Set(), true);
+    expect(objects.group.children[0].getObjectByName('content')).toBeUndefined();
+    expect(events).toEqual(['loading:statue:Statue']);
+    d.resolve(null);
+    await flush();
+    expect(objects.group.children[0].getObjectByName('content')).toBeUndefined(); // no stand-in shape, ever
+    expect(ready).not.toHaveBeenCalled();
+    expect(events.at(-1)).toBe('missing:statue:Statue');
+  });
+
+  it('with a server, places kept through an edit wait silently (no notice flood)', () => {
+    const { objects, events } = waitRig();
+    objects.standIns = false;
+    objects.rebuild(world);
+    expect(objects.group.children[0].getObjectByName('content')).toBeUndefined();
+    expect(events).toEqual([]);
   });
 
   it('without a wait set, objects appear at once as before', () => {

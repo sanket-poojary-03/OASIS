@@ -46,7 +46,8 @@ export class AssetModelSource implements ModelSource {
   private readonly now: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
 
-  constructor(private readonly allowGenerate: (kind: PlaceKind) => boolean = (k) => k === 'landmark', deps: AssetDeps = {}) {
+  /** Any kind may be generated (Meshy, capped on the server) when nothing is found: the user wants no placeholders. */
+  constructor(private readonly allowGenerate: (kind: PlaceKind) => boolean = () => true, deps: AssetDeps = {}) {
     let loader: GLTFLoader | null = null;
     this.resolve = deps.resolve ?? resolveAsset;
     this.job = deps.job ?? assetJob;
