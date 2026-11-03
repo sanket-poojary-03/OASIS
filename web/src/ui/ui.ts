@@ -1,5 +1,6 @@
 import type { ObjectInfo } from '../render/worldObjects';
 import type { Check } from '../world/checks';
+import { Notices } from './notices';
 import { wait } from './wait';
 
 export interface UIHandlers {
@@ -49,6 +50,8 @@ export class UI {
   private readonly source = el('div', 'source');
   private readonly toastEl = el('div', 'toast hidden');
   private readonly back = el('button', 'secondary hidden', 'Back to my world');
+  /** Top-right progress notices (models loading for places added while playing). */
+  readonly notices = new Notices();
   private toastTimer = 0;
 
   constructor(root: HTMLElement, private readonly h: UIHandlers) {
@@ -90,7 +93,7 @@ export class UI {
       e.stopPropagation();
     };
     this.command.append(this.commandInput);
-    root.append(this.start, this.busy, this.hud, this.hint, this.card, this.command, this.preview, this.checks, this.toastEl);
+    root.append(this.start, this.busy, this.hud, this.hint, this.card, this.command, this.preview, this.checks, this.toastEl, this.notices.root);
   }
 
   get commandOpen(): boolean { return !this.command.classList.contains('hidden'); }

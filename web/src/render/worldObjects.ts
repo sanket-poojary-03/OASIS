@@ -30,6 +30,9 @@ export interface ModelSource {
   reset?(): void;
 }
 
+/** A place added while playing waits for its model: loading, then ready, missing (simple shape shown) or cancelled. */
+export interface LoadingEvent { placeId: string; label: string; state: 'loading' | 'ready' | 'missing' | 'cancelled' }
+
 export class NullModelSource implements ModelSource {
   async load(): Promise<null> { return null; }
 }
@@ -106,14 +109,23 @@ export class WorldObjects {
   /** Fired when an object appears (placeholder) and again when its loaded model replaces the placeholder. */
   readonly onReady: Array<(root: THREE.Group, info: ObjectInfo) => void> = [];
   readonly onCleared: Array<() => void> = [];
+  readonly onLoading: Array<(e: LoadingEvent) => void> = [];
   private entries: Entry[] = [];
   private version = 0;
+  /** Places still waiting for their first model (label by id); they keep waiting across rebuilds. */
+  private readonly waiting = new Map<string, string>();
+  /** This rebuild's objects still loading per waiting place, and whether any found no model. */
+  private pending = new Map<string, { left: number; missing: boolean }>();
 
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly models: ModelSource) {
     scene.add(this.group);
   }
 
-  rebuild(world: BuiltWorld): void {
+  /**
+   * `wait`: places added or changed while playing. They show nothing until their model arrives (no stand-in house
+   * first), and onLoading reports their progress; the simple shape appears only if no model is found.
+   */
+  rebuild(world: BuiltWorld, wait: ReadonlySet<string> = new Set()): void {
     this.clear();
     const version = ++this.version;
     const specs: Spec[] = [];
@@ -135,7 +147,40 @@ export class WorldObjects {
         info: { placeId: place.id, objectId: b.id, label: buildingLabel(b, place.label, !!place.layout), description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
       });
     }
-    for (const s of specs) this.spawn(s, version);
+    const labels = new Map(world.recipe.places.map((p) => [p.id, p.label]));
+    const waitIds = new Set([...wait, ...this.waiting.keys()]);
+    const present = new Set(specs.map((s) => s.info.placeId));
+    for (const [id, label] of [...this.waiting]) {
+      if (!present.has(id)) { this.waiting.delete(id); this.emit(id, label, 'cancelled'); }
+    }
+    this.pending = new Map();
+    for (const s of specs) {
+      const id = s.info.placeId;
+      if (!waitIds.has(id)) continue;
+      const p = this.pending.get(id) ?? { left: 0, missing: false };
+      p.left++;
+      this.pending.set(id, p);
+    }
+    for (const id of this.pending.keys()) {
+      if (!this.waiting.has(id)) { this.waiting.set(id, labels.get(id) ?? id); this.emit(id, labels.get(id) ?? id, 'loading'); }
+    }
+    for (const s of specs) this.spawn(s, version, this.pending.has(s.info.placeId));
+  }
+
+  private emit(placeId: string, label: string, state: LoadingEvent['state']): void {
+    for (const cb of this.onLoading) cb({ placeId, label, state });
+  }
+
+  /** One object of a waiting place has its model (or none); the place is done when all of its objects are. */
+  private settle(placeId: string, missing: boolean): void {
+    const p = this.pending.get(placeId);
+    if (!p) return;
+    p.missing ||= missing;
+    if (--p.left > 0) return;
+    this.pending.delete(placeId);
+    const label = this.waiting.get(placeId) ?? placeId;
+    this.waiting.delete(placeId);
+    this.emit(placeId, label, p.missing ? 'missing' : 'ready');
   }
 
   pickables(): THREE.Object3D[] {
@@ -147,19 +192,25 @@ export class WorldObjects {
     return null;
   }
 
-  private spawn(s: Spec, version: number): void {
+  private spawn(s: Spec, version: number, wait: boolean): void {
     const root = new THREE.Group();
     root.position.set(s.x, s.y, s.z);
     root.rotation.y = s.rotation;
     root.userData.info = s.info;
-    this.setContent(root, this.fit(normalizeTo(buildPlaceholder(s.asset, s.height), s.height), s));
+    root.userData.size = new THREE.Vector3();
     this.group.add(root);
     const entry: Entry = { root, spec: s, collider: null };
     this.entries.push(entry);
-    this.refreshCollider(entry);
-    for (const cb of this.onReady) cb(root, s.info);
-    void this.models.load(s.asset, s.kind, s.variant).then((res) => {
-      if (!res || version !== this.version) return;
+    const placeholder = (): void => {
+      this.setContent(root, this.fit(normalizeTo(buildPlaceholder(s.asset, s.height), s.height), s));
+      this.refreshCollider(entry);
+      for (const cb of this.onReady) cb(root, s.info);
+    };
+    if (!wait) placeholder();
+    void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
+      if (version !== this.version) return;
+      if (wait) this.settle(s.info.placeId, !res);
+      if (!res) { if (wait) placeholder(); return; }
       const content = this.fit(normalizeTo(cloneModel(res.object), s.height), s);
       addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
       this.setContent(root, content);

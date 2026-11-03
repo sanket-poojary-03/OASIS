@@ -59,3 +59,64 @@ describe('WorldObjects with a rigged model (C1)', () => {
     for (const bone of skinned.skeleton.bones) expect(original.skeleton.bones).not.toContain(bone);
   });
 });
+
+describe('WorldObjects: places added while playing wait for their model (no stand-in house first)', () => {
+  function deferred() {
+    let resolve!: (v: Awaited<ReturnType<ModelSource['load']>>) => void;
+    const promise = new Promise<Awaited<ReturnType<ModelSource['load']>>>((r) => { resolve = r; });
+    return { promise, resolve };
+  }
+  function waitRig() {
+    const d = deferred();
+    const physics = { addFixedBox: vi.fn(() => ({})), removeCollider: vi.fn() } as unknown as Physics;
+    const objects = new WorldObjects(new THREE.Scene(), physics, { load: () => d.promise });
+    const events: string[] = [];
+    objects.onLoading.push((e) => events.push(`${e.state}:${e.placeId}:${e.label}`));
+    const ready = vi.fn();
+    objects.onReady.push(ready);
+    return { d, objects, events, ready, physics };
+  }
+
+  it('shows nothing until the model arrives, then the model, and reports loading → ready', async () => {
+    const { d, objects, events, ready } = waitRig();
+    objects.rebuild(world, new Set(['statue']));
+    const root = objects.group.children[0];
+    expect(root.getObjectByName('content')).toBeUndefined();
+    expect(ready).not.toHaveBeenCalled();
+    expect(events).toEqual(['loading:statue:Statue']);
+    d.resolve({ object: skinnedTemplate(), source: 'library' });
+    await flush();
+    expect(root.getObjectByName('skinned')).toBeDefined();
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['loading:statue:Statue', 'ready:statue:Statue']);
+  });
+
+  it('falls back to the simple shape and says so when no model exists', async () => {
+    const { d, objects, events, ready } = waitRig();
+    objects.rebuild(world, new Set(['statue']));
+    d.resolve(null);
+    await flush();
+    expect(objects.group.children[0].getObjectByName('content')).toBeDefined();
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(events.at(-1)).toBe('missing:statue:Statue');
+  });
+
+  it('keeps waiting across a rebuild while the model is still loading, and cancels when the place is gone', async () => {
+    const { d, objects, events } = waitRig();
+    objects.rebuild(world, new Set(['statue']));
+    objects.rebuild(world); // another edit: the statue is kept but its model has not arrived yet
+    expect(objects.group.children[0].getObjectByName('content')).toBeUndefined();
+    objects.rebuild({ ...world, placements: [], recipe: { places: [] } } as unknown as BuiltWorld);
+    expect(events.at(-1)).toBe('cancelled:statue:Statue');
+    d.resolve({ object: skinnedTemplate(), source: 'library' });
+    await flush();
+    expect(events.at(-1)).toBe('cancelled:statue:Statue');
+  });
+
+  it('without a wait set, objects appear at once as before', () => {
+    const { objects, events } = waitRig();
+    objects.rebuild(world);
+    expect(objects.group.children[0].getObjectByName('content')).toBeDefined();
+    expect(events).toEqual([]);
+  });
+});

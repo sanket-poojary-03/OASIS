@@ -84,6 +84,7 @@ export class App {
     });
     objects.onReady.push((root, info) => this.interactions.register(root, info));
     objects.onCleared.push(() => this.interactions.clear());
+    objects.onLoading.push((e) => this.ui?.notices.loading(e));
   }
 
   static async create(canvas: HTMLCanvasElement, models: ModelSource = new AssetModelSource()): Promise<App> {
@@ -117,13 +118,13 @@ export class App {
       console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
     });
   }
+  /** True once the backend has answered (a health ping or any world/edit answer that was not offline). */
+  get backendOnline(): boolean { return this.backendSeen; }
+
   /**
    * The backend answered: health at boot, or the first world/edit answer that did not fall back to offline (a backend
    * that wakes after the boot pings gave up). Forgets remembered asset misses and starts the pack art, once (I6).
    */
-  /** True once the backend has answered (a health ping or any world/edit answer that was not offline). */
-  get backendOnline(): boolean { return this.backendSeen; }
-
   backendAnswered(): void {
     if (this.backendSeen) return;
     this.backendSeen = true;
@@ -143,7 +144,8 @@ export class App {
   /** True while a world is being generated or an edit is being asked for (game keys and new requests wait). */
   get busy(): boolean { return this.working; }
 
-  load(recipe: Recipe, keep: Placement[] = [], respawn = true): BuiltWorld {
+  /** `wait`: places added or changed while playing; they appear when their model arrives (WorldObjects.rebuild). */
+  load(recipe: Recipe, keep: Placement[] = [], respawn = true, wait?: ReadonlySet<string>): BuiltWorld {
     const timeChanged = this.built?.recipe.atmosphere.time !== recipe.atmosphere.time;
     const built = buildWorld(recipe, keep);
     this.built = built;
@@ -157,7 +159,7 @@ export class App {
     this.engine.scene.add(this.roads);
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
-    this.objects.rebuild(built); // clear() → onCleared → interactions.clear(), then onReady → register per object
+    this.objects.rebuild(built, wait); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
     this.ui?.setChecks(built.checks);
     if (respawn) {
@@ -267,7 +269,7 @@ export class App {
     }
     try {
       const keep = a.terrainChanged ? [] : b.placements.filter((pl) => !a.changedPlaces.has(pl.id) && !a.removedPlaces.has(pl.id));
-      const built = this.load(a.recipe, keep, false);
+      const built = this.load(a.recipe, keep, false, a.changedPlaces);
       const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}`);
       this.ui?.toast(placed.length ? `Placed ${placed.join(' · ')}` : 'Done');
     } catch (e) {

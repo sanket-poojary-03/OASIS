@@ -37,3 +37,15 @@ button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding
 .checks ul { list-style: none; padding: 0; margin: 0; } .checks .pass { color: #8fe3a8; } .checks .warn { color: #ffcf7a; } .checks .fail { color: #ff8a8a; }
 .toast { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); background: rgba(8,12,24,.9); padding: 10px 16px; border-radius: 10px; max-width: min(640px, calc(100vw - 32px)); font-size: 14px; }
 @media (max-width: 600px) { .help { display: none; } }
+.notices { position: absolute; right: 16px; top: 46px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none !important; z-index: 5; }
+.notice { display: flex; align-items: center; gap: 10px; min-width: 220px; max-width: min(340px, calc(100vw - 32px)); background: rgba(8,12,24,.82); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.35); backdrop-filter: blur(6px); animation: notice-in .25s ease-out; transition: opacity .3s, transform .3s; }
+.notice.leaving { opacity: 0; transform: translateX(16px); }
+.notice-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notice-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notice-detail { font-size: 11px; opacity: .65; }
+.notice-icon { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.notice-icon.spin { border: 2.5px solid rgba(255,255,255,.15); border-top-color: #f5c451; border-right-color: #f5c451; animation: notice-spin .8s linear infinite; }
+.notice-icon.ok { background: #3fae6a; color: #fff; }
+.notice-icon.miss { background: #e0a43a; color: #1b1405; }
+@keyframes notice-spin { to { transform: rotate(360deg); } }
+@keyframes notice-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
