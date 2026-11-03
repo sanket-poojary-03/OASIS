@@ -50,6 +50,28 @@ def check_targets(recipe: Recipe, ops: list) -> None:
                 raise ValueError(f'relation refers to unknown place "{t}"; use one of: {", ".join(sorted(ids))} (or "at" with lookAt for "here")')
 
 
+_SIZE_WORDS = {"small": "small", "tiny": "small", "little": "small", "medium": "medium", "large": "large", "big": "large", "huge": "large",
+               "giant": "large", "massive": "large"}
+# Relations that take no arguments: models often add an "of" anyway.
+_BARE_RELATIONS = {"highest", "lowest", "flat", "by_water"}
+
+
+def repair_recipe(raw):
+    """Fix harmless slips before validation instead of rejecting a good world (the schema still decides everything
+    else): a stray "of" on argument-less relations, and size words outside small/medium/large."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("places"), list):
+        return raw
+    for place in raw["places"]:
+        if not isinstance(place, dict):
+            continue
+        if "size" in place:
+            place["size"] = _SIZE_WORDS.get(str(place["size"]).lower(), "medium")
+        for rel in place.get("where") or []:
+            if isinstance(rel, dict) and rel.get("rel") in _BARE_RELATIONS:
+                rel.pop("of", None)
+    return raw
+
+
 def _notes(data: dict) -> list[str]:
     notes = data.get("notes")
     if not isinstance(notes, list):
@@ -76,7 +98,7 @@ class WorldService:
             raw = data.get("recipe", data)
             # Models often put their notes inside the recipe; move them out instead of rejecting a good world.
             inner = raw.pop("notes", None) if isinstance(raw, dict) and raw is not data else None
-            recipe = Recipe.model_validate(raw).model_copy(update={"seed": prompt_seed(prompt)})
+            recipe = Recipe.model_validate(repair_recipe(raw)).model_copy(update={"seed": prompt_seed(prompt)})
             notes = _notes(data) + _notes({"notes": inner})
             return {"type": "recipe", "recipe": dump(recipe), "notes": notes[:5], "source": "live"}
 

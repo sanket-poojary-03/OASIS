@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p4"
+PROMPT_VERSION = "p5"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -42,8 +42,14 @@ Rules:
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
   e.g. "modern apartment block") plus landmarks and structures (towers, plazas, stations). Indoor or abstract requests: make the
-  closest outdoor world. Explain any compromise in notes. Use several places to give a world variety (a city: a tall grid plus a
-  park, a station, a monument; a space colony: a ring of domes plus a launch tower and rovers). Use unsupported ONLY for harmful content, never because a place is unusual.
+  closest outdoor world. Explain any compromise in notes.
+- Make the world feel full and alive: aim for 5-9 places. Usually one or two groups (settlement + layout) plus landmarks, structures
+  and several usable props (lanterns, benches, wells, campfires, bells, carts, crates) placed near the things they belong to.
+  Anything that comes in numbers is a group, not one landmark: gravestones in a graveyard, tents in a camp, trees in an orchard,
+  stalls in a market, boats in a harbour. Examples: a city = a tall grid + a park + a station + a monument + street lamps;
+  a space colony = a ring of domes + a launch tower + rovers + a landing pad; a haunted forest = a ruined castle + a scatter of
+  gravestones + a crooked chapel + lanterns. Connect the main places with paths and add fitting life.
+- highest, lowest, flat and by_water take no other fields. size is only small, medium or large. Use unsupported ONLY for harmful content, never because a place is unusual.
 - "version": 1, any integer "seed".
 
 Example recipe for "a misty pine valley with a river, a small fishing village on the bank and an old watchtower on the highest hill":

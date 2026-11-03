@@ -154,3 +154,18 @@ def test_notes_put_inside_the_recipe_are_moved_not_rejected(tmp_path, valley_jso
     out = WorldService(llm, FileCache(tmp_path)).generate("a valley")
     assert out["type"] == "recipe" and len(llm.calls) == 1
     assert out["notes"] == ["ok", "The grid is approximate."] and "notes" not in out["recipe"]
+
+
+def test_harmless_slips_are_repaired_not_rejected():
+    from app.service import repair_recipe
+    raw = {"places": [
+        {"id": "a", "kind": "landmark", "label": "A", "asset": "tower", "size": "huge", "where": [{"rel": "highest", "of": "b"}, {"rel": "by_water", "of": "x"}]},
+        {"id": "b", "kind": "prop", "label": "B", "asset": "lamp", "size": "tiny", "where": [{"rel": "direction", "dir": "north", "of": "a"}]},
+        {"id": "c", "kind": "prop", "label": "C", "asset": "cart", "size": "weird"},
+    ]}
+    out = repair_recipe(raw)
+    a, b, c = out["places"]
+    assert a["size"] == "large" and a["where"] == [{"rel": "highest"}, {"rel": "by_water"}]
+    assert b["size"] == "small" and b["where"][0]["of"] == "a"  # direction keeps its "of"
+    assert c["size"] == "medium"
+    assert repair_recipe("not a dict") == "not a dict"
