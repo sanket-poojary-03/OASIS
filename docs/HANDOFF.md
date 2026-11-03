@@ -41,6 +41,8 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | 71f51f5 | **Groups of anything.** `place.layout {pattern: village\|grid\|ring\|line\|scatter, count ≤60, height low\|mixed\|tall, centre}` in both schemas, the prompt and both mocks. Cities get a street grid with towers rising to the centre; camps and colonies are rings; harbours are lines; orchards and graveyards are scatters. Tower placeholders are built at their real height, and models are fitted to their plot. Code: `web/src/world/layouts.ts`. |
 | 799169d | **Groups can be added while playing.** `check_targets` sends edits that name unknown places back to the AI. |
 | 74a3ad4, c2ed538 | **Switch to Sarvam**, then fix the model roles from measurements. Notes the model puts inside the recipe are moved out instead of rejected. |
+| 066ba03 | **Parked minors closed.** `clientip` unwraps IPv4-mapped hops and skips every non-global address; `httpx2` dropped, pytest moved to `requirements-dev.txt`; the health line corrects itself after a late backend wake; test warn spies restored. |
+| 2d179b5 | **Prompt colours.** Optional recipe `palette {ground, water, sky}` (#rrggbb) and a `setPalette` op in both schemas (fixture `ops/red-planet.json`). It tints biomes, grass, water and a translucent sky dome. Colour words are repaired to hex. Prompt p6. Tests: web 283, backend 111 + 10 skipped. |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
 ## User preferences (also in memory)
@@ -60,7 +62,7 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 
    Then re-dispatch Task 19b (tagging contract in `rulings.md`). Possible follow-up: houses you can enter (wall colliders with a doorway gap), or houses assembled from the Quaternius modular kit.
 3. **Visual polish ideas:**
-   - Ground and sea colour should follow the prompt (a "red planet" is currently sand-coloured).
+   - ~~Ground and sea colour should follow the prompt~~ (done, 2d179b5). Needs a visual check in the browser: "a red planet…", then "make the sky orange", at day and at night.
    - Fill empty outer city plots with parks or trees.
    - The zen garden came out backwards (the temple as a scatter group, trees placed singly), so tune the prompt further.
 4. **Deploy (needs user approval and accounts):**
@@ -73,10 +75,6 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
    - The MANUAL-PENDING browser checks listed in the ledger.
 6. **Submission:**
    - A video under 3 minutes.
-   - Update `docs/SUBMISSION.md`: it should mention Sarvam and the group layouts.
+   - `docs/SUBMISSION.md` now mentions Sarvam, group layouts, palettes and the AI-only behaviour. It still needs the demo, repo and video URLs.
    - Push and submit before 2026-11-11 16:30 CEST.
-7. **Parked minor items** (from the final re-review, none blocking):
-   - `clientip`: use `not ip.is_global` and unwrap IPv4-mapped addresses.
-   - The health line stays "Offline mode" after a late backend wake.
-   - `wildlifeClass.test` doesn't restore its `console.warn` spy.
-   - `httpx2` is a stray runtime dependency, and pytest ships in the Docker image.
+7. ~~Parked minor items~~: all closed in 066ba03.
