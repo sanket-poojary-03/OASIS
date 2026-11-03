@@ -16,7 +16,8 @@ REAL = AssetLibrary(BACKEND_DIR / "assets" / "library")
 
 
 def test_art_query_list_is_well_formed():
-    assert {e["kind"] for e in ART["scatter"]} <= {"tree", "pine", "dead_tree", "bush", "rock", "cactus", "reed"}
+    assert {e["kind"] for e in ART["scatter"]} <= {"tree", "birch", "autumn_tree", "pine", "snowy_pine", "palm", "dead_tree", "bush", "rock",
+                                                 "pebble", "cactus", "reed", "flowers", "fern", "mushroom", "log", "stump"}
     assert {e["use"] for e in ART["rigged"]} == {"player", "deer", "rabbit"}
     assert all(e["height"] > 0 for e in ENTRIES)
     assert all(tokens(q) for q in QUERIES)

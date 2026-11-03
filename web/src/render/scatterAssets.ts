@@ -52,18 +52,66 @@ function build(kind: ScatterKind): THREE.BufferGeometry {
     case 'reed':
       for (const [x, z] of [[0, 0], [0.2, 0.1], [-0.15, 0.18]]) P.push(part(new THREE.CylinderGeometry(0.03, 0.04, 1.6, 3), 0x7a8a46, { x, y: 0.8, z }));
       break;
+    // Offline stand-ins for the newer kinds (with a server they wait for their pack model instead).
+    case 'birch':
+      P.push(part(new THREE.CylinderGeometry(0.14, 0.2, 3, 6), 0xe8e4d8, { y: 1.5 }));
+      P.push(part(new THREE.IcosahedronGeometry(1.3, 0), 0x7fae4a, { y: 3.8, sy: 1.3 }));
+      break;
+    case 'autumn_tree':
+      P.push(part(new THREE.CylinderGeometry(0.18, 0.28, 2.4, 6), 0x6b4a2b, { y: 1.2 }));
+      P.push(part(new THREE.IcosahedronGeometry(1.7, 0), 0xc8682a, { y: 3.4 }));
+      break;
+    case 'snowy_pine':
+      P.push(part(new THREE.CylinderGeometry(0.15, 0.22, 1.6, 6), 0x5a3d25, { y: 0.8 }));
+      P.push(part(new THREE.ConeGeometry(1.6, 3.4, 7), 0xe6edf2, { y: 2.8 }));
+      P.push(part(new THREE.ConeGeometry(1.0, 2.4, 7), 0xf4f7fa, { y: 4.6 }));
+      break;
+    case 'palm':
+      P.push(part(new THREE.CylinderGeometry(0.15, 0.22, 6, 6), 0x8a6a45, { y: 3, rz: 0.12 }));
+      for (let i = 0; i < 5; i++) P.push(part(new THREE.BoxGeometry(2.4, 0.06, 0.5), 0x4f8a3a, { x: 0.35, y: 6, rz: -0.35 }).rotateY((i / 5) * Math.PI * 2));
+      break;
+    case 'pebble':
+      P.push(part(new THREE.DodecahedronGeometry(0.3, 0), 0x8a857c, { y: 0.1, sy: 0.5 }));
+      break;
+    case 'flowers':
+      for (const [x, z, c] of [[0, 0, 0xe05a7a], [0.25, 0.1, 0xf2d04a], [-0.2, 0.2, 0xb07ae0]] as const) P.push(part(new THREE.ConeGeometry(0.1, 0.4, 5), c, { x, y: 0.2, z }));
+      break;
+    case 'fern':
+      P.push(part(new THREE.ConeGeometry(0.6, 0.8, 6), 0x3f7a32, { y: 0.4 }));
+      break;
+    case 'mushroom':
+      P.push(part(new THREE.CylinderGeometry(0.05, 0.06, 0.25, 6), 0xeee6d6, { y: 0.12 }));
+      P.push(part(new THREE.SphereGeometry(0.16, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0xc0392b, { y: 0.24 }));
+      break;
+    case 'log':
+      P.push(part(new THREE.CylinderGeometry(0.25, 0.28, 3, 7), 0x6b4a2b, { y: 0.25, rz: Math.PI / 2 }));
+      break;
+    case 'stump':
+      P.push(part(new THREE.CylinderGeometry(0.3, 0.38, 0.6, 7), 0x6b4a2b, { y: 0.3 }));
+      break;
   }
   return mergeGeometries(P, false)!;
 }
 
-const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'pine', 'dead_tree', 'cactus']);
+const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pine', 'palm', 'dead_tree', 'cactus']);
+/**
+ * Variants drawn per kind: every (kind, variant) is one draw call per chunk, and 49 chunks are live. Trees, which you
+ * notice, use up to 4 models; ground cover and shrubs 2.
+ */
+export const drawnVariants = (kind: ScatterKind): number => (SHADOW.has(kind) ? 4 : 2);
 
 /** Attributes a pack model may keep when its meshes are merged (only those every mesh has). */
 const KEEP = ['position', 'normal', 'uv', 'color'];
 
 export class ScatterAssets {
   private readonly geos = new Map<ScatterKind, THREE.BufferGeometry>();
-  private readonly models = new Map<ScatterKind, { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>();
+  /** Every pack model a kind has (its variants); an item draws `variant % count`. */
+  private readonly models = new Map<ScatterKind, Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>>();
+  /**
+   * Stand-in shapes allowed: offline only. With a server a kind without its pack model yet is not drawn at all (it
+   * appears when the model arrives, via ChunkManager.refreshScatter), so no placeholder trees ever show.
+   */
+  standIns = true;
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
   private readonly dummy = new THREE.Object3D();
 
@@ -74,11 +122,16 @@ export class ScatterAssets {
   }
 
   hasModel(kind: ScatterKind): boolean {
-    return this.models.has(kind);
+    return (this.models.get(kind)?.length ?? 0) > 0;
+  }
+
+  /** How many pack models (variants) a kind has. */
+  modelCount(kind: ScatterKind): number {
+    return this.models.get(kind)?.length ?? 0;
   }
 
   /**
-   * Replace a procedural kind with a pack model: merged into one geometry (one material group per mesh), fitted to
+   * Add a pack model (one more variant) for a kind, replacing its procedural shape: merged into one geometry (one material group per mesh), fitted to
    * `height` with fitToHeight, standing on y = 0. Takes ownership of `object` (it is rescaled). Live chunks keep their
    * old instances until ChunkManager.refreshScatter() re-instances them. If nothing can be merged the kind stays procedural.
    */
@@ -109,15 +162,25 @@ export class ScatterAssets {
       (c as THREE.MeshStandardMaterial).vertexColors = false;
       return c;
     });
-    this.models.set(kind, { geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed });
+    const list = this.models.get(kind) ?? [];
+    list.push({ geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed });
+    this.models.set(kind, list);
   }
 
   instance(items: ScatterItem[]): THREE.Group {
     const group = new THREE.Group();
-    const byKind = new Map<ScatterKind, ScatterItem[]>();
-    for (const it of items) { const list = byKind.get(it.kind) ?? []; list.push(it); byKind.set(it.kind, list); }
-    for (const [kind, list] of byKind) {
-      const model = this.models.get(kind);
+    // One instanced mesh per (kind, variant) actually used.
+    const groups = new Map<string, { kind: ScatterKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
+    for (const it of items) {
+      const models = this.models.get(it.kind);
+      if (!models?.length && !this.standIns) continue; // with a server: real model or nothing
+      const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, drawnVariants(it.kind)) : -1;
+      const key = `${it.kind}#${v}`;
+      const g = groups.get(key) ?? { kind: it.kind, model: v >= 0 ? models![v] : undefined, list: [] };
+      g.list.push(it);
+      groups.set(key, g);
+    }
+    for (const { kind, model, list } of groups.values()) {
       const mesh = new THREE.InstancedMesh(model?.geometry ?? this.geometry(kind), model?.material ?? this.material, list.length);
       list.forEach((it, i) => {
         this.dummy.position.set(it.x, it.y, it.z);

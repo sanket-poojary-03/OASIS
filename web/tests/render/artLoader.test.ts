@@ -15,7 +15,8 @@ const rig = () => {
 
 describe('loadArt', () => {
   it('reads the plan queries from the shared list (I4: two-word kind queries kept)', () => {
-    expect(SCATTER_ART.map((e) => e.query)).toEqual(['tree', 'pine tree', 'dead tree', 'bush', 'rock', 'cactus', 'reed']);
+    expect(SCATTER_ART.map((e) => e.query).slice(0, 7)).toEqual(['tree', 'pine tree', 'dead tree', 'bush', 'rock', 'cactus', 'reed']);
+    expect(SCATTER_ART.map((e) => e.kind)).toEqual(expect.arrayContaining(['birch', 'palm', 'flowers', 'fern', 'mushroom', 'log']));
     expect(RIGGED_ART.map((e) => e.use)).toEqual(['deer', 'rabbit']); // the player is the bundled roster
   });
 
@@ -66,5 +67,25 @@ describe('loadArt', () => {
     expect(onScatter).toHaveBeenCalledTimes(1);
     expect(useDeer).toHaveBeenCalledWith('deer', expect.objectContaining({ height: 1.5 }));
     expect(loadGltf).not.toHaveBeenCalledWith('u/pine.glb');
+  });
+
+  it('loads every distinct variant of a kind (tree 1…3 here), stopping at the first repeat', async () => {
+    const { scatter, wildlife } = rig();
+    const resolve = vi.fn(async (q: string, v = 0): Promise<AssetResult> =>
+      q === 'tree' ? { status: 'ready', source: 'library', url: `u/tree-${v % 3}.glb` } : { status: 'none' });
+    const loadGltf = vi.fn(async () => { const t = fakeTemplate(1); return { scene: t.scene, animations: t.animations }; });
+    await loadArt(scatter, wildlife, { resolve, loadGltf });
+    expect(scatter.modelCount('tree')).toBe(3);
+    expect(loadGltf).toHaveBeenCalledTimes(3);
+    const items = [0, 1, 2, 3].map((variant) => ({ kind: 'tree' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant }));
+    expect(scatter.instance(items).children).toHaveLength(3); // one instanced mesh per variant used
+  });
+
+  it('with a server, a kind without its model yet is not drawn (no placeholder trees)', () => {
+    const scatter = new ScatterAssets();
+    const items = [{ kind: 'birch' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 }];
+    expect(scatter.instance(items).children).toHaveLength(1); // offline: a stand-in shape
+    scatter.standIns = false;
+    expect(scatter.instance(items).children).toHaveLength(0);
   });
 });

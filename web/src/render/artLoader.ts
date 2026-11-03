@@ -4,12 +4,14 @@ import ART from '../../../shared/fixtures/art-queries.json';
 import { resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
 import type { AnimalKind, Wildlife } from '../logic/wildlife';
-import type { ScatterKind } from '../world/scatter';
+import { SCATTER_KINDS as KINDS, type ScatterKind } from '../world/scatter';
 import type { ScatterAssets } from './scatterAssets';
 
 type Gltf = { scene: THREE.Object3D; animations: THREE.AnimationClip[] };
 
-const SCATTER_KINDS: ReadonlySet<string> = new Set<ScatterKind>(['tree', 'pine', 'dead_tree', 'bush', 'rock', 'cactus', 'reed']);
+const SCATTER_KINDS: ReadonlySet<string> = new Set<string>(KINDS);
+/** Variants asked for per scatter kind (the library rotates equally good models: tree 1…5); stops at the first repeat. */
+export const SCATTER_VARIANTS = 5;
 // The player is not here: the bundled characters (player/characters.ts) dress it, with or without a backend.
 const RIGGED_USES: ReadonlySet<string> = new Set(['deer', 'rabbit']);
 
@@ -21,7 +23,7 @@ export const SCATTER_ART = ART.scatter.filter((e) => SCATTER_KINDS.has(e.kind)) 
 export const RIGGED_ART = ART.rigged.filter((e) => RIGGED_USES.has(e.use)) as Array<{ use: AnimalKind; query: string; height: number }>;
 
 export interface ArtDeps {
-  resolve?: (query: string) => Promise<AssetResult>;
+  resolve?: (query: string, variant?: number) => Promise<AssetResult>;
   loadGltf?: (url: string) => Promise<Gltf>;
   /** Called after each scatter kind switches to its pack model, so live chunks can be re-instanced. */
   onScatter?: () => void;
@@ -36,7 +38,7 @@ export interface ArtReport { loaded: string[]; missing: string[] }
  */
 export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: ArtDeps = {}): Promise<ArtReport> {
   let loader: GLTFLoader | null = null;
-  const resolve = deps.resolve ?? ((query: string) => resolveAsset(query, 'prop', false, false));
+  const resolve = deps.resolve ?? ((query: string, variant = 0) => resolveAsset(query, 'prop', false, false, variant));
   const loadGltf = deps.loadGltf ?? ((url: string) => (loader ??= new GLTFLoader()).loadAsync(url));
   const report: ArtReport = { loaded: [], missing: [] };
 
@@ -52,12 +54,30 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
     }
   };
 
+  /** Every variant of a scatter kind (tree 1…5), one after another: the first arrives fast, the rest add variety. */
+  const variants = async (e: (typeof SCATTER_ART)[number]): Promise<void> => {
+    const seen = new Set<string>();
+    for (let v = 0; v < SCATTER_VARIANTS; v++) {
+      try {
+        const res = await resolve(e.query, v);
+        if (res.status !== 'ready' || !res.url || res.source !== 'library') { if (v === 0) report.missing.push(e.query); return; }
+        if (seen.has(res.url)) return; // the library has no more distinct models for this kind
+        seen.add(res.url);
+        const before = scatter.modelCount(e.kind);
+        scatter.useModel(e.kind, (await loadGltf(res.url)).scene, e.height);
+        if (scatter.modelCount(e.kind) === before) throw new Error('model has no usable meshes');
+        if (v === 0) report.loaded.push(e.query);
+        deps.onScatter?.();
+      } catch (err) {
+        console.warn('[art] could not use', e.query, v, err);
+        if (v === 0) report.missing.push(e.query);
+        return;
+      }
+    }
+  };
+
   await Promise.all([
-    ...SCATTER_ART.map((e) => one(e.query, (g) => {
-      scatter.useModel(e.kind, g.scene, e.height);
-      if (!scatter.hasModel(e.kind)) throw new Error('model has no usable meshes');
-      deps.onScatter?.();
-    })),
+    ...SCATTER_ART.map(variants),
     ...RIGGED_ART.map((e) => one(e.query, (g) => {
       wildlife.useModel(e.use, { scene: g.scene, animations: g.animations, height: e.height });
     })),

@@ -51,7 +51,7 @@ describe('fitToHeight (M9: one helper for "scale to height, feet at y = 0")', ()
 });
 
 describe('ScatterAssets.useModel', () => {
-  const items = [{ kind: 'rock' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1 }];
+  const items = [{ kind: 'rock' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 }];
 
   it('replaces a procedural kind with one merged geometry fitted to the height', () => {
     const s = new ScatterAssets();

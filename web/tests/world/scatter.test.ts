@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createField } from '../../src/world/field';
 import { solvePlacements } from '../../src/world/placement';
-import { scatterChunk } from '../../src/world/scatter';
+import { groveTree, scatterChunk, scatterRules } from '../../src/world/scatter';
 import { loadRecipeFixture } from '../fixtures';
 
 describe('scatter', () => {
@@ -21,6 +21,25 @@ describe('scatter', () => {
     let total = 0;
     for (let i = -2; i <= 2; i++) total += scatterChunk(field, i, 3).length;
     expect(total).toBeGreaterThan(20);
+  });
+
+  it('is diverse: several kinds, ground cover and model variants in a forest valley', () => {
+    const field = createField(loadRecipeFixture('fishing-valley'));
+    const items = [];
+    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) items.push(...scatterChunk(field, x, z));
+    const kinds = new Set(items.map((i) => i.kind));
+    expect(kinds.size).toBeGreaterThanOrEqual(6);
+    expect([...kinds].some((k) => ['flowers', 'fern', 'mushroom', 'log', 'stump', 'pebble'].includes(k))).toBe(true);
+    const trees = items.filter((i) => i.kind === 'tree' || i.kind === 'pine');
+    expect(new Set(trees.map((t) => t.variant)).size).toBeGreaterThan(3);
+  });
+
+  it('groves: a slow noise picks oak, birch or autumn trees', () => {
+    expect(groveTree(0.5)).toBe('birch');
+    expect(groveTree(-0.5)).toBe('autumn_tree');
+    expect(groveTree(0)).toBe('tree');
+    expect(scatterRules('sand', 0, 0.8).map(([k]) => k)).toContain('palm'); // warm beaches grow palms
+    expect(scatterRules('sand', 0, 0.3).map(([k]) => k)).not.toContain('palm');
   });
 
   it('is independent of generation order', () => {
@@ -58,12 +77,12 @@ describe('scatter', () => {
     expect(after.length).toBeLessThan(before.length);
   });
 
-  it('only places non-rock items on gentle slopes', () => {
+  it('only places non-rock items (pebbles count as rock) on gentle slopes', () => {
     const field = createField(loadRecipeFixture('snowy-mountains'));
     let checked = 0;
     for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) {
       for (const it of scatterChunk(field, x, z)) {
-        if (it.kind === 'rock') continue;
+        if (it.kind === 'rock' || it.kind === 'pebble') continue;
         expect(field.slopeAt(it.x, it.z)).toBeLessThanOrEqual(0.6);
         checked++;
       }

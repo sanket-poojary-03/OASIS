@@ -1,16 +1,26 @@
 {
   "scatter": [
-    { "kind": "tree", "query": "tree", "height": 6 },
-    { "kind": "pine", "query": "pine tree", "height": 7 },
-    { "kind": "dead_tree", "query": "dead tree", "height": 5 },
-    { "kind": "bush", "query": "bush", "height": 1.1 },
-    { "kind": "rock", "query": "rock", "height": 1.2 },
-    { "kind": "cactus", "query": "cactus", "height": 2.6 },
-    { "kind": "reed", "query": "reed", "height": 1.4 }
+    {"kind": "tree", "query": "tree", "height": 6},
+    {"kind": "pine", "query": "pine tree", "height": 7},
+    {"kind": "dead_tree", "query": "dead tree", "height": 5},
+    {"kind": "bush", "query": "bush", "height": 1.1},
+    {"kind": "rock", "query": "rock", "height": 1.2},
+    {"kind": "cactus", "query": "cactus", "height": 2.6},
+    {"kind": "reed", "query": "reed", "height": 1.4},
+    {"kind": "birch", "query": "birch tree", "height": 7},
+    {"kind": "autumn_tree", "query": "autumn tree", "height": 6.5},
+    {"kind": "snowy_pine", "query": "snowy pine tree", "height": 7},
+    {"kind": "palm", "query": "palm tree", "height": 8},
+    {"kind": "pebble", "query": "pebble", "height": 0.35},
+    {"kind": "flowers", "query": "flowers", "height": 0.5},
+    {"kind": "fern", "query": "fern", "height": 0.9},
+    {"kind": "mushroom", "query": "mushroom", "height": 0.4},
+    {"kind": "log", "query": "fallen log", "height": 0.6},
+    {"kind": "stump", "query": "tree stump", "height": 0.7}
   ],
   "rigged": [
-    { "use": "player", "query": "adventurer character", "height": 1.8 },
-    { "use": "deer", "query": "deer", "height": 1.5 },
-    { "use": "rabbit", "query": "rabbit", "height": 0.45 }
+    {"use": "player", "query": "adventurer character", "height": 1.8},
+    {"use": "deer", "query": "deer", "height": 1.5},
+    {"use": "rabbit", "query": "rabbit", "height": 0.45}
   ]
 }
