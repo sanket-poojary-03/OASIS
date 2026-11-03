@@ -1,1 +1,3517 @@
-[]
+[
+ {
+  "id": "quaternius-nature-tree-tree-1-glb",
+  "file": "quaternius/nature/tree/tree-1.glb",
+  "tags": [
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree",
+  "poly": "QVOop92WmG",
+  "size": [
+   4.063,
+   9.425,
+   4.241
+  ]
+ },
+ {
+  "id": "quaternius-nature-tree-tree-2-glb",
+  "file": "quaternius/nature/tree/tree-2.glb",
+  "tags": [
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree",
+  "poly": "YWjGDJ9F7g",
+  "size": [
+   3.826,
+   9.438,
+   3.755
+  ]
+ },
+ {
+  "id": "quaternius-nature-tree-tree-3-glb",
+  "file": "quaternius/nature/tree/tree-3.glb",
+  "tags": [
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree",
+  "poly": "aVOxaHRPWe",
+  "size": [
+   4.464,
+   7.643,
+   4.276
+  ]
+ },
+ {
+  "id": "quaternius-nature-tree-tree-4-glb",
+  "file": "quaternius/nature/tree/tree-4.glb",
+  "tags": [
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree",
+  "poly": "qZtx0AHhcy",
+  "size": [
+   4.311,
+   7.265,
+   4.578
+  ]
+ },
+ {
+  "id": "quaternius-nature-tree-tree-5-glb",
+  "file": "quaternius/nature/tree/tree-5.glb",
+  "tags": [
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree",
+  "poly": "t9KbsfYdXz",
+  "size": [
+   3.671,
+   7.006,
+   4.22
+  ]
+ },
+ {
+  "id": "quaternius-nature-pine-pine-1-glb",
+  "file": "quaternius/nature/pine/pine-1.glb",
+  "tags": [
+   "conifer",
+   "fir",
+   "pine",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine",
+  "poly": "699sFuLCN2",
+  "size": [
+   3.611,
+   7.392,
+   3.996
+  ]
+ },
+ {
+  "id": "quaternius-nature-pine-pine-2-glb",
+  "file": "quaternius/nature/pine/pine-2.glb",
+  "tags": [
+   "conifer",
+   "fir",
+   "pine",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine",
+  "poly": "79gmlLnweB",
+  "size": [
+   5.802,
+   10.236,
+   5.371
+  ]
+ },
+ {
+  "id": "quaternius-nature-pine-pine-3-glb",
+  "file": "quaternius/nature/pine/pine-3.glb",
+  "tags": [
+   "conifer",
+   "fir",
+   "pine",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine",
+  "poly": "Zt62gceKXZ",
+  "size": [
+   5.728,
+   7.376,
+   5.221
+  ]
+ },
+ {
+  "id": "quaternius-nature-pine-pine-4-glb",
+  "file": "quaternius/nature/pine/pine-4.glb",
+  "tags": [
+   "conifer",
+   "fir",
+   "pine",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine",
+  "poly": "igSu0cPoBz",
+  "size": [
+   6.42,
+   8.724,
+   6.222
+  ]
+ },
+ {
+  "id": "quaternius-nature-pine-pine-5-glb",
+  "file": "quaternius/nature/pine/pine-5.glb",
+  "tags": [
+   "conifer",
+   "fir",
+   "pine",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine",
+  "poly": "rfnxJv0Rqa",
+  "size": [
+   4.945,
+   7.317,
+   4.538
+  ]
+ },
+ {
+  "id": "quaternius-nature-dead-tree-dead-tree-1-glb",
+  "file": "quaternius/nature/dead-tree/dead-tree-1.glb",
+  "tags": [
+   "bare",
+   "dead",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dead Tree",
+  "poly": "CD4edbPSGm",
+  "size": [
+   8.356,
+   16.437,
+   8.413
+  ]
+ },
+ {
+  "id": "quaternius-nature-dead-tree-dead-tree-2-glb",
+  "file": "quaternius/nature/dead-tree/dead-tree-2.glb",
+  "tags": [
+   "bare",
+   "dead",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dead Tree",
+  "poly": "Mcd2zYqyww",
+  "size": [
+   6.73,
+   11.488,
+   6.379
+  ]
+ },
+ {
+  "id": "quaternius-nature-dead-tree-dead-tree-3-glb",
+  "file": "quaternius/nature/dead-tree/dead-tree-3.glb",
+  "tags": [
+   "bare",
+   "dead",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dead Tree",
+  "poly": "MlmK5488ou",
+  "size": [
+   6.149,
+   9.495,
+   5.749
+  ]
+ },
+ {
+  "id": "quaternius-nature-dead-tree-dead-tree-4-glb",
+  "file": "quaternius/nature/dead-tree/dead-tree-4.glb",
+  "tags": [
+   "bare",
+   "dead",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dead Tree",
+  "poly": "n8FhMgMldD",
+  "size": [
+   7.961,
+   12.771,
+   7.732
+  ]
+ },
+ {
+  "id": "quaternius-nature-dead-tree-dead-tree-5-glb",
+  "file": "quaternius/nature/dead-tree/dead-tree-5.glb",
+  "tags": [
+   "bare",
+   "dead",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dead Tree",
+  "poly": "oM95bD8buf",
+  "size": [
+   6.388,
+   13.28,
+   6.43
+  ]
+ },
+ {
+  "id": "quaternius-nature-twisted-tree-twisted-tree-1-glb",
+  "file": "quaternius/nature/twisted-tree/twisted-tree-1.glb",
+  "tags": [
+   "gnarled",
+   "spooky",
+   "tree",
+   "twisted"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Twisted Tree",
+  "poly": "7PDBpElkQr",
+  "size": [
+   10.381,
+   18.738,
+   11.293
+  ]
+ },
+ {
+  "id": "quaternius-nature-twisted-tree-twisted-tree-2-glb",
+  "file": "quaternius/nature/twisted-tree/twisted-tree-2.glb",
+  "tags": [
+   "gnarled",
+   "spooky",
+   "tree",
+   "twisted"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Twisted Tree",
+  "poly": "8oraKn9m0x",
+  "size": [
+   11.357,
+   16.073,
+   11.506
+  ]
+ },
+ {
+  "id": "quaternius-nature-twisted-tree-twisted-tree-3-glb",
+  "file": "quaternius/nature/twisted-tree/twisted-tree-3.glb",
+  "tags": [
+   "gnarled",
+   "spooky",
+   "tree",
+   "twisted"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Twisted Tree",
+  "poly": "9aWlx82xUf",
+  "size": [
+   13.516,
+   16.725,
+   11.549
+  ]
+ },
+ {
+  "id": "quaternius-nature-twisted-tree-twisted-tree-4-glb",
+  "file": "quaternius/nature/twisted-tree/twisted-tree-4.glb",
+  "tags": [
+   "gnarled",
+   "spooky",
+   "tree",
+   "twisted"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Twisted Tree",
+  "poly": "GVTsMmuzv7",
+  "size": [
+   10.563,
+   18.949,
+   9.203
+  ]
+ },
+ {
+  "id": "quaternius-nature-twisted-tree-twisted-tree-5-glb",
+  "file": "quaternius/nature/twisted-tree/twisted-tree-5.glb",
+  "tags": [
+   "gnarled",
+   "spooky",
+   "tree",
+   "twisted"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Twisted Tree",
+  "poly": "edSPJNECM7",
+  "size": [
+   9.495,
+   15.662,
+   9.387
+  ]
+ },
+ {
+  "id": "quaternius-nature-bush-bush-glb",
+  "file": "quaternius/nature/bush/bush.glb",
+  "tags": [
+   "bush",
+   "shrub"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bush",
+  "poly": "EoTERLq3z2",
+  "size": [
+   1.915,
+   1.582,
+   1.965
+  ]
+ },
+ {
+  "id": "quaternius-nature-flower-bush-bush-with-flowers-glb",
+  "file": "quaternius/nature/flower-bush/bush-with-flowers.glb",
+  "tags": [
+   "bush",
+   "flowering",
+   "flowers",
+   "shrub"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bush with Flowers",
+  "poly": "U1ymDy8tbY",
+  "size": [
+   1.915,
+   1.582,
+   1.965
+  ]
+ },
+ {
+  "id": "quaternius-nature-rock-rock-medium-1-glb",
+  "file": "quaternius/nature/rock/rock-medium-1.glb",
+  "tags": [
+   "boulder",
+   "rock",
+   "stone"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rock Medium",
+  "poly": "JQxF95498B",
+  "size": [
+   3.42,
+   2.316,
+   3.476
+  ]
+ },
+ {
+  "id": "quaternius-nature-rock-rock-medium-2-glb",
+  "file": "quaternius/nature/rock/rock-medium-2.glb",
+  "tags": [
+   "boulder",
+   "rock",
+   "stone"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rock Medium",
+  "poly": "KZdEP3uUpa",
+  "size": [
+   3.049,
+   1.899,
+   2.479
+  ]
+ },
+ {
+  "id": "quaternius-nature-rock-rock-medium-3-glb",
+  "file": "quaternius/nature/rock/rock-medium-3.glb",
+  "tags": [
+   "boulder",
+   "rock",
+   "stone"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rock Medium",
+  "poly": "s1OJ3bBzqc",
+  "size": [
+   3.225,
+   2.26,
+   2.989
+  ]
+ },
+ {
+  "id": "quaternius-nature-pebble-pebble-round-1-glb",
+  "file": "quaternius/nature/pebble/pebble-round-1.glb",
+  "tags": [
+   "pebble",
+   "rock",
+   "small",
+   "stone"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pebble Round",
+  "poly": "KYtJ6JNXh2",
+  "size": [
+   0.449,
+   0.094,
+   0.411
+  ]
+ },
+ {
+  "id": "quaternius-nature-pebble-pebble-round-2-glb",
+  "file": "quaternius/nature/pebble/pebble-round-2.glb",
+  "tags": [
+   "pebble",
+   "rock",
+   "small",
+   "stone"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pebble Round",
+  "poly": "icVsN3lmVy",
+  "size": [
+   0.5,
+   0.095,
+   0.367
+  ]
+ },
+ {
+  "id": "quaternius-nature-fern-fern-glb",
+  "file": "quaternius/nature/fern/fern.glb",
+  "tags": [
+   "fern",
+   "plant"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fern",
+  "poly": "jqcanvH7D6",
+  "size": [
+   9.046,
+   2.689,
+   8.487
+  ]
+ },
+ {
+  "id": "quaternius-nature-plant-plant-big-1-glb",
+  "file": "quaternius/nature/plant/plant-big-1.glb",
+  "tags": [
+   "leafy",
+   "plant"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Plant Big",
+  "poly": "MbhbP7JrTI",
+  "size": [
+   2.89,
+   3.756,
+   3.126
+  ]
+ },
+ {
+  "id": "quaternius-nature-plant-plant-big-2-glb",
+  "file": "quaternius/nature/plant/plant-big-2.glb",
+  "tags": [
+   "leafy",
+   "plant"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Plant Big",
+  "poly": "uwJ1rwrZlB",
+  "size": [
+   1.311,
+   0.253,
+   1.362
+  ]
+ },
+ {
+  "id": "quaternius-nature-flowers-flower-group-1-glb",
+  "file": "quaternius/nature/flowers/flower-group-1.glb",
+  "tags": [
+   "flower",
+   "flowerbed",
+   "flowers"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Flower Group",
+  "poly": "LqTljN6Wg2",
+  "size": [
+   1.781,
+   2.487,
+   1.368
+  ]
+ },
+ {
+  "id": "quaternius-nature-flowers-flower-group-2-glb",
+  "file": "quaternius/nature/flowers/flower-group-2.glb",
+  "tags": [
+   "flower",
+   "flowerbed",
+   "flowers"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Flower Group",
+  "poly": "hfPzQAedOe",
+  "size": [
+   1.488,
+   2.055,
+   1.591
+  ]
+ },
+ {
+  "id": "quaternius-nature-mushroom-mushroom-glb",
+  "file": "quaternius/nature/mushroom/mushroom.glb",
+  "tags": [
+   "fungus",
+   "mushroom",
+   "toadstool"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Mushroom",
+  "poly": "aOW08oSrd4",
+  "size": [
+   0.564,
+   0.463,
+   0.779
+  ]
+ },
+ {
+  "id": "quaternius-nature-reed-tall-grass-glb",
+  "file": "quaternius/nature/reed/tall-grass.glb",
+  "tags": [
+   "grass",
+   "reed",
+   "reeds",
+   "tall"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tall Grass",
+  "poly": "JSIYtscPmP",
+  "size": [
+   0.895,
+   1.873,
+   0.993
+  ]
+ },
+ {
+  "id": "quaternius-nature-grass-grass-glb",
+  "file": "quaternius/nature/grass/grass.glb",
+  "tags": [
+   "grass",
+   "tuft"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Grass",
+  "poly": "vUJjrRsFp4",
+  "size": [
+   0.639,
+   1.334,
+   0.737
+  ]
+ },
+ {
+  "id": "quaternius-nature-cactus-cactus-glb",
+  "file": "quaternius/nature/cactus/cactus.glb",
+  "tags": [
+   "cactus",
+   "desert"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cactus",
+  "poly": "HsEJgRLQWX",
+  "size": [
+   0.342,
+   1.411,
+   1.002
+  ]
+ },
+ {
+  "id": "quaternius-nature-cactus-cactus-flowers-glb",
+  "file": "quaternius/nature/cactus/cactus-flowers.glb",
+  "tags": [
+   "cactus",
+   "desert",
+   "flowering"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cactus Flowers",
+  "poly": "Da39rzd54k",
+  "size": [
+   0.112,
+   0.938,
+   0.734
+  ]
+ },
+ {
+  "id": "quaternius-nature-birch-birch-tree-glb",
+  "file": "quaternius/nature/birch/birch-tree.glb",
+  "tags": [
+   "birch",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Birch Tree",
+  "poly": "k6cozoNfLH",
+  "size": [
+   1.702,
+   3.574,
+   2.48
+  ]
+ },
+ {
+  "id": "quaternius-nature-autumn-tree-autumn-tree-glb",
+  "file": "quaternius/nature/autumn-tree/autumn-tree.glb",
+  "tags": [
+   "autumn",
+   "fall",
+   "maple",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Autumn Tree",
+  "poly": "2lRubrT6Na",
+  "size": [
+   1.663,
+   3.123,
+   2.541
+  ]
+ },
+ {
+  "id": "quaternius-nature-willow-willow-glb",
+  "file": "quaternius/nature/willow/willow.glb",
+  "tags": [
+   "tree",
+   "weeping",
+   "willow"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Willow",
+  "poly": "mBrUbIp9Zd",
+  "size": [
+   1.955,
+   3.325,
+   3.109
+  ]
+ },
+ {
+  "id": "quaternius-nature-snowy-pine-pine-tree-with-snow-glb",
+  "file": "quaternius/nature/snowy-pine/pine-tree-with-snow.glb",
+  "tags": [
+   "pine",
+   "snow",
+   "snowy",
+   "tree",
+   "winter"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pine Tree with Snow",
+  "poly": "17vQv2X5rh",
+  "size": [
+   1.254,
+   3.343,
+   1.393
+  ]
+ },
+ {
+  "id": "quaternius-nature-snowy-bush-bush-snow-glb",
+  "file": "quaternius/nature/snowy-bush/bush-snow.glb",
+  "tags": [
+   "bush",
+   "snow",
+   "snowy",
+   "winter"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bush Snow",
+  "poly": "H4IEAwYl1z",
+  "size": [
+   1.362,
+   1.158,
+   1.358
+  ]
+ },
+ {
+  "id": "quaternius-nature-snowy-rock-rock-snow-glb",
+  "file": "quaternius/nature/snowy-rock/rock-snow.glb",
+  "tags": [
+   "rock",
+   "snow",
+   "snowy",
+   "winter"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rock Snow",
+  "poly": "eZRzCg5BcR",
+  "size": [
+   0.613,
+   0.72,
+   0.65
+  ]
+ },
+ {
+  "id": "quaternius-nature-log-wood-log-with-moss-glb",
+  "file": "quaternius/nature/log/wood-log-with-moss.glb",
+  "tags": [
+   "fallen",
+   "log",
+   "trunk",
+   "wood"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Wood Log with Moss",
+  "poly": "nwsYvcI0bC",
+  "size": [
+   0.897,
+   0.688,
+   2.67
+  ]
+ },
+ {
+  "id": "quaternius-nature-stump-tree-stump-with-moss-glb",
+  "file": "quaternius/nature/stump/tree-stump-with-moss.glb",
+  "tags": [
+   "stump",
+   "tree",
+   "wood"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Stump with Moss",
+  "poly": "nFvEbUX6LE",
+  "size": [
+   1.36,
+   0.622,
+   1.031
+  ]
+ },
+ {
+  "id": "quaternius-nature-lilypad-lilypad-glb",
+  "file": "quaternius/nature/lilypad/lilypad.glb",
+  "tags": [
+   "lily",
+   "lilypad",
+   "pond"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Lilypad",
+  "poly": "TI6ukUlsLh",
+  "size": [
+   1.197,
+   0.221,
+   1.189
+  ]
+ },
+ {
+  "id": "quaternius-nature-palm-palm-tree-1-glb",
+  "file": "quaternius/nature/palm/palm-tree-1.glb",
+  "tags": [
+   "coconut",
+   "palm",
+   "tree",
+   "tropical"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Palm Tree",
+  "poly": "A6cKJYFsIb",
+  "size": [
+   2.863,
+   2.689,
+   2.753
+  ]
+ },
+ {
+  "id": "quaternius-nature-palm-palm-tree-2-glb",
+  "file": "quaternius/nature/palm/palm-tree-2.glb",
+  "tags": [
+   "coconut",
+   "palm",
+   "tree",
+   "tropical"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Palm Tree",
+  "poly": "DsrrAYmucG",
+  "size": [
+   2.61,
+   3.587,
+   2.518
+  ]
+ },
+ {
+  "id": "quaternius-nature-palm-palm-tree-3-glb",
+  "file": "quaternius/nature/palm/palm-tree-3.glb",
+  "tags": [
+   "coconut",
+   "palm",
+   "tree",
+   "tropical"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Palm Tree",
+  "poly": "P0tgwyXBgr",
+  "size": [
+   2.636,
+   2.685,
+   2.578
+  ]
+ },
+ {
+  "id": "quaternius-nature-crystal-big-crystal-glb",
+  "file": "quaternius/nature/crystal/big-crystal.glb",
+  "tags": [
+   "crystal",
+   "gem",
+   "glowing",
+   "magic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Big Crystal",
+  "poly": "pf5lzmgr2J",
+  "size": [
+   1.476,
+   1.655,
+   1.482
+  ]
+ },
+ {
+  "id": "quaternius-nature-crystal-crystal-glb",
+  "file": "quaternius/nature/crystal/crystal.glb",
+  "tags": [
+   "crystal",
+   "gem",
+   "magic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Crystal",
+  "poly": "nBlnK8G6xw",
+  "size": [
+   0.765,
+   0.817,
+   0.782
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-blob-1-glb",
+  "file": "quaternius/nature/alien-tree/tree-blob-1.glb",
+  "tags": [
+   "alien",
+   "blob",
+   "planet",
+   "scifi",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Blob",
+  "poly": "0X3fUj0uUF",
+  "size": [
+   2.804,
+   3.421,
+   2.772
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-blob-2-glb",
+  "file": "quaternius/nature/alien-tree/tree-blob-2.glb",
+  "tags": [
+   "alien",
+   "blob",
+   "planet",
+   "scifi",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Blob",
+  "poly": "QHYRrAnKzW",
+  "size": [
+   3.863,
+   5.876,
+   3.863
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-spiral-1-glb",
+  "file": "quaternius/nature/alien-tree/tree-spiral-1.glb",
+  "tags": [
+   "alien",
+   "scifi",
+   "spiral",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Spiral",
+  "poly": "gI3kqnqg80",
+  "size": [
+   4.22,
+   4.054,
+   2.543
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-spiral-2-glb",
+  "file": "quaternius/nature/alien-tree/tree-spiral-2.glb",
+  "tags": [
+   "alien",
+   "scifi",
+   "spiral",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Spiral",
+  "poly": "kBomlgZ5xu",
+  "size": [
+   3.802,
+   6.187,
+   2.204
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-light-glb",
+  "file": "quaternius/nature/alien-tree/tree-light.glb",
+  "tags": [
+   "alien",
+   "glowing",
+   "light",
+   "scifi",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Light",
+  "poly": "0bVHWZZnNg",
+  "size": [
+   1.445,
+   2.51,
+   1.51
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-lava-glb",
+  "file": "quaternius/nature/alien-tree/tree-lava.glb",
+  "tags": [
+   "alien",
+   "burnt",
+   "lava",
+   "tree",
+   "volcanic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Lava",
+  "poly": "9gRfmVKx9W",
+  "size": [
+   1.199,
+   3.242,
+   1.196
+  ]
+ },
+ {
+  "id": "quaternius-nature-alien-tree-tree-floating-glb",
+  "file": "quaternius/nature/alien-tree/tree-floating.glb",
+  "tags": [
+   "alien",
+   "floating",
+   "magic",
+   "tree"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tree Floating",
+  "poly": "FYbeHz28NN",
+  "size": [
+   2.089,
+   4.611,
+   0.826
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-house-fantasy-house-1-glb",
+  "file": "quaternius/buildings/medieval/house/fantasy-house-1.glb",
+  "tags": [
+   "building",
+   "cottage",
+   "fantasy",
+   "home",
+   "house",
+   "medieval",
+   "village"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy House",
+  "poly": "BH2XHWUNmF",
+  "size": [
+   2.144,
+   3.39,
+   2.659
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-house-fantasy-house-2-glb",
+  "file": "quaternius/buildings/medieval/house/fantasy-house-2.glb",
+  "tags": [
+   "building",
+   "cottage",
+   "fantasy",
+   "home",
+   "house",
+   "medieval",
+   "village"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy House",
+  "poly": "dcPho4SUA3",
+  "size": [
+   2.22,
+   3.25,
+   3.42
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-house-fantasy-house-3-glb",
+  "file": "quaternius/buildings/medieval/house/fantasy-house-3.glb",
+  "tags": [
+   "building",
+   "cottage",
+   "fantasy",
+   "home",
+   "house",
+   "medieval",
+   "village"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy House",
+  "poly": "he3p42mUTH",
+  "size": [
+   1.937,
+   1.073,
+   2.124
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-inn-fantasy-inn-glb",
+  "file": "quaternius/buildings/medieval/inn/fantasy-inn.glb",
+  "tags": [
+   "building",
+   "inn",
+   "medieval",
+   "pub",
+   "tavern"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy Inn",
+  "poly": "x3ZcGn3jr4",
+  "size": [
+   4.029,
+   3.491,
+   4.021
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-sawmill-fantasy-sawmill-glb",
+  "file": "quaternius/buildings/medieval/sawmill/fantasy-sawmill.glb",
+  "tags": [
+   "building",
+   "lumber",
+   "medieval",
+   "mill",
+   "sawmill"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy Sawmill",
+  "poly": "alxTTFjKDM",
+  "size": [
+   4.399,
+   2.862,
+   3.283
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-stable-fantasy-stable-glb",
+  "file": "quaternius/buildings/medieval/stable/fantasy-stable.glb",
+  "tags": [
+   "building",
+   "horse",
+   "medieval",
+   "stable",
+   "stables"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy Stable",
+  "poly": "qhNQSOGGbi",
+  "size": [
+   4.701,
+   2.49,
+   3.327
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-barracks-fantasy-barracks-glb",
+  "file": "quaternius/buildings/medieval/barracks/fantasy-barracks.glb",
+  "tags": [
+   "barracks",
+   "building",
+   "guardhouse",
+   "medieval"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fantasy Barracks",
+  "poly": "wTDbVozPAj",
+  "size": [
+   1.937,
+   2.089,
+   2.124
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-bell-tower-bell-tower-glb",
+  "file": "quaternius/buildings/medieval/bell-tower/bell-tower.glb",
+  "tags": [
+   "belfry",
+   "bell",
+   "chapel",
+   "church",
+   "medieval",
+   "tower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bell Tower",
+  "poly": "ux44tbeQvj",
+  "size": [
+   1.937,
+   4.761,
+   2.229
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-blacksmith-blacksmith-glb",
+  "file": "quaternius/buildings/medieval/blacksmith/blacksmith.glb",
+  "tags": [
+   "blacksmith",
+   "building",
+   "forge",
+   "medieval",
+   "smithy"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Blacksmith",
+  "poly": "bV52eTG1Aj",
+  "size": [
+   3.89,
+   3.003,
+   3.283
+  ]
+ },
+ {
+  "id": "quaternius-buildings-medieval-watermill-mill-glb",
+  "file": "quaternius/buildings/medieval/watermill/mill.glb",
+  "tags": [
+   "building",
+   "medieval",
+   "mill",
+   "watermill"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Mill",
+  "poly": "89dsFYAoX1",
+  "size": [
+   3.397,
+   4.804,
+   2.731
+  ]
+ },
+ {
+  "id": "quaternius-props-tent-tent-glb",
+  "file": "quaternius/props/tent/tent.glb",
+  "tags": [
+   "camp",
+   "canvas",
+   "tent"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tent",
+  "poly": "5Q7qIrfDxA",
+  "size": [
+   14.58,
+   10.324,
+   24.868
+  ]
+ },
+ {
+  "id": "quaternius-props-well-well-glb",
+  "file": "quaternius/props/well/well.glb",
+  "tags": [
+   "village",
+   "water",
+   "well"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Well",
+  "poly": "QlqncKYxXb",
+  "size": [
+   0.666,
+   1.25,
+   1.004
+  ]
+ },
+ {
+  "id": "quaternius-props-market-stall-market-stand-1-glb",
+  "file": "quaternius/props/market-stall/market-stand-1.glb",
+  "tags": [
+   "booth",
+   "market",
+   "stall",
+   "stand",
+   "vendor"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Market Stand",
+  "poly": "DGIM5HGISb",
+  "size": [
+   0.951,
+   1.049,
+   1.19
+  ]
+ },
+ {
+  "id": "quaternius-props-market-stall-market-stand-2-glb",
+  "file": "quaternius/props/market-stall/market-stand-2.glb",
+  "tags": [
+   "booth",
+   "market",
+   "stall",
+   "stand",
+   "vendor"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Market Stand",
+  "poly": "hts7l0NZxW",
+  "size": [
+   0.517,
+   1.042,
+   1.154
+  ]
+ },
+ {
+  "id": "quaternius-props-gazebo-gazebo-glb",
+  "file": "quaternius/props/gazebo/gazebo.glb",
+  "tags": [
+   "bandstand",
+   "gazebo",
+   "pavilion"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Gazebo",
+  "poly": "xYZB1TmGMv",
+  "size": [
+   1.037,
+   1.347,
+   1.259
+  ]
+ },
+ {
+  "id": "quaternius-props-bench-bench-1-glb",
+  "file": "quaternius/props/bench/bench-1.glb",
+  "tags": [
+   "bench",
+   "seat"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bench",
+  "poly": "7uSlZo3n9Y",
+  "size": [
+   0.665,
+   0.186,
+   0.222
+  ]
+ },
+ {
+  "id": "quaternius-props-bench-bench-2-glb",
+  "file": "quaternius/props/bench/bench-2.glb",
+  "tags": [
+   "bench",
+   "seat"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bench",
+  "poly": "jLxjFxFRpw",
+  "size": [
+   0.665,
+   0.316,
+   0.242
+  ]
+ },
+ {
+  "id": "quaternius-props-barrel-barrel-glb",
+  "file": "quaternius/props/barrel/barrel.glb",
+  "tags": [
+   "barrel",
+   "cask"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Barrel",
+  "poly": "zjCQP1TAci",
+  "size": [
+   0.158,
+   0.204,
+   0.157
+  ]
+ },
+ {
+  "id": "quaternius-props-crate-crate-glb",
+  "file": "quaternius/props/crate/crate.glb",
+  "tags": [
+   "box",
+   "crate",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Crate",
+  "poly": "3OEFd1AWfa",
+  "size": [
+   0.16,
+   0.16,
+   0.16
+  ]
+ },
+ {
+  "id": "quaternius-props-cart-cart-glb",
+  "file": "quaternius/props/cart/cart.glb",
+  "tags": [
+   "cart",
+   "handcart",
+   "wagon"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cart",
+  "poly": "l7bDe7ak6j",
+  "size": [
+   0.462,
+   0.796,
+   0.927
+  ]
+ },
+ {
+  "id": "quaternius-props-bell-bell-glb",
+  "file": "quaternius/props/bell/bell.glb",
+  "tags": [
+   "bell",
+   "gong"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bell",
+  "poly": "cILuaO115Y",
+  "size": [
+   0.633,
+   0.733,
+   0.633
+  ]
+ },
+ {
+  "id": "quaternius-props-campfire-bonfire-glb",
+  "file": "quaternius/props/campfire/bonfire.glb",
+  "tags": [
+   "bonfire",
+   "campfire",
+   "fire",
+   "firepit"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bonfire",
+  "poly": "Azj9hJwwwG",
+  "size": [
+   0.407,
+   0.112,
+   0.362
+  ]
+ },
+ {
+  "id": "quaternius-props-hay-hay-glb",
+  "file": "quaternius/props/hay/hay.glb",
+  "tags": [
+   "bale",
+   "hay",
+   "haystack"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Hay",
+  "poly": "Yu8TOERkpw",
+  "size": [
+   0.121,
+   0.179,
+   0.125
+  ]
+ },
+ {
+  "id": "quaternius-props-fence-fence-glb",
+  "file": "quaternius/props/fence/fence.glb",
+  "tags": [
+   "fence",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fence",
+  "poly": "UXmKfG81fG",
+  "size": [
+   0.791,
+   0.326,
+   0.026
+  ]
+ },
+ {
+  "id": "quaternius-props-cauldron-cauldron-glb",
+  "file": "quaternius/props/cauldron/cauldron.glb",
+  "tags": [
+   "cauldron",
+   "pot",
+   "witch"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cauldron",
+  "poly": "QaWJOPa6Gt",
+  "size": [
+   0.361,
+   0.252,
+   0.299
+  ]
+ },
+ {
+  "id": "quaternius-props-torch-torch-glb",
+  "file": "quaternius/props/torch/torch.glb",
+  "tags": [
+   "lantern",
+   "light",
+   "torch"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Torch",
+  "poly": "WGsvr4KOZd",
+  "size": [
+   0.676,
+   2.512,
+   0.666
+  ]
+ },
+ {
+  "id": "quaternius-props-lamp-lamp-glb",
+  "file": "quaternius/props/lamp/lamp.glb",
+  "tags": [
+   "lamp",
+   "lantern",
+   "light"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Lamp",
+  "poly": "RsWYHKkDhD",
+  "size": [
+   0.313,
+   0.757,
+   0.329
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-statue-stag-statue-glb",
+  "file": "quaternius/landmarks/statue/stag-statue.glb",
+  "tags": [
+   "monument",
+   "sculpture",
+   "stag",
+   "statue"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Stag Statue",
+  "poly": "cKloIsNcT8",
+  "size": [
+   2.307,
+   4.634,
+   1.272
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-statue-fox-statue-glb",
+  "file": "quaternius/landmarks/statue/fox-statue.glb",
+  "tags": [
+   "fox",
+   "monument",
+   "sculpture",
+   "statue"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fox Statue",
+  "poly": "abxyXID5EA",
+  "size": [
+   1.351,
+   3.752,
+   1.679
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-statue-horse-statue-glb",
+  "file": "quaternius/landmarks/statue/horse-statue.glb",
+  "tags": [
+   "equestrian",
+   "horse",
+   "monument",
+   "sculpture",
+   "statue"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Horse Statue",
+  "poly": "AK9CmjFnL6",
+  "size": [
+   1.743,
+   5.855,
+   3.378
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-castle-castle-1-glb",
+  "file": "quaternius/landmarks/castle/castle-1.glb",
+  "tags": [
+   "castle",
+   "fortress",
+   "keep"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Castle",
+  "poly": "opTOmcN3o9",
+  "size": [
+   2.103,
+   0.937,
+   1.957
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-castle-castle-2-glb",
+  "file": "quaternius/landmarks/castle/castle-2.glb",
+  "tags": [
+   "castle",
+   "fortress",
+   "keep"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Castle",
+  "poly": "y15yE6kWLY",
+  "size": [
+   2.126,
+   1.083,
+   1.957
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-castle-castle-fortress-glb",
+  "file": "quaternius/landmarks/castle/castle-fortress.glb",
+  "tags": [
+   "castle",
+   "citadel",
+   "fortress"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Castle Fortress",
+  "poly": "3r6gq3ow6O",
+  "size": [
+   2.126,
+   1.352,
+   1.957
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-watchtower-watch-tower-1-glb",
+  "file": "quaternius/landmarks/watchtower/watch-tower-1.glb",
+  "tags": [
+   "lookout",
+   "tower",
+   "watchtower",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Watch Tower",
+  "poly": "VJZZW37Vsk",
+  "size": [
+   0.712,
+   1.636,
+   0.68
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-watchtower-watch-tower-2-glb",
+  "file": "quaternius/landmarks/watchtower/watch-tower-2.glb",
+  "tags": [
+   "lookout",
+   "tower",
+   "watchtower",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Watch Tower",
+  "poly": "cMxuj2gt7D",
+  "size": [
+   0.813,
+   1.451,
+   0.892
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-stone-tower-stone-tower-1-glb",
+  "file": "quaternius/landmarks/stone-tower/stone-tower-1.glb",
+  "tags": [
+   "keep",
+   "stone",
+   "tower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Stone Tower",
+  "poly": "Rz4U5dZJz8",
+  "size": [
+   0.838,
+   1.357,
+   0.614
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-stone-tower-stone-tower-2-glb",
+  "file": "quaternius/landmarks/stone-tower/stone-tower-2.glb",
+  "tags": [
+   "keep",
+   "stone",
+   "tower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Stone Tower",
+  "poly": "dJLAD6p90F",
+  "size": [
+   0.857,
+   1.198,
+   0.723
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-windmill-windmill-1-glb",
+  "file": "quaternius/landmarks/windmill/windmill-1.glb",
+  "tags": [
+   "mill",
+   "windmill"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Windmill",
+  "poly": "WUbU1Nct2W",
+  "size": [
+   1.336,
+   1.611,
+   0.942
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-windmill-windmill-2-glb",
+  "file": "quaternius/landmarks/windmill/windmill-2.glb",
+  "tags": [
+   "mill",
+   "windmill"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Windmill",
+  "poly": "jpHoi9xDLG",
+  "size": [
+   1.35,
+   1.917,
+   0.66
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-temple-temple-1-glb",
+  "file": "quaternius/landmarks/temple/temple-1.glb",
+  "tags": [
+   "sanctuary",
+   "shrine",
+   "temple"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Temple",
+  "poly": "CE2Mn7lh6A",
+  "size": [
+   2.191,
+   4.329,
+   2.191
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-temple-temple-2-glb",
+  "file": "quaternius/landmarks/temple/temple-2.glb",
+  "tags": [
+   "sanctuary",
+   "shrine",
+   "temple"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Temple",
+  "poly": "JsZnPztvRl",
+  "size": [
+   1.745,
+   2.797,
+   1.968
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-temple-wodden-temple-glb",
+  "file": "quaternius/landmarks/temple/wodden-temple.glb",
+  "tags": [
+   "pagoda",
+   "shrine",
+   "temple",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Wodden Temple",
+  "poly": "HVg79yHQTm",
+  "size": [
+   1.81,
+   3.079,
+   1.81
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-monument-wooden-monument-glb",
+  "file": "quaternius/landmarks/monument/wooden-monument.glb",
+  "tags": [
+   "monument",
+   "obelisk",
+   "totem",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Wooden Monument",
+  "poly": "QBTCfwOTsY",
+  "size": [
+   1.257,
+   1.349,
+   1.257
+  ]
+ },
+ {
+  "id": "quaternius-buildings-mine-mine-glb",
+  "file": "quaternius/buildings/mine/mine.glb",
+  "tags": [
+   "cave",
+   "entrance",
+   "mine",
+   "mineshaft"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Mine",
+  "poly": "wOJ61Fa0Lt",
+  "size": [
+   1.284,
+   1.169,
+   1.361
+  ]
+ },
+ {
+  "id": "quaternius-buildings-harbour-port-glb",
+  "file": "quaternius/buildings/harbour/port.glb",
+  "tags": [
+   "dock",
+   "harbor",
+   "harbour",
+   "port"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Port",
+  "poly": "4sE6lmhGPF",
+  "size": [
+   1.752,
+   1.429,
+   2.878
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-guard-tower-guard-tower-glb",
+  "file": "quaternius/landmarks/guard-tower/guard-tower.glb",
+  "tags": [
+   "guard",
+   "tower",
+   "watchtower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Guard Tower",
+  "poly": "sbaM8I229r",
+  "size": [
+   1.494,
+   3.837,
+   1.494
+  ]
+ },
+ {
+  "id": "quaternius-props-bridge-bridge-glb",
+  "file": "quaternius/props/bridge/bridge.glb",
+  "tags": [
+   "bridge",
+   "footbridge"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Bridge",
+  "poly": "Iw8iXLqVs5",
+  "size": [
+   0.884,
+   1.194,
+   0.912
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-torii-torii-gate-glb",
+  "file": "quaternius/landmarks/torii/torii-gate.glb",
+  "tags": [
+   "gate",
+   "japanese",
+   "shrine",
+   "torii"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Torii Gate",
+  "poly": "7SyXZ62xR5",
+  "size": [
+   5.727,
+   5.321,
+   0.876
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-barn-barn-glb",
+  "file": "quaternius/buildings/farm/barn/barn.glb",
+  "tags": [
+   "barn",
+   "building",
+   "farm"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Barn",
+  "poly": "vSqQNA7ez6",
+  "size": [
+   7.727,
+   6.009,
+   8.222
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-barn-big-barn-glb",
+  "file": "quaternius/buildings/farm/barn/big-barn.glb",
+  "tags": [
+   "barn",
+   "big",
+   "building",
+   "farm"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Big Barn",
+  "poly": "q1N3xn2SpC",
+  "size": [
+   7.727,
+   7.887,
+   8.222
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-barn-small-barn-glb",
+  "file": "quaternius/buildings/farm/barn/small-barn.glb",
+  "tags": [
+   "barn",
+   "farm",
+   "shed",
+   "small"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Small Barn",
+  "poly": "aTcDP7UERC",
+  "size": [
+   6.079,
+   4.961,
+   6.274
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-silo-silo-glb",
+  "file": "quaternius/buildings/farm/silo/silo.glb",
+  "tags": [
+   "farm",
+   "grain",
+   "silo"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Silo",
+  "poly": "5GhLrv5Ce3",
+  "size": [
+   3.668,
+   9.069,
+   3.51
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-farmhouse-silo-house-glb",
+  "file": "quaternius/buildings/farm/farmhouse/silo-house.glb",
+  "tags": [
+   "farm",
+   "farmhouse",
+   "house",
+   "silo"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Silo House",
+  "poly": "ZgstejsAcN",
+  "size": [
+   5.338,
+   9.067,
+   3.51
+  ]
+ },
+ {
+  "id": "quaternius-buildings-farm-chicken-coop-chickencoop-glb",
+  "file": "quaternius/buildings/farm/chicken-coop/chickencoop.glb",
+  "tags": [
+   "chicken",
+   "coop",
+   "farm",
+   "henhouse"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "ChickenCoop",
+  "poly": "DM0F8siLam",
+  "size": [
+   2.407,
+   1.851,
+   2.154
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-windmill-tower-windmill-glb",
+  "file": "quaternius/landmarks/windmill/tower-windmill.glb",
+  "tags": [
+   "farm",
+   "tower",
+   "windmill"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Tower Windmill",
+  "poly": "52yaPyaAAG",
+  "size": [
+   7.924,
+   11.413,
+   4.991
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-office-building-glb",
+  "file": "quaternius/buildings/modern/office/building.glb",
+  "tags": [
+   "apartment",
+   "block",
+   "building",
+   "city",
+   "modern",
+   "office",
+   "tower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Building",
+  "poly": "ZSYgIuHfYb",
+  "size": [
+   4.644,
+   5.487,
+   3.856
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-office-big-building-glb",
+  "file": "quaternius/buildings/modern/office/big-building.glb",
+  "tags": [
+   "apartment",
+   "big",
+   "block",
+   "building",
+   "city",
+   "modern",
+   "office",
+   "tower"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Big Building",
+  "poly": "AVCS8jUd2l",
+  "size": [
+   4.705,
+   5.677,
+   4.391
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-shop-small-building-glb",
+  "file": "quaternius/buildings/modern/shop/small-building.glb",
+  "tags": [
+   "building",
+   "city",
+   "modern",
+   "shop",
+   "small",
+   "store"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Small Building",
+  "poly": "6q5cwgep0I",
+  "size": [
+   3.584,
+   4.968,
+   2.486
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-house-house-1-glb",
+  "file": "quaternius/buildings/modern/house/house-1.glb",
+  "tags": [
+   "building",
+   "home",
+   "house",
+   "modern",
+   "suburban"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House",
+  "poly": "HeHDd2rTpX",
+  "size": [
+   2.557,
+   3.179,
+   3.87
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-house-house-2-glb",
+  "file": "quaternius/buildings/modern/house/house-2.glb",
+  "tags": [
+   "building",
+   "home",
+   "house",
+   "modern",
+   "suburban"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House",
+  "poly": "roqiHdrpgc",
+  "size": [
+   3.644,
+   2.926,
+   3.084
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-townhouse-town-house-1-glb",
+  "file": "quaternius/buildings/modern/townhouse/town-house-1.glb",
+  "tags": [
+   "building",
+   "house",
+   "terraced",
+   "town",
+   "townhouse"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Town House",
+  "poly": "dtVrmnnCZn",
+  "size": [
+   3.052,
+   5.677,
+   4.396
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-townhouse-town-house-2-glb",
+  "file": "quaternius/buildings/modern/townhouse/town-house-2.glb",
+  "tags": [
+   "building",
+   "house",
+   "terraced",
+   "town",
+   "townhouse"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Town House",
+  "poly": "imVkxz7oZD",
+  "size": [
+   7.991,
+   4.671,
+   2.744
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-townhouse-town-house-3-glb",
+  "file": "quaternius/buildings/modern/townhouse/town-house-3.glb",
+  "tags": [
+   "building",
+   "house",
+   "terraced",
+   "town",
+   "townhouse"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Town House",
+  "poly": "sDQJBImZuw",
+  "size": [
+   3.747,
+   4.663,
+   2.744
+  ]
+ },
+ {
+  "id": "quaternius-buildings-modern-townhouse-large-town-house-glb",
+  "file": "quaternius/buildings/modern/townhouse/large-town-house.glb",
+  "tags": [
+   "building",
+   "house",
+   "large",
+   "town",
+   "townhouse"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Large Town House",
+  "poly": "Sl3ZTrWRwn",
+  "size": [
+   5.716,
+   5.918,
+   2.219
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-water-tower-water-tower-glb",
+  "file": "quaternius/landmarks/water-tower/water-tower.glb",
+  "tags": [
+   "tank",
+   "tower",
+   "water"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Water Tower",
+  "poly": "tMK8bhapAK",
+  "size": [
+   2.646,
+   9.38,
+   2.708
+  ]
+ },
+ {
+  "id": "quaternius-props-streetlight-street-light-glb",
+  "file": "quaternius/props/streetlight/street-light.glb",
+  "tags": [
+   "lamp",
+   "lamppost",
+   "light",
+   "street",
+   "streetlight"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Street Light",
+  "poly": "0lxF8Dl1jU",
+  "size": [
+   0.364,
+   6.643,
+   2.925
+  ]
+ },
+ {
+  "id": "quaternius-props-traffic-light-traffic-light-glb",
+  "file": "quaternius/props/traffic-light/traffic-light.glb",
+  "tags": [
+   "light",
+   "signal",
+   "traffic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Traffic Light",
+  "poly": "apWcPbwhlq",
+  "size": [
+   1.513,
+   4.664,
+   1.511
+  ]
+ },
+ {
+  "id": "quaternius-props-hydrant-fire-hydrant-glb",
+  "file": "quaternius/props/hydrant/fire-hydrant.glb",
+  "tags": [
+   "fire",
+   "hydrant"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Fire Hydrant",
+  "poly": "DKkMQbEklp",
+  "size": [
+   0.515,
+   0.772,
+   0.399
+  ]
+ },
+ {
+  "id": "quaternius-props-cone-traffic-cone-glb",
+  "file": "quaternius/props/cone/traffic-cone.glb",
+  "tags": [
+   "cone",
+   "traffic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Traffic Cone",
+  "poly": "VGvQupNGtK",
+  "size": [
+   0.595,
+   0.736,
+   0.595
+  ]
+ },
+ {
+  "id": "quaternius-props-barrier-traffic-barrier-glb",
+  "file": "quaternius/props/barrier/traffic-barrier.glb",
+  "tags": [
+   "barrier",
+   "roadblock",
+   "traffic"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Traffic Barrier",
+  "poly": "cM3aJPU9NS",
+  "size": [
+   1.555,
+   0.802,
+   0.78
+  ]
+ },
+ {
+  "id": "quaternius-props-dumpster-container-green-glb",
+  "file": "quaternius/props/dumpster/container-green.glb",
+  "tags": [
+   "bin",
+   "container",
+   "dumpster",
+   "skip"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Container Green",
+  "poly": "h5RUr3vlcS",
+  "size": [
+   5.709,
+   2.603,
+   2.561
+  ]
+ },
+ {
+  "id": "quaternius-props-trash-trash-bags-glb",
+  "file": "quaternius/props/trash/trash-bags.glb",
+  "tags": [
+   "bags",
+   "garbage",
+   "rubbish",
+   "trash"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Trash Bags",
+  "poly": "eitNk4I4R1",
+  "size": [
+   0.906,
+   0.53,
+   0.524
+  ]
+ },
+ {
+  "id": "quaternius-props-sign-town-sign-glb",
+  "file": "quaternius/props/sign/town-sign.glb",
+  "tags": [
+   "sign",
+   "signpost",
+   "town"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Town Sign",
+  "poly": "VSZubp0ru3",
+  "size": [
+   5.985,
+   5.352,
+   1.735
+  ]
+ },
+ {
+  "id": "quaternius-props-pallet-pallet-glb",
+  "file": "quaternius/props/pallet/pallet.glb",
+  "tags": [
+   "pallet",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pallet",
+  "poly": "MwOFAOgOhg",
+  "size": [
+   0.893,
+   0.14,
+   1.217
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-base-base-large-glb",
+  "file": "quaternius/buildings/scifi/base/base-large.glb",
+  "tags": [
+   "base",
+   "building",
+   "futuristic",
+   "headquarters",
+   "outpost",
+   "scifi",
+   "space"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Base Large",
+  "poly": "UyH95ZAeJ2",
+  "size": [
+   8.53,
+   4.971,
+   8.53
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-building-building-l-glb",
+  "file": "quaternius/buildings/scifi/building/building-l.glb",
+  "tags": [
+   "building",
+   "futuristic",
+   "lab",
+   "laboratory",
+   "modern",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Building L",
+  "poly": "dsH7KEfuPP",
+  "size": [
+   7.798,
+   4.315,
+   7.795
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-dome-geodesic-dome-glb",
+  "file": "quaternius/buildings/scifi/dome/geodesic-dome.glb",
+  "tags": [
+   "dome",
+   "futuristic",
+   "geodesic",
+   "greenhouse",
+   "habitat",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Geodesic Dome",
+  "poly": "T7Ge6maWq4",
+  "size": [
+   8.53,
+   5.281,
+   8.53
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-habitat-house-pod-glb",
+  "file": "quaternius/buildings/scifi/habitat/house-pod.glb",
+  "tags": [
+   "colony",
+   "futuristic",
+   "habitat",
+   "house",
+   "pod",
+   "scifi",
+   "space"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House Pod",
+  "poly": "npP0RG1MR3",
+  "size": [
+   27.4,
+   4.324,
+   8.788
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-habitat-house-cylinder-glb",
+  "file": "quaternius/buildings/scifi/habitat/house-cylinder.glb",
+  "tags": [
+   "colony",
+   "cylinder",
+   "futuristic",
+   "habitat",
+   "house",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House Cylinder",
+  "poly": "VQF43DYGQO",
+  "size": [
+   5.609,
+   4.324,
+   5.609
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-habitat-house-long-glb",
+  "file": "quaternius/buildings/scifi/habitat/house-long.glb",
+  "tags": [
+   "colony",
+   "futuristic",
+   "habitat",
+   "house",
+   "long",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House Long",
+  "poly": "X8671Q8mNc",
+  "size": [
+   3.994,
+   4.306,
+   7.791
+  ]
+ },
+ {
+  "id": "quaternius-buildings-scifi-habitat-house-single-glb",
+  "file": "quaternius/buildings/scifi/habitat/house-single.glb",
+  "tags": [
+   "colony",
+   "futuristic",
+   "habitat",
+   "house",
+   "module",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House Single",
+  "poly": "w8v6HfZzpE",
+  "size": [
+   3.994,
+   4.0,
+   3.804
+  ]
+ },
+ {
+  "id": "quaternius-props-radar-roof-radar-glb",
+  "file": "quaternius/props/radar/roof-radar.glb",
+  "tags": [
+   "antenna",
+   "dish",
+   "radar",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Roof Radar",
+  "poly": "V7XQDxF8JC",
+  "size": [
+   1.627,
+   2.713,
+   1.649
+  ]
+ },
+ {
+  "id": "quaternius-props-solar-panel-solar-panel-structure-glb",
+  "file": "quaternius/props/solar-panel/solar-panel-structure.glb",
+  "tags": [
+   "energy",
+   "panel",
+   "panels",
+   "scifi",
+   "solar"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Solar Panel Structure",
+  "poly": "snXloZEimW",
+  "size": [
+   4.0,
+   3.069,
+   4.0
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-spaceship-spaceship-1-glb",
+  "file": "quaternius/vehicles/spaceship/spaceship-1.glb",
+  "tags": [
+   "rocket",
+   "scifi",
+   "ship",
+   "shuttle",
+   "spacecraft",
+   "spaceship"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Spaceship",
+  "poly": "Jqfed124pQ",
+  "size": [
+   11.139,
+   2.527,
+   8.657
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-spaceship-spaceship-2-glb",
+  "file": "quaternius/vehicles/spaceship/spaceship-2.glb",
+  "tags": [
+   "rocket",
+   "scifi",
+   "ship",
+   "shuttle",
+   "spacecraft",
+   "spaceship"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Spaceship",
+  "poly": "VSxUAFhzbA",
+  "size": [
+   11.621,
+   3.056,
+   4.109
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-spaceship-spaceship-3-glb",
+  "file": "quaternius/vehicles/spaceship/spaceship-3.glb",
+  "tags": [
+   "rocket",
+   "scifi",
+   "ship",
+   "shuttle",
+   "spacecraft",
+   "spaceship"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Spaceship",
+  "poly": "u105mYHLHU",
+  "size": [
+   7.337,
+   5.703,
+   4.958
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-spaceship-spaceship-4-glb",
+  "file": "quaternius/vehicles/spaceship/spaceship-4.glb",
+  "tags": [
+   "rocket",
+   "scifi",
+   "ship",
+   "shuttle",
+   "spacecraft",
+   "spaceship"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Spaceship",
+  "poly": "uCeLfsdmNP",
+  "size": [
+   9.949,
+   2.35,
+   11.166
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-rover-rover-1-glb",
+  "file": "quaternius/vehicles/rover/rover-1.glb",
+  "tags": [
+   "buggy",
+   "mars",
+   "moon",
+   "rover",
+   "scifi",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rover",
+  "poly": "WRd1piJOfh",
+  "size": [
+   4.582,
+   4.882,
+   6.562
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-rover-rover-2-glb",
+  "file": "quaternius/vehicles/rover/rover-2.glb",
+  "tags": [
+   "buggy",
+   "mars",
+   "moon",
+   "rover",
+   "scifi",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Rover",
+  "poly": "tzOLXetacM",
+  "size": [
+   4.582,
+   4.882,
+   5.159
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-rover-round-rover-glb",
+  "file": "quaternius/vehicles/rover/round-rover.glb",
+  "tags": [
+   "round",
+   "rover",
+   "scifi",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Round Rover",
+  "poly": "ejdkcNgMpr",
+  "size": [
+   5.788,
+   5.168,
+   3.691
+  ]
+ },
+ {
+  "id": "quaternius-props-mech-mech-1-glb",
+  "file": "quaternius/props/mech/mech-1.glb",
+  "tags": [
+   "mech",
+   "robot",
+   "scifi",
+   "walker"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Mech",
+  "poly": "4UvIHxnoSR",
+  "size": [
+   2.914,
+   2.996,
+   2.055
+  ]
+ },
+ {
+  "id": "quaternius-props-mech-mech-2-glb",
+  "file": "quaternius/props/mech/mech-2.glb",
+  "tags": [
+   "mech",
+   "robot",
+   "scifi",
+   "walker"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Mech",
+  "poly": "D5wW2jDO42",
+  "size": [
+   2.699,
+   3.095,
+   1.922
+  ]
+ },
+ {
+  "id": "quaternius-buildings-cyberpunk-platform-cyberpunk-platform-1-glb",
+  "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-1.glb",
+  "tags": [
+   "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cyberpunk Platform",
+  "poly": "J3AJSwqmBJ",
+  "size": [
+   5.321,
+   6.158,
+   2.713
+  ]
+ },
+ {
+  "id": "quaternius-buildings-cyberpunk-platform-cyberpunk-platform-2-glb",
+  "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-2.glb",
+  "tags": [
+   "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cyberpunk Platform",
+  "poly": "ctQ5CDmraQ",
+  "size": [
+   4.468,
+   3.758,
+   3.904
+  ]
+ },
+ {
+  "id": "quaternius-buildings-cyberpunk-platform-cyberpunk-platform-3-glb",
+  "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-3.glb",
+  "tags": [
+   "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cyberpunk Platform",
+  "poly": "dHymLbsOMY",
+  "size": [
+   3.309,
+   3.835,
+   2.158
+  ]
+ },
+ {
+  "id": "quaternius-buildings-cyberpunk-platform-cyberpunk-platform-4-glb",
+  "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-4.glb",
+  "tags": [
+   "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cyberpunk Platform",
+  "poly": "s0rwPHWMpY",
+  "size": [
+   3.863,
+   2.806,
+   1.73
+  ]
+ },
+ {
+  "id": "quaternius-props-streetlight-streetlight-1-glb",
+  "file": "quaternius/props/streetlight/streetlight-1.glb",
+  "tags": [
+   "futuristic",
+   "lamp",
+   "light",
+   "neon",
+   "street",
+   "streetlight"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Streetlight",
+  "poly": "Bq1Qj4DAre",
+  "size": [
+   0.176,
+   2.866,
+   0.672
+  ]
+ },
+ {
+  "id": "quaternius-props-streetlight-streetlight-2-glb",
+  "file": "quaternius/props/streetlight/streetlight-2.glb",
+  "tags": [
+   "futuristic",
+   "lamp",
+   "light",
+   "neon",
+   "street",
+   "streetlight"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Streetlight",
+  "poly": "Wp6Eh4r9VX",
+  "size": [
+   1.351,
+   2.649,
+   1.186
+  ]
+ },
+ {
+  "id": "quaternius-props-neon-sign-cyberpunk-signs-glb",
+  "file": "quaternius/props/neon-sign/cyberpunk-signs.glb",
+  "tags": [
+   "billboard",
+   "cyberpunk",
+   "neon",
+   "sign"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cyberpunk Signs",
+  "poly": "rsZJjigt1X",
+  "size": [
+   5.114,
+   3.499,
+   1.767
+  ]
+ },
+ {
+  "id": "quaternius-landmarks-tv-tower-tv-tower-glb",
+  "file": "quaternius/landmarks/tv-tower/tv-tower.glb",
+  "tags": [
+   "antenna",
+   "broadcast",
+   "futuristic",
+   "radio",
+   "tower",
+   "tv"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "TV Tower",
+  "poly": "R8DtfW6Nx5",
+  "size": [
+   0.734,
+   2.378,
+   0.631
+  ]
+ },
+ {
+  "id": "quaternius-props-scifi-container-scifi-container-glb",
+  "file": "quaternius/props/scifi-container/scifi-container.glb",
+  "tags": [
+   "cargo",
+   "container",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Scifi Container",
+  "poly": "22FBVK7m9c",
+  "size": [
+   1.202,
+   0.582,
+   0.752
+  ]
+ },
+ {
+  "id": "quaternius-props-scifi-pod-scifi-pod-glb",
+  "file": "quaternius/props/scifi-pod/scifi-pod.glb",
+  "tags": [
+   "capsule",
+   "cryo",
+   "pod",
+   "scifi"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Scifi Pod",
+  "poly": "hedSWVZx9E",
+  "size": [
+   1.81,
+   3.612,
+   1.81
+  ]
+ },
+ {
+  "id": "quaternius-props-teleporter-teleporter-base-glb",
+  "file": "quaternius/props/teleporter/teleporter-base.glb",
+  "tags": [
+   "pad",
+   "portal",
+   "scifi",
+   "teleporter"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Teleporter Base",
+  "poly": "OIezStCmak",
+  "size": [
+   2.396,
+   0.32,
+   2.396
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-ship-ship-glb",
+  "file": "quaternius/vehicles/ship/ship.glb",
+  "tags": [
+   "boat",
+   "galleon",
+   "pirate",
+   "sailing",
+   "ship"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Ship",
+  "poly": "mEQj2wZ3GC",
+  "size": [
+   15.433,
+   11.479,
+   5.301
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-ship-small-ship-glb",
+  "file": "quaternius/vehicles/ship/small-ship.glb",
+  "tags": [
+   "boat",
+   "sailing",
+   "ship",
+   "sloop"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Small Ship",
+  "poly": "W2vMzztgIi",
+  "size": [
+   5.149,
+   1.992,
+   3.601
+  ]
+ },
+ {
+  "id": "quaternius-props-dock-dock-glb",
+  "file": "quaternius/props/dock/dock.glb",
+  "tags": [
+   "dock",
+   "jetty",
+   "pier",
+   "wharf"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dock",
+  "poly": "MBZUZAOWew",
+  "size": [
+   2.184,
+   3.013,
+   2.657
+  ]
+ },
+ {
+  "id": "quaternius-buildings-pirate-house-house-1-glb",
+  "file": "quaternius/buildings/pirate/house/house-1.glb",
+  "tags": [
+   "fishing",
+   "house",
+   "hut",
+   "pirate",
+   "shack",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House",
+  "poly": "054zKsr7q4",
+  "size": [
+   3.773,
+   9.376,
+   3.742
+  ]
+ },
+ {
+  "id": "quaternius-buildings-pirate-house-house-2-glb",
+  "file": "quaternius/buildings/pirate/house/house-2.glb",
+  "tags": [
+   "fishing",
+   "house",
+   "hut",
+   "pirate",
+   "shack",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House",
+  "poly": "2kytqGs4rH",
+  "size": [
+   8.457,
+   10.643,
+   3.778
+  ]
+ },
+ {
+  "id": "quaternius-buildings-pirate-house-house-3-glb",
+  "file": "quaternius/buildings/pirate/house/house-3.glb",
+  "tags": [
+   "fishing",
+   "house",
+   "hut",
+   "pirate",
+   "shack",
+   "wooden"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "House",
+  "poly": "g7eSJLFi4V",
+  "size": [
+   13.542,
+   6.774,
+   4.595
+  ]
+ },
+ {
+  "id": "quaternius-props-cannon-cannon-glb",
+  "file": "quaternius/props/cannon/cannon.glb",
+  "tags": [
+   "artillery",
+   "cannon"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cannon",
+  "poly": "J15vlPVvKK",
+  "size": [
+   1.039,
+   1.13,
+   1.483
+  ]
+ },
+ {
+  "id": "quaternius-props-anchor-anchor-glb",
+  "file": "quaternius/props/anchor/anchor.glb",
+  "tags": [
+   "anchor"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Anchor",
+  "poly": "ejWQny9Gcz",
+  "size": [
+   0.781,
+   0.093,
+   0.951
+  ]
+ },
+ {
+  "id": "quaternius-props-treasure-chest-chest-gold-glb",
+  "file": "quaternius/props/treasure-chest/chest-gold.glb",
+  "tags": [
+   "chest",
+   "gold",
+   "treasure"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Chest Gold",
+  "poly": "4jqKCGHpUO",
+  "size": [
+   1.817,
+   1.285,
+   1.588
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-boat-boat-glb",
+  "file": "quaternius/vehicles/boat/boat.glb",
+  "tags": [
+   "boat",
+   "fishing",
+   "rowboat"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Boat",
+  "poly": "5UEl54KsuC",
+  "size": [
+   4.669,
+   2.01,
+   9.011
+  ]
+ },
+ {
+  "id": "quaternius-props-dock-dock-long-glb",
+  "file": "quaternius/props/dock/dock-long.glb",
+  "tags": [
+   "dock",
+   "jetty",
+   "long",
+   "pier"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Dock Long",
+  "poly": "bN9Oz3niNm",
+  "size": [
+   9.213,
+   7.803,
+   21.688
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-boat-sail-boat-glb",
+  "file": "quaternius/vehicles/boat/sail-boat.glb",
+  "tags": [
+   "boat",
+   "sailboat",
+   "sailing",
+   "yacht"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Sail Boat",
+  "poly": "BgSZXwmm7k",
+  "size": [
+   0.403,
+   0.855,
+   0.989
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-ship-sail-ship-glb",
+  "file": "quaternius/vehicles/ship/sail-ship.glb",
+  "tags": [
+   "galleon",
+   "sailing",
+   "ship",
+   "tall"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Sail Ship",
+  "poly": "cIzO4MBPqI",
+  "size": [
+   1.695,
+   3.85,
+   6.375
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-boat-viking-boat-glb",
+  "file": "quaternius/vehicles/boat/viking-boat.glb",
+  "tags": [
+   "boat",
+   "longship",
+   "viking"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Viking Boat",
+  "poly": "J7SCPiNoSy",
+  "size": [
+   1.567,
+   2.509,
+   4.201
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-car-car-1-glb",
+  "file": "quaternius/vehicles/car/car-1.glb",
+  "tags": [
+   "car",
+   "sedan",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Car",
+  "poly": "Cz6yDaUcM9",
+  "size": [
+   1.807,
+   1.177,
+   4.221
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-car-car-2-glb",
+  "file": "quaternius/vehicles/car/car-2.glb",
+  "tags": [
+   "car",
+   "sedan",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Car",
+  "poly": "unqqkULtRU",
+  "size": [
+   1.638,
+   1.146,
+   3.31
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-car-suv-glb",
+  "file": "quaternius/vehicles/car/suv.glb",
+  "tags": [
+   "car",
+   "jeep",
+   "suv",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "SUV",
+  "poly": "xsMtZhBkxL",
+  "size": [
+   2.111,
+   1.528,
+   4.209
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-car-taxi-glb",
+  "file": "quaternius/vehicles/car/taxi.glb",
+  "tags": [
+   "cab",
+   "car",
+   "taxi",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Taxi",
+  "poly": "x43lOScTpN",
+  "size": [
+   1.807,
+   1.31,
+   4.221
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-car-police-car-glb",
+  "file": "quaternius/vehicles/car/police-car.glb",
+  "tags": [
+   "car",
+   "police",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Police Car",
+  "poly": "BwwnUrWGmV",
+  "size": [
+   1.778,
+   1.239,
+   3.73
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-truck-pickup-truck-glb",
+  "file": "quaternius/vehicles/truck/pickup-truck.glb",
+  "tags": [
+   "pickup",
+   "truck",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Pickup Truck",
+  "poly": "qn4grQgHm8",
+  "size": [
+   2.312,
+   1.848,
+   5.18
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-truck-truck-glb",
+  "file": "quaternius/vehicles/truck/truck.glb",
+  "tags": [
+   "lorry",
+   "truck",
+   "vehicle"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Truck",
+  "poly": "cXw6oiFtZ8",
+  "size": [
+   2.709,
+   2.884,
+   5.256
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-train-locomotive-front-glb",
+  "file": "quaternius/vehicles/train/locomotive-front.glb",
+  "tags": [
+   "engine",
+   "locomotive",
+   "steam",
+   "train"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Locomotive Front",
+  "poly": "WY84FHug9s",
+  "size": [
+   8.089,
+   3.583,
+   2.867
+  ]
+ },
+ {
+  "id": "quaternius-vehicles-train-cargo-train-front-glb",
+  "file": "quaternius/vehicles/train/cargo-train-front.glb",
+  "tags": [
+   "cargo",
+   "freight",
+   "locomotive",
+   "train"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Cargo Train Front",
+  "poly": "CdAKX30G6x",
+  "size": [
+   10.355,
+   2.683,
+   2.15
+  ]
+ },
+ {
+  "id": "quaternius-animals-deer-deer-glb",
+  "file": "quaternius/animals/deer/deer.glb",
+  "tags": [
+   "animal",
+   "deer"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Deer",
+  "poly": "T6Cs7tmMHJ",
+  "size": [
+   1.459,
+   4.274,
+   4.397
+  ]
+ },
+ {
+  "id": "quaternius-animals-deer-stag-glb",
+  "file": "quaternius/animals/deer/stag.glb",
+  "tags": [
+   "animal",
+   "deer",
+   "stag"
+  ],
+  "license": "CC0 1.0 (Quaternius, via poly.pizza)",
+  "source": "quaternius",
+  "title": "Stag",
+  "poly": "tQdzbZ1Cmw",
+  "size": [
+   2.704,
+   5.453,
+   4.837
+  ]
+ }
+]
