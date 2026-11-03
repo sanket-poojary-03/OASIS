@@ -121,6 +121,9 @@ export class App {
    * The backend answered: health at boot, or the first world/edit answer that did not fall back to offline (a backend
    * that wakes after the boot pings gave up). Forgets remembered asset misses and starts the pack art, once (I6).
    */
+  /** True once the backend has answered (a health ping or any world/edit answer that was not offline). */
+  get backendOnline(): boolean { return this.backendSeen; }
+
   backendAnswered(): void {
     if (this.backendSeen) return;
     this.backendSeen = true;
@@ -131,7 +134,10 @@ export class App {
   /** Bookkeeping for every world/edit answer: tell the player about a rate-limited fallback, note a live backend. */
   private noteAnswer(res: { source: Source; notice?: string }): void {
     if (res.notice) this.ui?.toast(res.notice);
-    if (res.source !== 'offline') this.backendAnswered();
+    if (res.source === 'offline') return;
+    // A backend that woke after the health pings gave up: correct the "Offline mode" line too.
+    if (!this.backendSeen) this.ui?.setHealth(res.source === 'mock' ? 'AI server in mock mode (no API key)' : 'AI online');
+    this.backendAnswered();
   }
 
   /** True while a world is being generated or an edit is being asked for (game keys and new requests wait). */

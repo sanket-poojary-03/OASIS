@@ -20,9 +20,17 @@ CLOUDFLARE = tuple(ipaddress.ip_network(n) for n in (
 ))
 
 
-def _proxy(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """A hop of the hosting chain, not a visitor: Cloudflare, or a private/loopback address inside the platform."""
-    return ip.is_private or ip.is_loopback or ip.is_link_local or any(ip in net for net in CLOUDFLARE)
+Address = ipaddress.IPv4Address | ipaddress.IPv6Address
+
+
+def _plain(ip: Address) -> Address:
+    """An IPv4-mapped IPv6 address (::ffff:a.b.c.d) as its IPv4 address, so it meets the same checks and budget."""
+    return ip.ipv4_mapped if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped else ip
+
+
+def _proxy(ip: Address) -> bool:
+    """A hop of the hosting chain, not a visitor: Cloudflare, or any non-global (private, shared, loopback) address."""
+    return not ip.is_global or any(ip in net for net in CLOUDFLARE)
 
 
 def client_ip(forwarded_for: str | None, peer: str | None) -> str:
@@ -30,7 +38,7 @@ def client_ip(forwarded_for: str | None, peer: str | None) -> str:
     hops = [h.strip() for h in (forwarded_for or "").split(",") if h.strip()]
     for hop in reversed(hops):
         try:
-            ip = ipaddress.ip_address(hop)
+            ip = _plain(ipaddress.ip_address(hop))
         except ValueError:
             return hop[:64]  # not an address: whatever is left of the trusted hops is the client's own text
         if not _proxy(ip):

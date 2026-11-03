@@ -22,5 +22,6 @@ describe('Engine frame (m2)', () => {
     expect(after).toBe(5);
     expect(rendered).toBe(5);
     expect(warn).toHaveBeenCalledTimes(2); // 'boom' once, 'lost context' once
+    warn.mockRestore();
   });
 });

@@ -53,6 +53,7 @@ void (async () => {
   // Wake a sleeping backend (I8). Once it answers: forget remembered asset misses and load the pack art concurrently.
   // If it wakes only after these pings, the first non-offline world/edit answer does the same (App.backendAnswered, I6).
   void wakeBackend((h, final) => {
+    if (!h && app.backendOnline) return; // a world/edit answer already proved it is up
     ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)')
       : final ? 'Offline mode: preset worlds and basic edits only' : 'Waking the AI server… (offline mode until it answers)');
   }).then((h) => {

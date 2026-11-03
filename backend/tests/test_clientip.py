@@ -18,6 +18,13 @@ def test_cloudflare_and_private_hops_are_skipped():
     assert client_ip("10.0.0.7", "10.0.0.2") == "10.0.0.7"  # only hops: the first one
 
 
+def test_mapped_and_non_global_hops_are_skipped():
+    assert client_ip("81.2.69.160, ::ffff:172.70.4.5", None) == "81.2.69.160"  # IPv4-mapped Cloudflare edge
+    assert client_ip("81.2.69.160, ::ffff:10.0.0.3", None) == "81.2.69.160"  # IPv4-mapped internal hop
+    assert client_ip("81.2.69.160, 100.64.0.9", None) == "81.2.69.160"  # shared (CGNAT) platform address
+    assert client_ip("::ffff:81.2.69.160", None) == "81.2.69.160"  # a mapped visitor shares the plain address's budget
+
+
 def test_no_header_uses_the_socket_peer_and_garbage_is_bounded():
     assert client_ip(None, "127.0.0.1") == "127.0.0.1"
     assert client_ip("", None) == "unknown"

@@ -59,8 +59,8 @@ describe('Wildlife', () => {
     const before = w.group.children.slice();
     const bad = fakeTemplate(1.5);
     bad.scene.clone = () => { throw new Error('broken rig'); };
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(() => w.useModel('deer', bad)).not.toThrow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try { expect(() => w.useModel('deer', bad)).not.toThrow(); } finally { warn.mockRestore(); }
     expect(w.group.children).toEqual(before); // nothing swapped, nothing lost
     expect(() => w.rebuild(world)).not.toThrow(); // and the template was never registered
     expect(w.group.children.filter((g) => g.getObjectByName('body'))).toHaveLength(0);
