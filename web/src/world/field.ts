@@ -62,7 +62,7 @@ export function createField(recipe: Recipe): WorldField {
     switch (terrain.shape) {
       case 'plains': return 0.3 + 0.25 * n;
       case 'hills': return n;
-      case 'mountains': return 0.25 * n + 0.75 * Math.pow(ridged(nB, x * freq * 0.7, z * freq * 0.7, 5), 1.6);
+      case 'mountains': return 0.1 * n + 0.9 * Math.pow(ridged(nB, x * freq * 0.4, z * freq * 0.4, 5), 1.5);
       case 'valley': {
         const wall = smoothstep(30, 260, Math.abs(x - meander(z)));
         return 0.15 + 0.2 * n + 0.65 * wall * (0.6 + 0.4 * n) + tilt;

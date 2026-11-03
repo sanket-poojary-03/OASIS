@@ -20,15 +20,24 @@ export function fbm(noise: NoiseFunction2D, x: number, z: number, octaves: numbe
   return sum / norm;
 }
 
-/** Ridged multifractal in [0, 1]: sharp crests for mountains. */
-export function ridged(noise: NoiseFunction2D, x: number, z: number, octaves: number): number {
-  let amp = 0.5, freq = 1, sum = 0, norm = 0;
+/**
+ * Ridged multifractal in [0, 1] for mountains. Each octave's crest is rounded a little more than the one before
+ * (`soft` grows by `soft` per octave): the main ridgelines stay crisp while fine detail can never fold into needle peaks
+ * or saw-tooth crests at the 2 m mesh scale. Each octave is weighted by the one before it, so detail grows on ridges
+ * and valleys stay smooth.
+ */
+export function ridged(noise: NoiseFunction2D, x: number, z: number, octaves: number, soft = 0.06, gain = 0.45): number {
+  let amp = 1, freq = 1, sum = 0, norm = 0, weight = 1;
   for (let i = 0; i < octaves; i++) {
-    const r = 1 - Math.abs(noise(x * freq, z * freq));
-    sum += r * r * amp;
+    const k = soft * (i + 1);
+    const n = noise(x * freq, z * freq);
+    const crest = (1 - Math.sqrt(n * n + k * k)) / (1 - k);
+    const r = crest * crest;
+    sum += r * amp * weight;
     norm += amp;
-    amp *= 0.5;
+    weight = clamp(r * 1.25, 0, 1);
+    amp *= gain;
     freq *= 2;
   }
-  return sum / norm;
+  return clamp(sum / norm, 0, 1);
 }

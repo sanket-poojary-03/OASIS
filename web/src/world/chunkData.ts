@@ -1,5 +1,5 @@
 import { hashString, mulberry32 } from '../core/rng';
-import { biomeAt, groundColor, hexToRgb, type Biome } from './biome';
+import { biomeAt, biomeSample, blendedGroundColor, hexToRgb, type Biome } from './biome';
 import type { WorldField } from './field';
 import { scatterChunk, type ScatterItem } from './scatter';
 
@@ -55,7 +55,7 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     const dz = (field.heightAt(x, z + 1) - field.heightAt(x, z - 1)) / 2;
     const len = Math.hypot(dx, 1, dz);
     normals[k] = -dx / len; normals[k + 1] = 1 / len; normals[k + 2] = -dz / len;
-    let [r, g, b] = groundColor(biomeAt(field, x, z), tint);
+    let [r, g, b] = blendedGroundColor(biomeSample(field, x, z), tint);
     const pave = field.pavedAt(x, z);
     if (pave > 0) { r += (PAVED_COLOUR[0] - r) * pave; g += (PAVED_COLOUR[1] - g) * pave; b += (PAVED_COLOUR[2] - b) * pave; }
     const shade = 1 + field.detailNoise(x * 0.05, z * 0.05) * 0.06;

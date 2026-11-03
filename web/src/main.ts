@@ -50,6 +50,19 @@ void (async () => {
   });
   app.ui = ui;
   ui.showStart(true);
+  // Dev only (screenshot checks): ?w=<fixture> enters a shared fixture at once, &t=dawn|day|dusk|night sets the time, &wx= the weather.
+  if (import.meta.env.DEV) {
+    (window as unknown as { __ws: unknown }).__ws = { app, ui };
+    const q = new URLSearchParams(location.search), name = q.get('w'), time = q.get('t'), wx = q.get('wx');
+    if (name) {
+      void import('./api/localMock').then(({ fixtureRecipe }) => {
+        const r = fixtureRecipe(name), atmosphere = { ...r.atmosphere };
+        if (time === 'dawn' || time === 'day' || time === 'dusk' || time === 'night') atmosphere.time = time;
+        if (wx === 'clear' || wx === 'rain' || wx === 'snow' || wx === 'mist' || wx === 'storm') { atmosphere.weather = wx; if (wx === 'clear') atmosphere.fog = 0.1; }
+        void app.open({ ...r, atmosphere });
+      });
+    }
+  }
   // Wake a sleeping backend (I8). Once it answers: forget remembered asset misses and load the pack art concurrently.
   // If it wakes only after these pings, the first non-offline world/edit answer does the same (App.backendAnswered, I6).
   void wakeBackend((h, final) => {

@@ -106,3 +106,19 @@ describe('field', () => {
     }
   });
 });
+
+describe('mountain terrain', () => {
+  it('has ridges, not needles: little cliff, almost no 2 m saw-tooth creases', () => {
+    const f = createField(loadRecipeFixture('snowy-mountains'));
+    let n = 0, cliff = 0, crease = 0, lo = Infinity, hi = -Infinity;
+    for (let x = -500; x <= 500; x += 4) for (let z = -500; z <= 500; z += 12) {
+      const h = f.baseHeight(x, z);
+      lo = Math.min(lo, h); hi = Math.max(hi, h); n++;
+      if (f.slopeAt(x, z) > 2) cliff++;
+      if (Math.abs(f.baseHeight(x + 2, z) + f.baseHeight(x - 2, z) - 2 * h) > 1.5) crease++;
+    }
+    expect(hi - lo).toBeGreaterThan(100); // still mountains
+    expect(cliff / n).toBeLessThan(0.08); // was 22% steeper than 63 degrees
+    expect(crease / n).toBeLessThan(0.02); // was 26%
+  });
+});

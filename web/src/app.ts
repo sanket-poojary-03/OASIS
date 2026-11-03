@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Collider } from '@dimforge/rapier3d-compat';
 import { briefWorld, editWorld, generateWorld } from './api/client';
 import { makeEditContext, type LookHit } from './api/editContext';
-import type { EditContext, EditResult, Source } from './api/types';
+import type { EditContext, EditResult, Source, WorldResult } from './api/types';
 import { applyOps, describeOps, OpError, type ApplyResult, type Op } from './core/ops';
 import type { Recipe } from './core/recipe';
 import { InteractionSystem } from './logic/interactions';
@@ -208,27 +208,7 @@ export class App {
       const res = await generateWorld(prompt, brief.brief);
       this.noteAnswer(res);
       if (res.type === 'unsupported') { ui?.setBusy(null); ui?.toast(res.reason); return false; }
-      ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
-      await nextFrame();
-      this.models.reset?.(); // a new world may find models that were missing (or offline) before
-      const built = this.load(res.recipe);
-      for (const line of [...res.notes, ...built.log]) ui?.log(line);
-      ui?.setSource(SOURCE_LABEL[res.source]);
-      this.history = [];
-      const spawned = await waitUntil(() => !this.spawning, {
-        failed: () => !!this.spawnPending && this.chunks.failed(this.spawnPending.x, this.spawnPending.z),
-        timeoutMs: SPAWN_TIMEOUT_MS,
-        frame: nextFrame,
-      });
-      if (!spawned) {
-        ui?.setBusy(null);
-        ui?.toast('The terrain could not be loaded — reload or try another world');
-        return false;
-      }
-      ui?.setBusy(null);
-      ui?.showStart(false);
-      ui?.showHud(true);
-      return true;
+      return await this.enter(res);
     } catch (e) {
       console.error('generate failed', e);
       ui?.setBusy(null);
@@ -237,6 +217,43 @@ export class App {
     } finally {
       this.working = false;
     }
+  }
+
+  /** Dev and screenshot harness (?w=<fixture>): enter a given recipe the way a generated world is entered. */
+  async open(recipe: Recipe): Promise<boolean> {
+    if (this.working) return false;
+    this.cancel();
+    this.working = true;
+    try {
+      return await this.enter({ type: 'recipe', recipe, notes: [], source: 'offline' });
+    } finally {
+      this.working = false;
+    }
+  }
+
+  private async enter(res: Extract<WorldResult, { type: 'recipe' }>): Promise<boolean> {
+    const ui = this.ui;
+    ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
+    await nextFrame();
+    this.models.reset?.(); // a new world may find models that were missing (or offline) before
+    const built = this.load(res.recipe);
+    for (const line of [...res.notes, ...built.log]) ui?.log(line);
+    ui?.setSource(SOURCE_LABEL[res.source]);
+    this.history = [];
+    const spawned = await waitUntil(() => !this.spawning, {
+      failed: () => !!this.spawnPending && this.chunks.failed(this.spawnPending.x, this.spawnPending.z),
+      timeoutMs: SPAWN_TIMEOUT_MS,
+      frame: nextFrame,
+    });
+    if (!spawned) {
+      ui?.setBusy(null);
+      ui?.toast('The terrain could not be loaded — reload or try another world');
+      return false;
+    }
+    ui?.setBusy(null);
+    ui?.showStart(false);
+    ui?.showHud(true);
+    return true;
   }
 
   editContext(lookOverride?: { x: number; z: number }): EditContext {

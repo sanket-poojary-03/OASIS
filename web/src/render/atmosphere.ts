@@ -1,10 +1,14 @@
 import * as THREE from 'three';
+import { CHUNK_SIZE } from '../world/chunkData';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../core/recipe';
-import { SHADOW_MAP_SIZE } from './deviceTier';
+import { SHADOW_MAP_SIZE, VIEW_RADIUS } from './deviceTier';
 
 export const TIME_HOURS: Record<Atmosphere['time'], number> = { dawn: 6.3, day: 12, dusk: 18.4, night: 23 };
 const FOG_DAY: Record<Atmosphere['weather'], number> = { clear: 0xbfd6ea, rain: 0x8a96a3, snow: 0xd8dee8, mist: 0xc9cfd6, storm: 0x5d6670 };
+/** The radius of terrain always loaded around the camera (VIEW chunks), less a margin for the chunk being streamed in. */
+const TERRAIN_RANGE = VIEW_RADIUS * CHUNK_SIZE - 8;
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 const FOG_EXTRA: Record<Atmosphere['weather'], number> = { clear: 0, rain: 0.004, snow: 0.005, mist: 0.012, storm: 0.008 };
 /**
  * Night floor: a night scene must stay readable. A cool moon light (no shadows, so no extra shadow pass and no shader
@@ -28,7 +32,11 @@ export class AtmosphereSystem {
   /** 0 in daylight … 1 at full night (smooth through dusk and dawn). */
   night = 0;
   private readonly sky = new Sky();
-  private readonly fog = new THREE.FogExp2(0xbfd6ea, 0.003);
+  /**
+   * Linear fog that is complete at the edge of the loaded terrain: nothing exists past it, so a far peak's castle, a
+   * lake or a road there would otherwise hang in the sky, and the land would end in a visible cut. Weather only thickens it.
+   */
+  private readonly fog = new THREE.Fog(0xbfd6ea, 60, TERRAIN_RANGE);
   private spec: Atmosphere = { time: 'day', weather: 'clear', fog: 0.2, wind: 0.3 };
   private precip: THREE.Points | null = null;
   private precipSpeed = 0;
@@ -130,7 +138,10 @@ export class AtmosphereSystem {
       this.fog.color.lerp(this.tintNow, 0.6);
       this.hemi.color.lerp(this.skyTint, 0.5 * day);
     }
-    this.fog.density = 0.0012 + this.spec.fog * 0.01 + FOG_EXTRA[this.spec.weather];
+    // The old exp2 density, turned into the distance where it was ~97% fog; never past the loaded terrain.
+    const density = 0.0012 + this.spec.fog * 0.01 + FOG_EXTRA[this.spec.weather];
+    this.fog.far = Math.min(TERRAIN_RANGE, 1.87 / density);
+    this.fog.near = this.fog.far * clamp(0.55 - density * 40, 0.05, 0.55);
     if (this.precip) {
       const p = this.precip.geometry.getAttribute('position') as THREE.BufferAttribute;
       const drift = this.spec.wind * (this.spec.weather === 'snow' ? 2 : 6);
