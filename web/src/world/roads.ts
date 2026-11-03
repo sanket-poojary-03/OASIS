@@ -109,3 +109,40 @@ export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Roa
   }
   return { points, width: 4, bridges };
 }
+
+export interface RoadNode { id: string; x: number; z: number }
+
+/**
+ * Which places get a road between them: a minimum spanning tree over every node (so all of them are connected by the
+ * shortest total length of road), then the extra pairs the AI asked for that the tree does not already have. Pairs are
+ * returned in a stable order (tree edges by length, then extras), so the same world always gets the same roads.
+ */
+export function roadNetwork(nodes: RoadNode[], extra: Array<[string, string]> = []): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const have = new Set<string>();
+  if (nodes.length > 1) {
+    const inTree = new Set([0]);
+    const best = nodes.map((n) => Math.hypot(n.x - nodes[0].x, n.z - nodes[0].z));
+    const from = nodes.map(() => 0);
+    while (inTree.size < nodes.length) {
+      let pick = -1;
+      for (let i = 0; i < nodes.length; i++) if (!inTree.has(i) && (pick < 0 || best[i] < best[pick])) pick = i;
+      inTree.add(pick);
+      out.push([nodes[from[pick]].id, nodes[pick].id]);
+      have.add(key(nodes[from[pick]].id, nodes[pick].id));
+      for (let i = 0; i < nodes.length; i++) {
+        if (inTree.has(i)) continue;
+        const d = Math.hypot(nodes[i].x - nodes[pick].x, nodes[i].z - nodes[pick].z);
+        if (d < best[i]) { best[i] = d; from[i] = pick; }
+      }
+    }
+  }
+  const ids = new Set(nodes.map((n) => n.id));
+  for (const [a, b] of extra) {
+    if (a === b || !ids.has(a) || !ids.has(b) || have.has(key(a, b))) continue;
+    have.add(key(a, b));
+    out.push([a, b]);
+  }
+  return out;
+}

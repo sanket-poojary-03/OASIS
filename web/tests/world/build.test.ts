@@ -12,10 +12,17 @@ describe('buildWorld', () => {
     expect(w.log.length).toBeGreaterThan(2);
   });
 
-  it('valley has village buildings and two roads (spine + path)', () => {
-    const w = buildWorld(loadRecipeFixture('fishing-valley'));
-    expect(w.buildings.length).toBeGreaterThan(2);
-    expect(w.roads.length).toBe(2);
+  it('valley has village buildings, and roads reach every place and the spawn (one network)', () => {
+    for (const name of ['fishing-valley', 'desert-canyon', 'snowy-mountains', 'tropical-island'] as const) {
+      const w = buildWorld(loadRecipeFixture(name));
+      if (name === 'fishing-valley') expect(w.buildings.length).toBeGreaterThan(2);
+      const near = (x: number, z: number) => Math.min(...w.roads.flatMap((r) => r.points.map((p) => Math.hypot(p.x - x, p.z - z))));
+      for (const p of w.placements) {
+        if (w.recipe.places.find((q) => q.id === p.id)?.kind === 'prop') continue;
+        expect(near(p.x, p.z), `${name}: ${p.id}`).toBeLessThan(15);
+      }
+      expect(near(w.spawn.x, w.spawn.z), `${name}: spawn`).toBeLessThan(15);
+    }
   });
 
   it('keeps unchanged placements across an edit', () => {
