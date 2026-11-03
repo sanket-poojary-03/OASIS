@@ -31,7 +31,7 @@ describe('Avatar', () => {
     expect(camera.position.y).toBeCloseTo(11.6, 5);
     avatar.update(0.016, camera, new THREE.Vector3(0, 10, 0), false, false, () => 30); // hillside behind the player
     expect(camera.position.y).toBeCloseTo(30.5, 5);
-    expect(figure(scene)[0].position.y).toBeCloseTo(9.1, 5); // feet = capsule centre - 0.9
+    expect(figure(scene)[0].position.y).toBeCloseTo(9.05, 5); // feet = capsule centre - 0.95 (incl. the controller skin)
     expect(avatar.toggle()).toBe(false);
     expect(figure(scene)[0].visible).toBe(false);
   });

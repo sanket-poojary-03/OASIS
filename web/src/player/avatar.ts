@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { animatedClone, type AnimatedModel, type ModelTemplate } from '../render/animated';
 
-/** Capsule centre → feet (half-height 0.55 + radius 0.35), matching the Player's capsule. */
-const FEET = 0.9;
+/**
+ * Capsule centre → feet: half-height 0.55 + radius 0.35, plus the 5 cm skin the character controller keeps between the
+ * capsule and the ground (measured: the capsule rests 0.95 m above flat ground). Without it the feet hover.
+ */
+export const FEET = 0.95;
 /** Third-person camera: this far behind the player, and never closer than this to the ground under it. */
 const BACK = 5;
 const CLEARANCE = 0.5;

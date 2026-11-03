@@ -17,9 +17,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 function rig(object: THREE.Object3D) {
   const scene = new THREE.Scene();
   const addFixedBox = vi.fn((..._args: number[]) => ({}));
-  const physics = { addFixedBox, removeCollider: vi.fn() } as unknown as Physics;
+  const addFixedTrimesh = vi.fn((_p: Float32Array, _i: Uint32Array) => ({}));
+  const physics = { addFixedBox, addFixedTrimesh, removeCollider: vi.fn() } as unknown as Physics;
   const models: ModelSource = { load: async () => ({ object, source: 'library' }) };
-  return { scene, addFixedBox, objects: new WorldObjects(scene, physics, models) };
+  return { scene, addFixedBox, addFixedTrimesh, objects: new WorldObjects(scene, physics, models) };
 }
 
 describe('WorldObjects with a rigged model (C1)', () => {
@@ -60,6 +61,21 @@ describe('WorldObjects with a rigged model (C1)', () => {
   });
 });
 
+describe('WorldObjects colliders follow the model', () => {
+  it('a plain model gets a collider shaped like its surface (stand on what you see, not its bounding box)', async () => {
+    const statue = new THREE.Group();
+    statue.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 2, 8)));
+    const { objects, addFixedBox, addFixedTrimesh } = rig(statue);
+    objects.rebuild(world);
+    await flush();
+    const [positions] = addFixedTrimesh.mock.calls.at(-1)!;
+    const box = new THREE.Box3().setFromArray(positions);
+    expect(box.max.y).toBeCloseTo(10, 3); // fitted to 10 m, in world space at the place
+    expect((box.min.x + box.max.x) / 2).toBeCloseTo(100, 3);
+    expect(addFixedBox).not.toHaveBeenCalled();
+  });
+});
+
 describe('WorldObjects: places added while playing wait for their model (no stand-in house first)', () => {
   function deferred() {
     let resolve!: (v: Awaited<ReturnType<ModelSource['load']>>) => void;
@@ -68,7 +84,7 @@ describe('WorldObjects: places added while playing wait for their model (no stan
   }
   function waitRig() {
     const d = deferred();
-    const physics = { addFixedBox: vi.fn(() => ({})), removeCollider: vi.fn() } as unknown as Physics;
+    const physics = { addFixedBox: vi.fn(() => ({})), addFixedTrimesh: vi.fn(() => ({})), removeCollider: vi.fn() } as unknown as Physics;
     const objects = new WorldObjects(new THREE.Scene(), physics, { load: () => d.promise });
     const events: string[] = [];
     objects.onLoading.push((e) => events.push(`${e.state}:${e.placeId}:${e.label}`));

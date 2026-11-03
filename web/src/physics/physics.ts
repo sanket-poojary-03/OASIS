@@ -4,6 +4,9 @@ import type { Collider, RigidBody, World } from '@dimforge/rapier3d-compat';
 const quatY = (a: number) => ({ x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) });
 
 export class Physics {
+  /** Handles of terrain colliders: vehicles follow the ground analytically and only collide with everything else. */
+  private readonly terrain = new Set<number>();
+
   private constructor(readonly R: typeof RAPIER, readonly world: World) {}
 
   static async create(): Promise<Physics> {
@@ -12,6 +15,15 @@ export class Physics {
   }
 
   addTerrain(positions: Float32Array, indices: Uint32Array): Collider {
+    const c = this.world.createCollider(this.R.ColliderDesc.trimesh(positions, indices));
+    this.terrain.add(c.handle);
+    return c;
+  }
+
+  isTerrain(c: Collider): boolean { return this.terrain.has(c.handle); }
+
+  /** A fixed collider shaped like a model's own surface (world-space vertices), so you stand on what you see. */
+  addFixedTrimesh(positions: Float32Array, indices: Uint32Array): Collider {
     return this.world.createCollider(this.R.ColliderDesc.trimesh(positions, indices));
   }
 
@@ -25,7 +37,10 @@ export class Physics {
     return body;
   }
 
-  removeCollider(c: Collider): void { this.world.removeCollider(c, false); }
+  removeCollider(c: Collider): void {
+    this.terrain.delete(c.handle);
+    this.world.removeCollider(c, false);
+  }
   removeBody(b: RigidBody): void { this.world.removeRigidBody(b); }
 
   step(dt: number): void {

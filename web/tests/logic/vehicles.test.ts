@@ -32,7 +32,7 @@ function rig(env: Partial<VehicleEnv> = {}) {
     teleport: (x: number, y: number, z: number) => teleported.push([x, y, z]),
   } as unknown as Player;
   const scene = new THREE.Scene();
-  const full: VehicleEnv = { heightAt: () => 0, isWater: () => false, isReady: () => true, ...env };
+  const full: VehicleEnv = { heightAt: () => 0, isWater: () => false, ...env };
   const v = new Vehicles(scene, physics, player, full, async () => template());
   return { v, scene, player, keys, teleported, camera: new THREE.PerspectiveCamera() };
 }
@@ -103,5 +103,20 @@ describe('Vehicles', () => {
     again.userData.size = new THREE.Vector3(1.8, 1.4, 4);
     v.adopt(again, info);
     expect(again.position.distanceTo(driven)).toBeLessThan(0.01);
+  });
+
+  it('on a hill the car sits on the ground it drives over (no gap) and tilts with it', async () => {
+    const hill = (_x: number, z: number) => (z - 3000) * 0.25; // rising 25% to the north
+    const { v, scene, keys, camera } = rig({ heightAt: hill });
+    await v.parkNear(3000, 3000);
+    const car = scene.getObjectByName('parked-car')!;
+    const found = v.nearest(new THREE.Ray(car.position.clone().setY(car.position.y + 0.6).add(new THREE.Vector3(0, 0, -6)), new THREE.Vector3(0, 0, 1)), 6)!;
+    v.enter(found);
+    (found as unknown as { state: { heading: number } }).state.heading = 0; // uphill
+    keys.add('KeyW');
+    run(v, camera, 2);
+    expect(car.position.z).toBeGreaterThan(3005);
+    expect(car.position.y).toBeCloseTo(hill(0, car.position.z), 1); // wheels on the slope, not hovering
+    expect(car.rotation.x).toBeLessThan(-0.15); // nose up
   });
 });

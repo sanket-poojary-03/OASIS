@@ -9,12 +9,15 @@ import { parkingSpot, stepCar, type CarInput, type CarState } from './carModel';
 export interface VehicleEnv {
   heightAt(x: number, z: number): number;
   isWater(x: number, z: number): boolean;
-  isReady(x: number, z: number): boolean;
 }
 
 const quatY = (a: number) => ({ x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) });
 const PARKED = 'parked-car';
 const GRAVITY = 20;
+/** The obstacle box starts this far above the ground, so the car rolls over kerbs, roots and small stones. */
+const LIFT = 0.35;
+/** Steepest rise the car climbs (tan 38°). */
+const MAX_CLIMB = 0.78;
 /** Chase camera: this far behind and above the car. */
 const CHASE_BACK = 8, CHASE_UP = 3.2;
 
@@ -60,11 +63,8 @@ export class Vehicles {
     private readonly env: VehicleEnv,
     private readonly loadTemplate: () => Promise<THREE.Object3D>,
   ) {
+    // Horizontal moves only (the ground is analytic): it slides the car along walls and stops it at obstacles.
     this.controller = physics.world.createCharacterController(0.05);
-    this.controller.enableAutostep(0.5, 0.3, false);
-    this.controller.enableSnapToGround(0.7);
-    this.controller.setMaxSlopeClimbAngle((42 * Math.PI) / 180);
-    this.controller.setMinSlopeSlideAngle((50 * Math.PI) / 180);
   }
 
   /** A new world: everything goes, including the parked car and remembered poses. */
@@ -93,7 +93,8 @@ export class Vehicles {
       heightAt: this.env.heightAt,
       isWater: this.env.isWater,
       blocked: (px, pz, h) => this.physics.world.intersectionWithShape(
-        { x: px, y: this.env.heightAt(px, pz) + 1.9, z: pz }, quatY(h), probe, undefined, undefined, undefined, undefined, (c) => c !== this.player.collider,
+        { x: px, y: this.env.heightAt(px, pz) + 1.9, z: pz }, quatY(h), probe, undefined, undefined, undefined, undefined,
+        (c) => c !== this.player.collider && !this.physics.isTerrain(c),
       ) !== null,
     });
     if (!spot) return;
@@ -105,7 +106,8 @@ export class Vehicles {
     root.position.set(spot.x, this.env.heightAt(spot.x, spot.z), spot.z);
     this.scene.add(root);
     const car = this.addCar(PARKED, 'Car', root, spot.heading, size, true, wheelsOf(model));
-    this.pose(car, root.position.x, root.position.y + car.half.y + 0.05, root.position.z, 1, 0);
+    this.pose(car, spot.x, this.groundUnder(car, spot.x, spot.z), spot.z, 1, 0);
+    car.body.setTranslation({ x: spot.x, y: root.position.y + LIFT + car.half.y, z: spot.z }, true);
   }
 
   /** A 'drive' place appeared (or its loaded model replaced the stand-in): make it drivable, keeping a driven pose. */
@@ -202,30 +204,31 @@ export class Vehicles {
     }
     car.state = r.state;
     car.body.setNextKinematicRotation(quatY(h));
-    let nx: number, ny: number, nz: number;
-    if (!this.env.isReady(t.x, t.z)) {
-      nx = t.x + dx; nz = t.z + dz; ny = this.env.heightAt(nx, nz) + car.half.y + 0.05; car.vy = 0;
-    } else {
-      car.vy = this.controller.computedGrounded() ? -1 : car.vy - GRAVITY * dt;
-      this.controller.computeColliderMovement(car.collider, { x: dx, y: car.vy * dt, z: dz }, undefined, undefined, (c) => c !== this.player.collider);
-      const m = this.controller.computedMovement();
-      const want = Math.hypot(dx, dz);
-      if (want > 0.01 && Math.hypot(m.x, m.z) < want * 0.5) car.state.speed *= 0.5; // hit something solid
-      nx = t.x + m.x; ny = t.y + m.y; nz = t.z + m.z;
-      const ground = this.env.heightAt(nx, nz);
-      if (ny < ground - 2) { ny = ground + car.half.y + 0.3; car.vy = 0; } // fell through a missing chunk
-    }
-    car.body.setNextKinematicTranslation({ x: nx, y: ny, z: nz });
-    this.pose(car, nx, ny, nz, dt, input.steer);
+    // Obstacles (buildings, other cars, the player) through Rapier; the ground analytically, so the wheels sit on the
+    // terrain you see. An upright box on a slope would rest on its uphill corner and float above the ground.
+    this.controller.computeColliderMovement(car.collider, { x: dx, y: 0, z: dz }, undefined, undefined,
+      (c) => c !== this.player.collider && !this.physics.isTerrain(c));
+    const m = this.controller.computedMovement();
+    const want = Math.hypot(dx, dz), got = Math.hypot(m.x, m.z);
+    if (want > 0.01 && got < want * 0.5) car.state.speed *= 0.5; // hit something solid
+    let nx = t.x + m.x, nz = t.z + m.z;
+    const here = this.groundUnder(car, t.x, t.z), there = this.groundUnder(car, nx, nz);
+    if (got > 1e-4 && (there - here) / got > MAX_CLIMB) { nx = t.x; nz = t.z; car.state.speed = 0; } // a cliff, not a road
+    const ground = this.groundUnder(car, nx, nz);
+    let y = car.root.position.y;
+    if (y - ground > 0.3) { car.vy -= GRAVITY * dt; y = Math.max(ground, y + car.vy * dt); } // off a ledge: fall
+    else { y = ground; car.vy = 0; }
+    car.body.setNextKinematicTranslation({ x: nx, y: y + LIFT + car.half.y, z: nz });
+    this.pose(car, nx, y, nz, dt, input.steer);
     this.follow(car, camera, dt);
-    this.player.position.set(nx, ny + 0.5, nz); // chunks, wildlife and the HUD follow the car
+    this.player.position.set(nx, y + 1.4, nz); // chunks, wildlife and the HUD follow the car
     this.engineSound(Math.abs(car.state.speed), true);
   }
 
   private addCar(key: string, label: string, root: THREE.Object3D, heading: number, size: THREE.Vector3, own: boolean, wheels: Wheels | null): Car {
     const half = new THREE.Vector3(Math.max(0.5, size.x * 0.45), Math.max(0.4, size.y * 0.4), Math.max(0.8, size.z * 0.46));
     const R = this.physics.R, p = root.position;
-    const body = this.physics.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(p.x, p.y + half.y + 0.05, p.z).setRotation(quatY(heading)));
+    const body = this.physics.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(p.x, p.y + LIFT + half.y, p.z).setRotation(quatY(heading)));
     const collider = this.physics.world.createCollider(R.ColliderDesc.cuboid(half.x, half.y, half.z), body);
     root.rotation.order = 'YXZ';
     root.rotation.set(0, heading, 0);
@@ -241,7 +244,14 @@ export class Vehicles {
     this.cars = this.cars.filter((c) => c !== car);
   }
 
-  /** Place the model on the body and tilt it with the ground under its four sides; spin and steer the wheels. */
+  /** The terrain height under the car's middle: the mean of its front, back, left and right (the plane it rests on). */
+  private groundUnder(car: Car, x: number, z: number): number {
+    const h = car.state.heading, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
+    const L = car.half.z, W = car.half.x, at = this.env.heightAt;
+    return (at(x + fx * L, z + fz * L) + at(x - fx * L, z - fz * L) + at(x + lx * W, z + lz * W) + at(x - lx * W, z - lz * W)) / 4;
+  }
+
+  /** Stand the model on the ground at (x, y, z), tilted with the terrain under its four sides; spin and steer the wheels. */
   private pose(car: Car, x: number, y: number, z: number, dt: number, steer: number): void {
     const h = car.state.heading, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
     const L = car.half.z, W = car.half.x, at = this.env.heightAt;
@@ -249,7 +259,7 @@ export class Vehicles {
     const roll = Math.atan2(at(x + lx * W, z + lz * W) - at(x - lx * W, z - lz * W), 2 * W);
     const k = Math.min(1, dt * 8), rot = car.root.rotation;
     rot.set(rot.x + (pitch - rot.x) * k, h, rot.z + (roll - rot.z) * k);
-    car.root.position.set(x, y - car.half.y - 0.05, z);
+    car.root.position.set(x, y, z);
     if (!car.wheels) return;
     car.spin += (car.state.speed * dt) / car.wheels.radius;
     car.steer += (steer * 0.45 - car.steer) * Math.min(1, dt * 10);

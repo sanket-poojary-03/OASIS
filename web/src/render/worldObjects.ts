@@ -7,6 +7,7 @@ import type { BuiltWorld } from '../world/build';
 import type { Building } from '../world/settlement';
 import { fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
+import { surfaceOf } from './meshCollider';
 import { buildPlaceholder } from './placeholders';
 
 export interface ObjectInfo {
@@ -243,7 +244,11 @@ export class WorldObjects {
     const size = e.root.userData.size as THREE.Vector3;
     // Pushed props and vehicles get their own moving bodies (interactions, vehicles); flat things need none.
     if (e.spec.info.interaction === 'push' || e.spec.info.interaction === 'drive' || size.y < 1.2) return;
-    e.collider = this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation);
+    // Shaped like the model (stand on its real surface); a box only for rigged or very heavy models.
+    const surface = surfaceOf(e.root);
+    e.collider = surface
+      ? this.physics.addFixedTrimesh(surface.positions, surface.indices)
+      : this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation);
   }
 
   private clear(): void {

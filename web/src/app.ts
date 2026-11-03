@@ -8,7 +8,7 @@ import type { Recipe } from './core/recipe';
 import { InteractionSystem } from './logic/interactions';
 import { Wildlife } from './logic/wildlife';
 import { Physics } from './physics/physics';
-import { Avatar } from './player/avatar';
+import { Avatar, FEET } from './player/avatar';
 import { CharacterRoster } from './player/characters';
 import { Booster } from './render/booster';
 import { loadCarTemplate } from './render/vehicleModel';
@@ -95,7 +95,6 @@ export class App {
     this.vehicles = new Vehicles(engine.scene, physics, player, {
       heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
       isWater: (x, z) => this.built?.field.isWater(x, z) ?? false,
-      isReady: this.isReady,
     }, () => loadCarTemplate());
     objects.onReady.push((root, info) => this.interactions.register(root, info));
     objects.onReady.push((root, info) => { if (info.interaction === 'drive') this.vehicles.adopt(root, info); });
@@ -366,7 +365,7 @@ export class App {
       this.player.update(dt, this.built.field, this.isReady);
       this.avatar.update(dt, this.engine.camera, this.player.position, this.player.moving, this.player.running, this.groundAt);
       const jet = this.player.jetpack;
-      this.booster.update(dt, t, jet.firing, this.feet.copy(this.player.position).setY(this.player.position.y - 0.9));
+      this.booster.update(dt, t, jet.firing, this.feet.copy(this.player.position).setY(this.player.position.y - FEET));
       this.ui?.setFuel(jet.fuel, jet.firing);
     }
     if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
