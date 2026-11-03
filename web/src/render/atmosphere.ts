@@ -33,6 +33,16 @@ export class AtmosphereSystem {
   private precip: THREE.Points | null = null;
   private precipSpeed = 0;
   private readonly sunDir = new THREE.Vector3();
+  /**
+   * The physical Sky shader cannot take an arbitrary hue, so a palette sky colour ("an orange alien sky") is a
+   * translucent dome just inside it: the sun glow still shows through, and fog and ambient light follow the same tint.
+   */
+  private skyTint: THREE.Color | null = null;
+  private readonly tintDome = new THREE.Mesh(
+    new THREE.SphereGeometry(4000, 32, 16),
+    new THREE.MeshBasicMaterial({ side: THREE.BackSide, transparent: true, opacity: 0.6, fog: false, depthWrite: false }),
+  );
+  private readonly tintNow = new THREE.Color();
 
   constructor(private readonly scene: THREE.Scene) {
     this.sky.scale.setScalar(5000); // must stay inside the camera far plane (6000); follows the viewer in update()
@@ -47,7 +57,9 @@ export class AtmosphereSystem {
     cam.left = -60; cam.right = 60; cam.top = 60; cam.bottom = -60; cam.near = 1; cam.far = 600;
     this.sun.shadow.bias = -0.0005;
     this.moon.position.set(-0.35, 0.85, 0.4);
-    scene.add(this.sky, this.sun, this.sun.target, this.hemi, this.moon);
+    this.tintDome.visible = false;
+    this.tintDome.frustumCulled = false;
+    scene.add(this.sky, this.tintDome, this.sun, this.sun.target, this.hemi, this.moon);
     scene.fog = this.fog;
   }
 
@@ -59,6 +71,12 @@ export class AtmosphereSystem {
     this.spec = { ...spec };
     if (resetTime) this.hours = TIME_HOURS[spec.time];
     this.setPrecipitation(spec.weather);
+  }
+
+  /** The recipe's palette sky colour, or undefined for the natural sky. */
+  setSkyTint(hex: string | undefined): void {
+    this.skyTint = hex ? new THREE.Color(hex) : null;
+    this.tintDome.visible = !!hex;
   }
 
   private setPrecipitation(weather: Atmosphere['weather']): void {
@@ -105,6 +123,13 @@ export class AtmosphereSystem {
     this.hemi.color.copy(HEMI_SKY_DAY).lerp(HEMI_SKY_NIGHT, this.night);
     this.hemi.groundColor.copy(HEMI_GROUND_DAY).lerp(HEMI_GROUND_NIGHT, this.night);
     this.fog.color.set(FOG_DAY[this.spec.weather]).lerp(NIGHT_FOG, this.night);
+    if (this.skyTint) {
+      this.tintNow.copy(this.skyTint).multiplyScalar(0.12 + 0.88 * day);
+      (this.tintDome.material as THREE.MeshBasicMaterial).color.copy(this.tintNow);
+      this.tintDome.position.copy(viewer);
+      this.fog.color.lerp(this.tintNow, 0.6);
+      this.hemi.color.lerp(this.skyTint, 0.5 * day);
+    }
     this.fog.density = 0.0012 + this.spec.fog * 0.01 + FOG_EXTRA[this.spec.weather];
     if (this.precip) {
       const p = this.precip.geometry.getAttribute('position') as THREE.BufferAttribute;

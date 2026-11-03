@@ -1,5 +1,5 @@
 import { hashString, mulberry32 } from '../core/rng';
-import { BIOME_COLOR, biomeAt, type Biome } from './biome';
+import { biomeAt, groundColor, hexToRgb, type Biome } from './biome';
 import type { WorldField } from './field';
 import { scatterChunk, type ScatterItem } from './scatter';
 
@@ -43,6 +43,7 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
   const positions = new Float32Array(n * n * 3);
   const normals = new Float32Array(n * n * 3);
   const colors = new Float32Array(n * n * 3);
+  const ground = field.recipe.palette?.ground, tint = ground ? hexToRgb(ground) : undefined;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const x = cx * CHUNK_SIZE + i * step, z = cz * CHUNK_SIZE + j * step;
     const k = (j * n + i) * 3;
@@ -52,7 +53,7 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     const dz = (field.heightAt(x, z + 1) - field.heightAt(x, z - 1)) / 2;
     const len = Math.hypot(dx, 1, dz);
     normals[k] = -dx / len; normals[k + 1] = 1 / len; normals[k + 2] = -dz / len;
-    const [r, g, b] = BIOME_COLOR[biomeAt(field, x, z)];
+    const [r, g, b] = groundColor(biomeAt(field, x, z), tint);
     const shade = 1 + field.detailNoise(x * 0.05, z * 0.05) * 0.06;
     colors[k] = r * shade; colors[k + 1] = g * shade; colors[k + 2] = b * shade;
   }

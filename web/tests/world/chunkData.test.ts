@@ -4,6 +4,16 @@ import { createField } from '../../src/world/field';
 import { loadRecipeFixture } from '../fixtures';
 
 describe('computeChunk', () => {
+  it('a palette ground colour recolours the land without moving it', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const plain = computeChunk(createField(r), 0, 0);
+    const red = computeChunk(createField({ ...r, palette: { ground: '#a8442a' } }), 0, 0);
+    expect(red.positions).toEqual(plain.positions);
+    let redder = 0;
+    for (let i = 0; i < red.colors.length; i += 3) if (red.colors[i] > red.colors[i + 1]) redder++;
+    expect(redder).toBe(red.colors.length / 3);
+  });
+
   it('builds a consistent grid with unit normals and matching heights', () => {
     const field = createField(loadRecipeFixture('snowy-mountains'));
     const c = computeChunk(field, 1, -2);

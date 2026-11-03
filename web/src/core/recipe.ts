@@ -59,6 +59,14 @@ export const placeSchema = z.strictObject({
   layout: layoutSchema.optional(),
 });
 
+/** A colour as #rrggbb (the LLM chooses colours, never code). */
+export const hexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'colour must be #rrggbb');
+/**
+ * Optional colour overrides for worlds that are not Earth-like ("a red planet", "a purple alien sea"): ground tints
+ * every biome, water tints sea, rivers and lakes, sky tints the sky dome, fog and ambient light. Unset = natural colours.
+ */
+export const paletteSchema = z.strictObject({ ground: hexSchema.optional(), water: hexSchema.optional(), sky: hexSchema.optional() });
+
 export const atmosphereSchema = z.strictObject({
   time: z.enum(TIMES),
   weather: z.enum(WEATHERS),
@@ -78,6 +86,7 @@ export const recipeSchema = z
     climate: z.strictObject({ temperature: unit, moisture: unit }),
     water: z.strictObject({ river: z.boolean(), lake: z.boolean() }),
     atmosphere: atmosphereSchema,
+    palette: paletteSchema.optional(),
     places: z.array(placeSchema).max(MAX_PLACES),
     paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(12).default([]),
     life: z.array(z.strictObject({ kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) })).max(4).default([]),
@@ -103,6 +112,7 @@ export type Recipe = z.infer<typeof recipeSchema>;
 export type Place = z.infer<typeof placeSchema>;
 export type Relation = z.infer<typeof relationSchema>;
 export type Atmosphere = z.infer<typeof atmosphereSchema>;
+export type Palette = z.infer<typeof paletteSchema>;
 export type Interaction = (typeof INTERACTIONS)[number];
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 export type PlaceSize = (typeof PLACE_SIZES)[number];

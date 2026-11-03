@@ -169,3 +169,14 @@ def test_harmless_slips_are_repaired_not_rejected():
     assert b["size"] == "small" and b["where"][0]["of"] == "a"  # direction keeps its "of"
     assert c["size"] == "medium"
     assert repair_recipe("not a dict") == "not a dict"
+
+
+def test_palette_colour_names_and_short_hex_are_repaired_unknown_ones_dropped():
+    from app.service import repair_ops, repair_recipe
+    out = repair_recipe({"places": [], "palette": {"ground": "Red", "water": "#4ad", "sky": "sort of moody"}})
+    assert out["palette"] == {"ground": "#b03a2e", "water": "#44aadd"}
+    assert repair_recipe({"places": [], "palette": "red"})["places"] == []  # a non-object palette is dropped
+    assert "palette" not in repair_recipe({"places": [], "palette": "red"})
+    ops = repair_ops([{"op": "setPalette", "ground": "purple", "sky": "#FFAA00"}, {"op": "removePlace", "id": "x"}])
+    assert ops == [{"op": "setPalette", "ground": "#6c3483", "sky": "#FFAA00"}, {"op": "removePlace", "id": "x"}]
+    assert repair_ops("nope") == "nope"

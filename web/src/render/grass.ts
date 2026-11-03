@@ -23,7 +23,7 @@ function blade(angle: number, offset: number): THREE.BufferGeometry {
  * shader (no per-frame CPU work beyond two uniforms). Chunks own their InstancedMesh and dispose it when dropped.
  */
 export class GrassSystem {
-  readonly uniforms = { time: { value: 0 }, wind: { value: 0.4 } };
+  readonly uniforms = { time: { value: 0 }, wind: { value: 0.4 }, tint: { value: new THREE.Color() }, tintMix: { value: 0 } };
   readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });
   private readonly geometry = mergeGeometries([blade(0, 0.05), blade(2.1, 0.08), blade(4.2, 0.06), blade(1.0, 0.12)])!;
   private readonly dummy = new THREE.Object3D();
@@ -40,6 +40,14 @@ export class GrassSystem {
         float bend = position.y * position.y;
         transformed.x += sway * uWind * bend;
         transformed.z += sway * uWind * 0.5 * bend;`,
+      );
+      // A palette ground colour recolours the blades too (keeping their dark-base to light-tip shading).
+      shader.uniforms.uTint = this.uniforms.tint;
+      shader.uniforms.uTintMix = this.uniforms.tintMix;
+      shader.fragmentShader = 'uniform vec3 uTint;\nuniform float uTintMix;\n' + shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        diffuseColor.rgb = mix(diffuseColor.rgb, uTint * dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 2.2, uTintMix);`,
       );
     };
   }
@@ -58,6 +66,12 @@ export class GrassSystem {
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     return mesh;
+  }
+
+  /** Tint every blade toward the recipe's palette ground colour; none = natural green. */
+  setTint(hex: string | undefined): void {
+    if (hex) this.uniforms.tint.value.set(hex);
+    this.uniforms.tintMix.value = hex ? 0.85 : 0;
   }
 
   /** `wind` is the recipe's atmosphere.wind (0..1); calm air still moves the blades a little. */

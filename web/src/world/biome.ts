@@ -48,3 +48,25 @@ export const BIOME_COLOR: Record<Biome, [number, number, number]> = {
   desert: [0.85, 0.6, 0.38],
   marsh: [0.36, 0.42, 0.26],
 };
+
+export type Rgb = readonly [number, number, number];
+
+/** '#rrggbb' → linear-ish 0..1 components (the same space as BIOME_COLOR). */
+export function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+const luma = ([r, g, b]: Rgb): number => 0.3 * r + 0.59 * g + 0.11 * b;
+
+/**
+ * A biome's ground colour, pulled toward the recipe's palette ground colour when it has one ("a red planet"). The tint
+ * is scaled by the biome's own brightness, so snow stays lighter than forest and rock: the land still reads as varied.
+ */
+export function groundColor(biome: Biome, tint: Rgb | undefined): Rgb {
+  const c = BIOME_COLOR[biome];
+  if (!tint) return c;
+  const k = clamp(luma(c) / 0.45, 0.55, 1.7);
+  // A floor of 0.06 per channel: "pure black ground" still shows its slopes and biomes.
+  return [0, 1, 2].map((i) => c[i] + (Math.min(1, Math.max(tint[i], 0.06) * k) - c[i]) * 0.85) as unknown as Rgb;
+}

@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p5"
+PROMPT_VERSION = "p6"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -37,6 +37,9 @@ Rules:
 - climate.temperature 0 frozen .. 1 scorching; climate.moisture 0 dry .. 1 lush.
 - water.river true if a river/stream is mentioned or it fits a valley or canyon; water.lake true for lakes/ponds.
 - atmosphere from mood words: time dawn/day/dusk/night; weather clear/rain/snow/mist/storm; fog 0-1; wind 0-1.
+- palette (optional): colours as "#rrggbb" for worlds that are not Earth-like or when the user names colours:
+  ground tints the land, water the sea/rivers/lakes, sky the sky and haze. E.g. a red planet -> {"ground":"#a8442a","sky":"#d9a07a"};
+  a purple alien sea -> {"water":"#6c3483"}; black volcanic sand -> {"ground":"#2a2626"}. Leave palette out for ordinary worlds.
 - life: deer/birds/rabbits that fit the place (max 4 entries).
 - paths: roads between the main places people would walk between.
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
@@ -85,6 +88,8 @@ Rules:
 - New place ids must not already exist. Never resend the whole recipe; only operations.
 - setClimate, setTerrain and setWater rebuild the whole world. Use them only when asked (e.g. "make it winter" -> setClimate temperature 0.1 + setAtmosphere weather snow).
 - Time and weather words -> setAtmosphere.
+- Colour changes ("make the sea purple", "turn the ground black", "an orange sky") -> setPalette with "#rrggbb" colours
+  (ground, water, sky). It recolours without rebuilding.
 - Keep place rules from the world prompt: kind, asset, interaction, relations.
 - To add a whole group ("build a city here", "a camp of tents by the lake", "plant an orchard"), add ONE settlement whose asset is
   the repeated thing, with layout {pattern: village|grid|ring|line|scatter, count 1-60, height low|mixed|tall, centre: optional piece}:

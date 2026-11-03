@@ -150,6 +150,8 @@ export class App {
     this.chunks.setSnapshot(snapshotField(built.field));
     this.atmosphere.apply(recipe.atmosphere, respawn || timeChanged);
     this.water.rebuild(built.field);
+    this.atmosphere.setSkyTint(recipe.palette?.sky);
+    this.grass.setTint(recipe.palette?.ground);
     if (this.roads) { this.engine.scene.remove(this.roads); disposeGroup(this.roads); }
     this.roads = buildRoadMeshes(built.field, built.roads);
     this.engine.scene.add(this.roads);

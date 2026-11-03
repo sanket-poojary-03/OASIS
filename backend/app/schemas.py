@@ -123,6 +123,16 @@ class Atmosphere(Strict):
     wind: Unit
 
 
+Hex = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
+
+
+class Palette(Strict):
+    """Optional colour overrides (#rrggbb) for worlds that are not Earth-like; mirrors web `paletteSchema`."""
+    ground: Hex | None = None
+    water: Hex | None = None
+    sky: Hex | None = None
+
+
 class Path_(Strict):
     from_: Id = Field(alias="from")
     to: Id
@@ -142,6 +152,7 @@ class Recipe(Strict):
     climate: Climate
     water: Water
     atmosphere: Atmosphere
+    palette: Palette | None = None
     places: Annotated[list[Place], Field(max_length=12)]
     paths: Annotated[list[Path_], Field(max_length=12)] = []
     life: Annotated[list[Life], Field(max_length=4)] = []
@@ -218,6 +229,13 @@ class SetWater(Strict):
     lake: bool | None = None
 
 
+class SetPalette(Strict):
+    op: Literal["setPalette"]
+    ground: Hex | None = None
+    water: Hex | None = None
+    sky: Hex | None = None
+
+
 class AddPath(Strict):
     op: Literal["addPath"]
     from_: Id = Field(alias="from")
@@ -232,7 +250,7 @@ class AddLife(Strict):
 
 
 Op = Annotated[
-    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, AddPath, AddLife],
+    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, SetPalette, AddPath, AddLife],
     Field(discriminator="op"),
 ]
 OpsList = Annotated[list[Op], Field(min_length=1, max_length=20)]

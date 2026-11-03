@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  DIRECTIONS, idSchema, INTERACTIONS, LIFE_KINDS, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
+  DIRECTIONS, hexSchema, idSchema, INTERACTIONS, LIFE_KINDS, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
   type Recipe,
 } from './recipe';
 
@@ -19,6 +19,7 @@ export const opSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('setClimate'), temperature: unit.optional(), moisture: unit.optional() }),
   z.strictObject({ op: z.literal('setTerrain'), shape: z.enum(SHAPES).optional(), roughness: unit.optional(), height: unit.optional(), seaLevel: unit.optional() }),
   z.strictObject({ op: z.literal('setWater'), river: z.boolean().optional(), lake: z.boolean().optional() }),
+  z.strictObject({ op: z.literal('setPalette'), ground: hexSchema.optional(), water: hexSchema.optional(), sky: hexSchema.optional() }),
   z.strictObject({ op: z.literal('addPath'), from: idSchema, to: idSchema }),
   z.strictObject({ op: z.literal('addLife'), kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) }),
 ]);
@@ -98,6 +99,11 @@ export function applyOps(recipe: Recipe, ops: Op[]): ApplyResult {
         res.terrainChanged = true;
         break;
       }
+      case 'setPalette': {
+        const { op: _op, ...rest } = op;
+        next.palette = { ...next.palette, ...defined(rest) };
+        break;
+      }
       case 'addPath':
         find(op.from);
         find(op.to);
@@ -140,6 +146,7 @@ export function describeOps(ops: Op[]): string[] {
       case 'setClimate': return `Change climate (${Object.entries(defined({ temperature: op.temperature, moisture: op.moisture })).map(([k, v]) => `${k} ${v}`).join(', ')}) — rebuilds terrain`;
       case 'setTerrain': return `Reshape terrain — rebuilds the world`;
       case 'setWater': return `Change water (${op.river === undefined ? '' : `river ${op.river ? 'on' : 'off'}`}${op.lake === undefined ? '' : ` lake ${op.lake ? 'on' : 'off'}`}) — rebuilds terrain`;
+      case 'setPalette': return `Recolour ${Object.entries(defined({ ground: op.ground, water: op.water, sky: op.sky })).map(([k, v]) => `${k} ${v}`).join(', ')}`;
       case 'addPath': return `Build a road from ${op.from} to ${op.to}`;
       case 'addLife': return `Add ${op.count} ${op.kind}`;
     }

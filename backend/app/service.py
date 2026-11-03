@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Callable, Protocol
 
 from pydantic import ValidationError
@@ -56,11 +57,56 @@ _SIZE_WORDS = {"small": "small", "tiny": "small", "little": "small", "medium": "
 _BARE_RELATIONS = {"highest", "lowest", "flat", "by_water"}
 
 
+# Colour words models write instead of #rrggbb in a palette (muted, so a "red planet" is rust, not neon).
+_COLOUR_WORDS = {"red": "#b03a2e", "crimson": "#8e1b1b", "rust": "#a8442a", "orange": "#d35400", "yellow": "#d4ac0d",
+                 "gold": "#c9a227", "golden": "#c9a227", "green": "#3f7d3a", "teal": "#1f7a7a", "turquoise": "#40c0b0",
+                 "cyan": "#3cb8c8", "blue": "#2e6da4", "navy": "#1b2f5c", "purple": "#6c3483", "violet": "#7d4cb0",
+                 "magenta": "#a0306e", "pink": "#d98aa8", "brown": "#6e4b2a", "black": "#1c1c1f", "white": "#eef0f2",
+                 "grey": "#7f8285", "gray": "#7f8285", "silver": "#b8bcc0"}
+_HEX6 = re.compile(r"^#[0-9a-fA-F]{6}$")
+_HEX3 = re.compile(r"^#[0-9a-fA-F]{3}$")
+_PALETTE_KEYS = ("ground", "water", "sky")
+
+
+def _colour(value) -> str | None:
+    """#rrggbb as given, #rgb widened, a colour word looked up; anything else is dropped (the world keeps its colour)."""
+    v = str(value).strip()
+    if _HEX6.match(v):
+        return v
+    if _HEX3.match(v):
+        return "#" + "".join(c * 2 for c in v[1:]).lower()
+    return _COLOUR_WORDS.get(v.lower())
+
+
+def _repair_palette(pal: dict) -> dict:
+    """Repair the colours; unknown keys stay, so the schema still rejects them (and the model is told why)."""
+    out = {}
+    for k, v in pal.items():
+        c = _colour(v) if k in _PALETTE_KEYS else v
+        if c is not None:
+            out[k] = c
+    return out
+
+
+def repair_ops(raw):
+    """Colour slips in setPalette ops (the same repair as a recipe palette); everything else is left to the schema."""
+    if isinstance(raw, list):
+        for i, op in enumerate(raw):
+            if isinstance(op, dict) and op.get("op") == "setPalette":
+                raw[i] = {"op": "setPalette", **_repair_palette({k: v for k, v in op.items() if k != "op"})}
+    return raw
+
+
 def repair_recipe(raw):
     """Fix harmless slips before validation instead of rejecting a good world (the schema still decides everything
-    else): a stray "of" on argument-less relations, and size words outside small/medium/large."""
+    else): a stray "of" on argument-less relations, size words outside small/medium/large, and palette colour words."""
     if not isinstance(raw, dict) or not isinstance(raw.get("places"), list):
         return raw
+    if "palette" in raw:
+        if isinstance(raw["palette"], dict):
+            raw["palette"] = _repair_palette(raw["palette"])
+        else:
+            raw.pop("palette")
     for place in raw["places"]:
         if not isinstance(place, dict):
             continue
@@ -112,7 +158,7 @@ class WorldService:
             return mock_edit(req)
 
         def validate(data: dict) -> dict:
-            ops = ops_adapter.validate_python(data.get("ops"))
+            ops = ops_adapter.validate_python(repair_ops(data.get("ops")))
             check_targets(req.recipe, ops)
             return {"type": "ops", "ops": dump_ops(ops), "notes": _notes(data), "source": "live"}
 

@@ -1,0 +1,4 @@
+[
+  { "op": "setPalette", "ground": "#a8442a", "sky": "#e0a080" },
+  { "op": "setAtmosphere", "weather": "mist" }
+]

@@ -6,6 +6,17 @@ describe('ops', () => {
   it('fixture ops parse', () => {
     expect(opsSchema.parse(loadOpsFixture('add-lighthouse-at')).length).toBe(2);
     expect(opsSchema.parse(loadOpsFixture('make-winter')).length).toBe(2);
+    expect(opsSchema.parse(loadOpsFixture('red-planet')).length).toBe(2);
+  });
+
+  it('setPalette recolours without rebuilding terrain, keeps unnamed colours, and rejects non-hex', () => {
+    const r = { ...loadRecipeFixture('fishing-valley'), palette: { water: '#40e0d0' } };
+    const res = applyOps(r, opsSchema.parse(loadOpsFixture('red-planet')));
+    expect(res.recipe.palette).toEqual({ ground: '#a8442a', sky: '#e0a080', water: '#40e0d0' });
+    expect(res.terrainChanged).toBe(false);
+    expect(describeOps(opsSchema.parse(loadOpsFixture('red-planet')))[0]).toMatch(/ground #a8442a.*sky #e0a080/);
+    expect(opsSchema.safeParse([{ op: 'setPalette', ground: 'red' }]).success).toBe(false);
+    expect(opsSchema.safeParse([{ op: 'setPalette', ground: '#a8442a', grass: '#00ff00' }]).success).toBe(false);
   });
 
   it('addPlace + setAtmosphere', () => {

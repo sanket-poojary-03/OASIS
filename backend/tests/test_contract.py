@@ -6,6 +6,7 @@ from app.schemas import FIXTURES_DIR, Recipe, dump, dump_ops, ops_adapter
 EXPECTED_OPS = {
     "add-lighthouse-at": ["addPlace", "setAtmosphere"],
     "make-winter": ["setClimate", "setAtmosphere"],
+    "red-planet": ["setPalette", "setAtmosphere"],
 }
 
 RECIPES = sorted((FIXTURES_DIR / "recipes").glob("*.json"))
@@ -59,3 +60,16 @@ def test_group_layout_matches_the_browser_schema():
     for bad in ({"pattern": "spiral"}, {"count": 61}, {"count": 0}, {"centre": "x"}, {"pattern": "grid", "extra": 1}):
         with _pytest.raises(_VE):
             Place.model_validate({"id": "camp", "kind": "settlement", "label": "C", "asset": "tent", "layout": bad})
+
+
+def test_palette_is_optional_hex_colours():
+    from app.schemas import Op  # noqa: F401
+    data = json.loads((FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8"))
+    assert "palette" not in dump(Recipe.model_validate(data))
+    r = Recipe.model_validate({**data, "palette": {"ground": "#A8442A", "water": "#40e0d0"}})
+    assert dump(r)["palette"] == {"ground": "#A8442A", "water": "#40e0d0"}
+    for bad in ({"ground": "red"}, {"ground": "#abc"}, {"sky": "#12345g"}, {"grass": "#00ff00"}):
+        with pytest.raises(ValidationError):
+            Recipe.model_validate({**data, "palette": bad})
+    with pytest.raises(ValidationError):
+        ops_adapter.validate_python([{"op": "setPalette", "water": "blue"}])

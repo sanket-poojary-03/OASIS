@@ -5,10 +5,12 @@ import { ribbonGeometry } from './ribbon';
 
 export { disposeGroup };
 
+const WATER = 0x2b6f8f;
+
 export class WaterSystem {
   readonly group = new THREE.Group();
   private sea: THREE.Mesh | null = null;
-  private readonly material = new THREE.MeshStandardMaterial({ color: 0x2b6f8f, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.82, side: THREE.DoubleSide });
+  private readonly material = new THREE.MeshStandardMaterial({ color: WATER, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.82, side: THREE.DoubleSide });
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -18,6 +20,7 @@ export class WaterSystem {
     disposeGroup(this.group);
     this.group.clear();
     this.sea = null;
+    this.material.color.set(field.recipe.palette?.water ?? WATER); // a palette water colour: "a purple sea"
     if (field.hasSea) {
       this.sea = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.material);
       this.sea.position.y = field.seaLevelY;
