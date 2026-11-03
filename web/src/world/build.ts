@@ -55,6 +55,8 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
   // Roads everywhere: one connected network over every place (small props aside) and the spawn, so the player can
   // always follow a road to the next thing; the AI's own paths are added on top.
   const spawn = findSpawn(field, placements);
+  // A world with a city grid gets asphalt roads between its places too; elsewhere they stay dirt tracks.
+  const urban = recipe.places.some((p) => p.kind === 'settlement' && p.layout?.pattern === 'grid');
   const nodes: RoadNode[] = [{ id: SPAWN, x: spawn.x, z: spawn.z }];
   for (const p of placements) {
     if (recipe.places.find((q) => q.id === p.id)?.kind !== 'prop') nodes.push({ id: p.id, x: p.x, z: p.z });
@@ -66,6 +68,7 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
     if (Math.hypot(a.x - b.x, a.z - b.z) < 12) continue; // already next to each other
     const road = findPath(field, a, b);
     if (road) {
+      if (urban) road.paved = true;
       field.addRoad(road);
       roads.push(road);
       log.push(`Built a road from ${name(from)} to ${name(to)}${road.bridges.some(Boolean) ? ' (with a bridge)' : ''}`);

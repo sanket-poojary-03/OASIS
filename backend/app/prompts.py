@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p9"
+PROMPT_VERSION = "p10"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -27,7 +27,7 @@ Rules:
       pattern: village (houses along a lane), grid (city blocks with streets), ring (around a centre: camps, colonies, stone circles),
                line (along one street or shore: harbours, high streets), scatter (loose: orchards, ruins, farms);
       count: how many (1-60; leave out for a sensible default); height: low | mixed | tall (tall = towers rising to the centre);
-      centre: the piece in the middle (fountain, campfire, statue, monolith, landing pad);
+      centre: ONE object in the middle (fountain, campfire, statue, monolith, clock tower), never an open space like a plaza;
       variants: up to 4 OTHER members mixed in, so a group is not one model repeated (a downtown: asset "glass skyscraper",
         variants ["office tower", "apartment tower", "hotel tower"]; a village: "thatched cottage" + ["timber house", "stone house"]).
   landmark = one big notable object (tower, castle, statue, lighthouse, windmill);
@@ -59,7 +59,10 @@ Rules:
   (terrain plains or valley, roughness <= 0.3, height <= 0.35). Its heart is a DOWNTOWN: one settlement, layout grid,
   height tall, count 36-60, size large, with 3-4 variants of tower types. Add 2-3 more districts of their own character
   (a mixed-height grid of apartments or offices, a low grid of shops or old houses, a line high street or waterfront),
-  each with variants, plus a park, a plaza, a station, one or two landmark towers and a waterfront or bridge. Grid and
+  each with variants, plus a park, a plaza, a station, one or two landmark towers and a waterfront or bridge.
+  Keep the city together: give every district and city building {"rel":"near","target":<downtown id>,"maxDist":40-150},
+  so it is one walkable city, not places scattered across the map; only nature, farms or outposts go farther out.
+  A city "by the sea" or "on the coast" needs terrain.seaLevel 0.25-0.35 (the land then falls to the sea on one side). Grid and
   line groups get their props along their streets (benches, bins, bus stops, parked cars with drive), and a lamp at every
   crossing: name the city's own lamp in props ("neon street light") or leave it out for a plain street lamp.
 - Rivers, streams, lakes, ponds, the sea and waterfalls are terrain (water.river, water.lake, terrain.seaLevel), never places.

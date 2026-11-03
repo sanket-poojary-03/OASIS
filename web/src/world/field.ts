@@ -5,7 +5,8 @@ import { clamp, fbm, lerp, ridged, smoothstep } from './noise';
 import { SegmentIndex, traceRiver, type Lake, type Vec2 } from './river';
 
 export interface Pad { x: number; z: number; radius: number; y: number }
-export interface Road { points: Vec2[]; width: number; bridges: boolean[] }
+/** `paved`: asphalt (city streets, and every road in a world with a city grid); otherwise a dirt road. */
+export interface Road { points: Vec2[]; width: number; bridges: boolean[]; paved?: boolean }
 /** A paved square (a city grid's blocks): centre, half side, and its turn (radians). */
 export interface Paved { x: number; z: number; half: number; angle: number }
 /** Paving fades out over this many metres past its edge. */
@@ -56,7 +57,19 @@ export function createField(recipe: Recipe): WorldField {
 
   const meander = (z: number) => 140 * nB(z * 0.0015, 11.7);
 
-  const shape01 = (x: number, z: number): number => {
+  // A sea on a world that is not an island needs a coast: the land falls below sea level toward one side (from the
+  // seed), wavy, so "a city by the sea" really has a waterfront. Before this, plains (never below 0.3) had no sea at all.
+  const coastAngle = mulberry32(seed ^ 0x27d4eb2f)() * Math.PI * 2;
+  const coastX = Math.cos(coastAngle), coastZ = Math.sin(coastAngle);
+  const coast = (x: number, z: number, h: number): number => {
+    if (!hasSea || terrain.shape === 'island') return h;
+    const along = (x * coastX + z * coastZ) / CORE_HALF + 0.12 * nB(x * 0.003 + 5.1, z * 0.003 - 7.3);
+    const k = smoothstep(0.25, 0.75, along);
+    return h + (terrain.seaLevel - 0.12 - h) * k;
+  };
+
+  const shape01 = (x: number, z: number): number => coast(x, z, landShape01(x, z));
+  const landShape01 = (x: number, z: number): number => {
     const n = (fbm(nA, x * freq, z * freq, 5, gain) + 1) / 2;
     const tilt = -0.06 * (z / CORE_HALF);
     switch (terrain.shape) {

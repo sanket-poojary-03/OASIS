@@ -18,6 +18,8 @@ interface LiveChunk {
   cz: number;
   mesh: THREE.Mesh;
   scatter: THREE.Group;
+  /** Scatter detail it was instanced at (0 near the camera). */
+  lod: number;
   /** Kept so the scatter can be re-instanced when pack models arrive (art hot-swap). */
   items: ScatterItem[];
   grassData: Float32Array;
@@ -36,6 +38,9 @@ export class ChunkManager {
   private readonly chunks = new Map<string, LiveChunk>();
   private readonly queue = new ChunkQueue();
   private generation = 0;
+  /** The camera's chunk at the last update (scatter detail rings are around it). */
+  private ccx = 0;
+  private ccz = 0;
   private readonly worker: Worker;
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
 
@@ -60,6 +65,7 @@ export class ChunkManager {
   update(px: number, pz: number): void {
     if (this.generation === 0) return;
     const ccx = Math.floor(px / CHUNK_SIZE), ccz = Math.floor(pz / CHUNK_SIZE);
+    this.ccx = ccx; this.ccz = ccz;
     const wanted: Array<[number, number, number]> = [];
     for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) wanted.push([ccx + dx, ccz + dz, dx * dx + dz * dz]);
     wanted.sort((a, b) => a[2] - b[2]);
@@ -78,6 +84,7 @@ export class ChunkManager {
       }
     }
     const needCollider: Array<{ key: string; dist: number }> = [];
+    let relod = 0;
     for (const [k, c] of this.chunks) {
       const far = Math.max(Math.abs(c.cx - ccx), Math.abs(c.cz - ccz));
       if (far > VIEW + 1) { this.drop(k); continue; }
@@ -86,6 +93,8 @@ export class ChunkManager {
       if (!near && c.collider) { this.physics.removeCollider(c.collider); c.collider = null; }
       if (near && !c.grass && c.grassData.length) { c.grass = this.grass.build(c.grassData); this.group.add(c.grass); }
       if (!near && c.grass) this.dropGrass(c);
+      const lod = this.lodAt(c.cx, c.cz);
+      if (lod !== c.lod && relod < 2) { this.reinstance(c, lod); relod++; } // a couple per frame: no hitch crossing a chunk edge
     }
     // Bounded per frame, nearest (the player's chunk) first; the rest wait for later frames.
     for (const k of pickColliderBuilds(needCollider)) {
@@ -110,13 +119,22 @@ export class ChunkManager {
 
   /** Pack models arrived (art hot-swap): re-instance the scatter of every live chunk with the current ScatterAssets. */
   refreshScatter(): void {
-    for (const c of this.chunks.values()) {
-      const next = this.scatter.instance(c.items);
-      this.group.remove(c.scatter);
-      for (const child of c.scatter.children) (child as THREE.InstancedMesh).dispose();
-      c.scatter = next;
-      this.group.add(next);
-    }
+    for (const c of this.chunks.values()) this.reinstance(c, c.lod);
+  }
+
+  /** Scatter detail by ring around the camera's chunk: 0 near, 1 and 2 further out (see ScatterAssets.instance). */
+  private lodAt(cx: number, cz: number): number {
+    const far = Math.max(Math.abs(cx - this.ccx), Math.abs(cz - this.ccz));
+    return far <= 1 ? 0 : far === 2 ? 1 : 2;
+  }
+
+  private reinstance(c: LiveChunk, lod: number): void {
+    const next = this.scatter.instance(c.items, lod);
+    c.lod = lod;
+    this.group.remove(c.scatter);
+    for (const child of c.scatter.children) (child as THREE.InstancedMesh).dispose();
+    c.scatter = next;
+    this.group.add(next);
   }
 
   private receive(msg: { type: 'chunk'; generation: number; data: ChunkData } | { type: 'error'; generation: number; cx?: number; cz?: number; message: string }): void {
@@ -143,14 +161,15 @@ export class ChunkManager {
     geo.computeBoundingSphere();
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.receiveShadow = true;
-    const scatter = this.scatter.instance(d.scatter);
+    const lod = this.lodAt(d.cx, d.cz);
+    const scatter = this.scatter.instance(d.scatter, lod);
     this.queue.succeed(k);
     const old = this.chunks.get(k);
     const hadCollider = !!old?.collider, hadGrass = !!old?.grass;
     this.drop(k);
     this.group.add(mesh, scatter);
     const chunk: LiveChunk = {
-      cx: d.cx, cz: d.cz, mesh, scatter, items: d.scatter, grassData: d.grass, grass: null, positions: d.positions, indices: d.indices, collider: null, stale: false,
+      cx: d.cx, cz: d.cz, mesh, scatter, lod, items: d.scatter, grassData: d.grass, grass: null, positions: d.positions, indices: d.indices, collider: null, stale: false,
     };
     if (hadCollider) chunk.collider = this.physics.addTerrain(d.positions, d.indices);
     if (hadGrass && d.grass.length) { chunk.grass = this.grass.build(d.grass); this.group.add(chunk.grass); }

@@ -4,8 +4,10 @@ import type { Atmosphere } from '../core/recipe';
 import { SHADOW_MAP_SIZE } from './deviceTier';
 import { TERRAIN_RANGE } from './rangeCull';
 
-export const TIME_HOURS: Record<Atmosphere['time'], number> = { dawn: 6.3, day: 12, dusk: 18.4, night: 23 };
-const FOG_DAY: Record<Atmosphere['weather'], number> = { clear: 0xbfd6ea, rain: 0x8a96a3, snow: 0xd8dee8, mist: 0xc9cfd6, storm: 0x5d6670 };
+/** Dawn and dusk keep the sun low but up (golden light): at 18.4 it was already under the horizon, so "dusk" was night. */
+export const TIME_HOURS: Record<Atmosphere['time'], number> = { dawn: 6.6, day: 12, dusk: 17.4, night: 23 };
+// Clear: close to the sky's own horizon white, so far land fades into the sky instead of a grey band.
+const FOG_DAY: Record<Atmosphere['weather'], number> = { clear: 0xdde6ee, rain: 0x8a96a3, snow: 0xd8dee8, mist: 0xc9cfd6, storm: 0x5d6670 };
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 const FOG_EXTRA: Record<Atmosphere['weather'], number> = { clear: 0, rain: 0.004, snow: 0.005, mist: 0.012, storm: 0.008 };
 /**
@@ -14,10 +16,25 @@ const FOG_EXTRA: Record<Atmosphere['weather'], number> = { clear: 0, rain: 0.004
  * (in App) a little more exposure as `night` rises.
  */
 const NIGHT_FOG = new THREE.Color(0x172036);
+/** Clear-sky haze with the sun near the horizon (the Sky shader's dusk band). */
+const LOW_SUN_HAZE = new THREE.Color(0xc9a08c);
 const HEMI_SKY_DAY = new THREE.Color(0xcfe3ff), HEMI_SKY_NIGHT = new THREE.Color(0x7d93c8);
 const HEMI_GROUND_DAY = new THREE.Color(0x4a3f2a), HEMI_GROUND_NIGHT = new THREE.Color(0x2a2a36);
 const MOON_INTENSITY = 0.7;
 const HEMI_NIGHT_FLOOR = 0.35;
+
+/**
+ * How fast the clock runs at `hours` (1 = one day per 24 real minutes). The time the player asked for lasts: within
+ * 1.5 h of it the clock runs at a third. Nights run 4x faster unless night is what was asked for: a "dusk" world used
+ * to be dark a minute in and stay dark for ten, nearly half of all play.
+ */
+export function clockPace(hours: number, asked: number): number {
+  const diff = (((hours - asked) % 24) + 24) % 24;
+  if (Math.min(diff, 24 - diff) < 1.5) return 1 / 3;
+  const night = hours < 5.5 || hours > 20;
+  const askedNight = asked < 5.5 || asked > 20;
+  return night && !askedNight ? 4 : 1;
+}
 
 export class AtmosphereSystem {
   hours = 12;
@@ -111,7 +128,7 @@ export class AtmosphereSystem {
   }
 
   update(dt: number, viewer: THREE.Vector3): void {
-    this.hours = (this.hours + dt * this.timeScale) % 24;
+    this.hours = (this.hours + dt * this.timeScale * clockPace(this.hours, TIME_HOURS[this.spec.time])) % 24;
     const angle = ((this.hours - 6) / 24) * Math.PI * 2;
     this.sunDir.set(Math.cos(angle), Math.sin(angle), -0.35).normalize();
     this.sky.material.uniforms.sunPosition.value.copy(this.sunDir);
@@ -120,15 +137,20 @@ export class AtmosphereSystem {
     this.sun.target.position.copy(viewer);
     const day = THREE.MathUtils.smoothstep(this.sunDir.y, -0.08, 0.25);
     const overcast = this.spec.weather === 'storm' || this.spec.weather === 'rain' ? 0.5 : 1;
-    this.sun.intensity = 3 * day * overcast;
+    // Measured in the browser: sun 3 against fill 1 left every shaded face near black; 2.6 / 1.85 keeps them readable.
+    this.sun.intensity = 2.6 * day * overcast;
     // castShadow stays true: toggling it changes the light-state hash and recompiles every lit material (hitch).
     // At night the sun intensity is 0, so its shadow is invisible.
     this.night = 1 - day;
     this.moon.intensity = MOON_INTENSITY * this.night * (overcast < 1 ? 0.6 : 1);
-    this.hemi.intensity = HEMI_NIGHT_FLOOR + (1.02 - HEMI_NIGHT_FLOOR) * day;
+    this.hemi.intensity = HEMI_NIGHT_FLOOR + (1.85 - HEMI_NIGHT_FLOOR) * day;
     this.hemi.color.copy(HEMI_SKY_DAY).lerp(HEMI_SKY_NIGHT, this.night);
     this.hemi.groundColor.copy(HEMI_GROUND_DAY).lerp(HEMI_GROUND_NIGHT, this.night);
-    this.fog.color.set(FOG_DAY[this.spec.weather]).lerp(NIGHT_FOG, this.night);
+    this.fog.color.set(FOG_DAY[this.spec.weather]);
+    // A low sun turns the horizon warm; so does the haze, or the edge of the loaded land shows as a white box at dusk.
+    const low = (1 - THREE.MathUtils.smoothstep(this.sunDir.y, 0.05, 0.4)) * day;
+    if (low > 0 && this.spec.weather === 'clear') this.fog.color.lerp(LOW_SUN_HAZE, low * 0.8);
+    this.fog.color.lerp(NIGHT_FOG, this.night);
     if (this.skyTint) {
       this.tintNow.copy(this.skyTint).multiplyScalar(0.12 + 0.88 * day);
       (this.tintDome.material as THREE.MeshBasicMaterial).color.copy(this.tintNow);

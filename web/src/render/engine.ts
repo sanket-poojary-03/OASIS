@@ -1,5 +1,15 @@
 import * as THREE from 'three';
 
+/**
+ * Integrated and mobile GPUs render at 1 pixel per CSS pixel: a 1920x900 canvas at 1.5 is 3.9 million pixels through
+ * bloom and a multisampled target, which an Intel Iris Xe cannot fill at a playable rate. Discrete GPUs keep up to 2.
+ */
+export function maxPixelRatio(gl: WebGLRenderingContext | WebGL2RenderingContext): number {
+  const ext = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+  return /intel|iris|uhd|mali|adreno|powervr|swiftshader|llvmpipe/i.test(name) ? 1 : 2;
+}
+
 export class Engine {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
@@ -11,7 +21,7 @@ export class Engine {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false } /* every frame goes through PostFX, whose scene target is multisampled */);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio(this.renderer.getContext())));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;

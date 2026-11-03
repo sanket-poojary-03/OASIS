@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { parseRecipe, type Recipe } from '../../src/core/recipe';
 import { computeChunk, PAVED_COLOUR } from '../../src/world/chunkData';
 import { buildWorld } from '../../src/world/build';
-import { restoreField, snapshotField } from '../../src/world/field';
+import { createField, restoreField, snapshotField } from '../../src/world/field';
+import { centrePiece } from '../../src/world/layouts';
 import { MAX_LAMPS } from '../../src/world/props';
 import { loadRecipeFixture } from '../fixtures';
 
@@ -66,5 +67,36 @@ describe('cities', () => {
       for (const h of houses) expect(Math.hypot(h.x - e.x, h.z - e.z)).toBeGreaterThanOrEqual(h.footprint / 2 + 0.79);
     }
     expect(buildWorld(r).extras).toEqual(w.extras);
+  });
+
+  it('have asphalt streets, and asphalt roads between places; country worlds keep dirt roads', () => {
+    const w = buildWorld(city());
+    expect(w.roads.length).toBeGreaterThan(0);
+    expect(w.roads.every((r) => r.paved)).toBe(true);
+    expect(buildWorld(loadRecipeFixture('fishing-valley')).roads.some((r) => r.paved)).toBe(false);
+  });
+
+  it('get an object, never an open space, as a centre piece', () => {
+    expect(centrePiece('glass plaza')).toBe('fountain');
+    expect(centrePiece('town square')).toBe('fountain');
+    expect(centrePiece('bronze statue in a plaza')).toBe('bronze statue in a plaza');
+    expect(centrePiece('campfire')).toBe('campfire');
+    expect(centrePiece(undefined)).toBeUndefined();
+  });
+});
+
+describe('coasts', () => {
+  it('give a non-island world with a sea a real shoreline', () => {
+    const base = loadRecipeFixture('fishing-valley');
+    const wet = (r: Recipe) => {
+      const f = createField(r);
+      let n = 0, w = 0;
+      for (let x = -500; x <= 500; x += 25) for (let z = -500; z <= 500; z += 25) { n++; if (f.isWater(x, z)) w++; }
+      return w / n;
+    };
+    const plains = { ...base, terrain: { shape: 'plains' as const, roughness: 0.25, height: 0.3, seaLevel: 0.3 }, water: { river: false, lake: false }, places: [], paths: [] };
+    expect(wet(plains)).toBeGreaterThan(0.12); // was ~0: plains never dipped below 0.3
+    expect(wet(plains)).toBeLessThan(0.5); // and most of the world stays land
+    expect(wet({ ...plains, terrain: { ...plains.terrain, seaLevel: 0 } })).toBe(0);
   });
 });

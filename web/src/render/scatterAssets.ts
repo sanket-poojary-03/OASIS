@@ -93,6 +93,8 @@ function build(kind: ScatterKind): THREE.BufferGeometry {
   return mergeGeometries(P, false)!;
 }
 
+/** Small things not worth drawing past the nearest chunks. */
+const GROUND_COVER: ReadonlySet<ScatterKind> = new Set(['pebble', 'flowers', 'fern', 'mushroom', 'reed', 'stump', 'log', 'bush']);
 const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pine', 'palm', 'dead_tree', 'cactus']);
 /**
  * Variants drawn per kind: every (kind, variant) is one draw call per chunk, and 49 chunks are live. Trees, which you
@@ -167,8 +169,14 @@ export class ScatterAssets {
     this.models.set(kind, list);
   }
 
-  instance(items: ScatterItem[]): THREE.Group {
+  /**
+   * `lod`: 0 for the chunks around the camera (everything, with shadows); 1 and 2 for the outer rings, which keep only
+   * trees, rocks and other big things, thinned to 1 in 2 and 1 in 3, and cast no shadows. Library trees are 3-6k
+   * triangles each: measured on an integrated GPU, drawing every one of ~1,500 at full detail ran a city at 1.5 fps.
+   */
+  instance(items: ScatterItem[], lod = 0): THREE.Group {
     const group = new THREE.Group();
+    if (lod > 0) items = items.filter((it, i) => !GROUND_COVER.has(it.kind) && i % (lod + 1) === 0);
     // One instanced mesh per (kind, variant) actually used.
     const groups = new Map<string, { kind: ScatterKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
     for (const it of items) {
@@ -189,7 +197,7 @@ export class ScatterAssets {
         this.dummy.updateMatrix();
         mesh.setMatrixAt(i, this.dummy.matrix);
       });
-      mesh.castShadow = SHADOW.has(kind);
+      mesh.castShadow = lod === 0 && SHADOW.has(kind);
       mesh.receiveShadow = true;
       mesh.computeBoundingSphere();
       group.add(mesh);

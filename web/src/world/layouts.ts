@@ -67,6 +67,11 @@ function heightFor(layout: Layout, size: PlaceSize, rng: () => number, t: number
 }
 
 const BUILDING_LIKE = /house|home|cottage|hut|cabin|shack|lodge|apartment|flat|office|shop|store|market|building|block|tower|hall|inn|tavern|cafe|café|bakery|barn|shed|church|chapel|temple|school|station|tent|yurt|dome|hangar|warehouse|factory|garage|villa|mansion/i;
+/** Words for an open space, not an object: a "glass plaza" centre found a barn. Such a centre becomes a fountain. */
+const OPEN_SPACE = /\b(plaza|square|piazza|courtyard|park|garden|green|commons?|forum|place|area|space|ground)s?\b/i;
+export const centrePiece = (asset: string | undefined): string | undefined =>
+  asset === undefined ? undefined : OPEN_SPACE.test(asset) && !/fountain|statue|monument|obelisk|clock|tower|well|pavilion|gazebo|bandstand/i.test(asset) ? 'fountain' : asset;
+
 /** The interaction a centre piece offers, from its name. */
 export function centreInteraction(asset: string): Interaction {
   if (/fire|brazier|bonfire/i.test(asset)) return 'fire';
@@ -82,7 +87,7 @@ function street(field: WorldField, ax: number, az: number, bx: number, bz: numbe
   const steps = Math.max(1, Math.ceil(len / STREET_SAMPLE));
   const out: Road[] = [];
   let run: Array<{ x: number; z: number }> = [];
-  const flush = () => { if (run.length >= 2) out.push({ points: run, width: STREET_WIDTH, bridges: run.slice(1).map(() => false) }); run = []; };
+  const flush = () => { if (run.length >= 2) out.push({ points: run, width: STREET_WIDTH, bridges: run.slice(1).map(() => false), paved: true }); run = []; };
   for (let i = 0; i <= steps; i++) {
     const x = ax + ((bx - ax) * i) / steps, z = az + ((bz - az) * i) / steps;
     if (field.isWater(x, z)) flush(); else run.push({ x, z });
@@ -106,7 +111,7 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
   const assetOf = memberAsset(place, seed);
   let paved: Paved | undefined;
 
-  const centreAsset = layout.centre ?? (layout.pattern === 'grid' ? 'fountain' : undefined);
+  const centreAsset = centrePiece(layout.centre) ?? (layout.pattern === 'grid' ? 'fountain' : undefined);
   if (centreAsset) {
     buildings.push({
       id: `${place.id}-centre`, placeId: place.id, x: pl.x, z: pl.z, y: field.heightAt(pl.x, pl.z), rotation: angle,
