@@ -10,6 +10,7 @@ import type { ScatterAssets } from './scatterAssets';
 
 import { pickColliderBuilds } from './colliderBudget';
 import { VIEW_RADIUS } from './deviceTier';
+import { addShoreFoam } from './shoreFoam';
 
 export const VIEW = VIEW_RADIUS;
 
@@ -46,6 +47,7 @@ export class ChunkManager {
 
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly scatter: ScatterAssets, private readonly grass: GrassSystem) {
     scene.add(this.group);
+    addShoreFoam(this.material);
     this.worker = new Worker(new URL('./chunkWorker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e: MessageEvent) => {
       try { this.receive(e.data); } catch (err) { console.warn('[chunks] bad worker message', err); this.queue.failAll(performance.now()); }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NOT_REFLECTED } from './layers';
 import { RenderScale } from './renderScale';
 
 /**
@@ -23,6 +24,7 @@ export class Engine {
   private readonly updaters: Array<(dt: number, t: number) => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
+    this.camera.layers.enable(NOT_REFLECTED);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false } /* every frame goes through PostFX, whose scene target is multisampled */);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio(this.renderer.getContext())));
     this.scale = new RenderScale(this.renderer.getPixelRatio(), (ratio) => {

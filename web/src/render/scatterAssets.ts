@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ScatterItem, ScatterKind } from '../world/scatter';
 import { fitToHeight } from './fit';
+import { NOT_REFLECTED } from './layers';
 
 interface PartOpts { x?: number; y?: number; z?: number; sx?: number; sy?: number; sz?: number; rz?: number }
 
@@ -200,6 +201,7 @@ export class ScatterAssets {
       });
       mesh.castShadow = lod === 0 && SHADOW.has(kind);
       mesh.receiveShadow = true;
+      if (lod > 0 || GROUND_COVER.has(kind)) mesh.layers.set(NOT_REFLECTED);
       mesh.computeBoundingSphere();
       group.add(mesh);
     }

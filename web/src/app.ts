@@ -456,7 +456,7 @@ export class App {
     if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
     this.physics.step(dt);
     this.atmosphere.update(dt, this.engine.camera.position);
-    this.water.update(this.engine.camera.position);
+    this.water.update(this.engine.camera.position, t, this.atmosphere);
     this.culler.update(dt, this.engine.camera.position);
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
     this.postfx.setNight(this.atmosphere.night);

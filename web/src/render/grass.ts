@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { NOT_REFLECTED } from './layers';
 
 /** One tapered blade (5 vertices, 3 triangles) with a dark-base to light-tip vertex colour. */
 function blade(angle: number, offset: number): THREE.BufferGeometry {
@@ -64,6 +65,7 @@ export class GrassSystem {
       mesh.setMatrixAt(i, this.dummy.matrix);
     }
     mesh.receiveShadow = true;
+    mesh.layers.set(NOT_REFLECTED);
     mesh.computeBoundingSphere();
     return mesh;
   }
