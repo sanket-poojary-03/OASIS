@@ -171,12 +171,13 @@ export class ScatterAssets {
 
   /**
    * `lod`: 0 for the chunks around the camera (everything, with shadows); 1 and 2 for the outer rings, which keep only
-   * trees, rocks and other big things, thinned to 1 in 2 and 1 in 3, and cast no shadows. Library trees are 3-6k
-   * triangles each: measured on an integrated GPU, drawing every one of ~1,500 at full detail ran a city at 1.5 fps.
+   * trees, rocks and other big things, thinned to 1 in 3 and 1 in 5, and cast no shadows. Library trees are 3-6k
+   * triangles each: measured on an integrated GPU, drawing every one of ~1,500 at full detail ran a city at 1.5 fps,
+   * and with 1 in 2 / 1 in 3 the outer rings still cost an island 11 of its 54 fps at 1080p (they are mostly in fog).
    */
   instance(items: ScatterItem[], lod = 0): THREE.Group {
     const group = new THREE.Group();
-    if (lod > 0) items = items.filter((it, i) => !GROUND_COVER.has(it.kind) && i % (lod + 1) === 0);
+    if (lod > 0) items = items.filter((it, i) => !GROUND_COVER.has(it.kind) && i % (2 * lod + 1) === 0);
     // One instanced mesh per (kind, variant) actually used.
     const groups = new Map<string, { kind: ScatterKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
     for (const it of items) {

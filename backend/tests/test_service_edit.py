@@ -55,3 +55,15 @@ def test_check_targets_follows_adds_and_removes():
                                         {"op": "addPlace", "place": {"id": "camp", "kind": "prop", "label": "C", "asset": "tent", "where": [{"rel": "near", "target": "village", "maxDist": 9}]}}])
     with pytest.raises(ValueError):
         check_targets(recipe, gone)
+
+
+def test_a_named_time_is_added_when_the_answer_forgot_it(tmp_path):
+    clear = json.dumps({"type": "ops", "ops": [{"op": "setAtmosphere", "weather": "clear"}], "notes": []})
+    req = EditRequest.model_validate({**REQ.model_dump(), "prompt": "make it a clear day"})
+    out = WorldService(FakeLLM(clear), FileCache(tmp_path)).edit(req)
+    assert out["ops"] == [{"op": "setAtmosphere", "weather": "clear", "time": "day"}]
+    # an answer that does not touch the atmosphere is left alone
+    add = json.dumps({"type": "ops", "ops": [{"op": "addPlace", "place": {"id": "market", "kind": "structure", "label": "Day market", "asset": "market stall"}}], "notes": []})
+    req = EditRequest.model_validate({**REQ.model_dump(), "prompt": "add a day market"})
+    out = WorldService(FakeLLM(add), FileCache(tmp_path)).edit(req)
+    assert all(o["op"] != "setAtmosphere" for o in out["ops"])

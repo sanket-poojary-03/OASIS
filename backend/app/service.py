@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from .cache import FileCache
 from .llm import LLMError, extract_json
-from .mock import VEHICLE, mock_edit, mock_world, prompt_seed
+from .mock import TIME_WORDS, VEHICLE, mock_edit, mock_world, prompt_seed
 from .asset_match import cheap_llm
 from .prompts import PROMPT_VERSION, brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
 from .schemas import EditRequest, Recipe, dump, dump_ops, ops_adapter
@@ -83,6 +83,17 @@ def _colour(value) -> str | None:
     if _HEX3.match(v):
         return "#" + "".join(c * 2 for c in v[1:]).lower()
     return _COLOUR_WORDS.get(v.lower())
+
+
+def complete_time(prompt: str, ops: list) -> None:
+    """The request names a time of day and the answer changes the atmosphere but forgot the time ("make it a clear
+    day" came back as weather clear only, so the demo ended at night): the named time is added. Answers that do not
+    touch the atmosphere ("add a day market") are left alone."""
+    text = prompt.lower()
+    named = next((t for pattern, t in TIME_WORDS if re.search(pattern, text)), None)
+    atmos = [o for o in ops if getattr(o, "op", None) == "setAtmosphere"]
+    if named and atmos and all(o.time is None for o in atmos):
+        atmos[0].time = named
 
 
 def _repair_palette(pal: dict) -> dict:
@@ -271,6 +282,7 @@ class WorldService:
         def validate(data: dict) -> dict:
             ops = ops_adapter.validate_python(repair_ops(data.get("ops")))
             check_targets(req.recipe, ops)
+            complete_time(req.prompt, ops)
             return {"type": "ops", "ops": dump_ops(ops), "notes": _notes(data), "source": "live"}
 
         return self._ask(edit_system_prompt(req), req.prompt, validate)

@@ -56,3 +56,18 @@ describe('WorldObjects with city towers', () => {
     expect(physics.addFixedTrimesh).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('widenHouse', () => {
+  it('scales a slim house up evenly to a person-sized footprint, at most 2.2x', async () => {
+    const { widenHouse } = await import('../../src/render/worldObjects');
+    const box = (w: number) => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(w, 5, w).translate(0, 2.5, 0))); return g; };
+    const size = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+    const slim = box(3); widenHouse(slim);
+    expect(size(slim).x).toBeCloseTo(4.5); expect(size(slim).y).toBeCloseTo(7.5);
+    const spike = box(1.5); widenHouse(spike);
+    expect(size(spike).x).toBeCloseTo(3.3); // capped at 2.2x
+    const wide = box(8); widenHouse(wide);
+    expect(size(wide).x).toBeCloseTo(8);
+    expect(new THREE.Box3().setFromObject(slim).min.y).toBeCloseTo(0); // still standing on the ground
+  });
+});

@@ -36,6 +36,12 @@ export class PostFX {
   render(): void {
     this.composer.render();
   }
+
+  /** Follows the renderer's pixel ratio (Engine.scale). */
+  setPixelRatio(ratio: number): void {
+    this.composer.setPixelRatio(ratio);
+    this.composer.setSize(innerWidth, innerHeight);
+  }
 }
 
 /**

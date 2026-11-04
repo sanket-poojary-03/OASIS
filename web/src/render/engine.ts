@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RenderScale } from './renderScale';
 
 /**
  * Integrated and mobile GPUs render at 1 pixel per CSS pixel: a 1920x900 canvas at 1.5 is 3.9 million pixels through
@@ -15,13 +16,19 @@ export class Engine {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 6000);
   /** When set (PostFX: bloom + tone mapping), frames go through it instead of a direct render. */
-  postfx: { render(): void } | null = null;
+  postfx: { render(): void; setPixelRatio?(ratio: number): void } | null = null;
+  /** Lowers the render resolution while frames are slow (fill-bound integrated GPUs), and raises it again. */
+  readonly scale: RenderScale;
   private readonly timer = new THREE.Timer();
   private readonly updaters: Array<(dt: number, t: number) => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false } /* every frame goes through PostFX, whose scene target is multisampled */);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio(this.renderer.getContext())));
+    this.scale = new RenderScale(this.renderer.getPixelRatio(), (ratio) => {
+      this.renderer.setPixelRatio(ratio);
+      this.postfx?.setPixelRatio?.(ratio);
+    });
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -49,6 +56,7 @@ export class Engine {
    */
   tick(): void {
     this.timer.update();
+    this.scale.sample(this.timer.getDelta());
     const dt = Math.min(this.timer.getDelta(), 0.05);
     const t = this.timer.getElapsed();
     for (const u of this.updaters) {

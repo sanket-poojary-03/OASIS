@@ -7,7 +7,7 @@ afterEach(() => vi.restoreAllMocks());
 /** An Engine without a WebGL context: only what tick() uses. */
 function bareEngine(render: () => void): Engine {
   const e = Object.create(Engine.prototype) as Engine;
-  Object.assign(e, { timer: new THREE.Timer(), updaters: [], postfx: { render } });
+  Object.assign(e, { timer: new THREE.Timer(), updaters: [], postfx: { render }, scale: { sample: () => {} } });
   return e;
 }
 

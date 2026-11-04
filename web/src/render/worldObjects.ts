@@ -113,6 +113,9 @@ interface Spec {
 /** A single modern tower (a "glass skyscraper" landmark) stands this tall; group members keep their layout height. */
 const SINGLE_TOWER_HEIGHT: Record<PlaceSize, number> = { small: 36, medium: 56, large: 84 };
 
+/** Group buildings with more triangles than this collide as their convex hull (see refreshCollider). */
+const HULL_ABOVE_TRIS = 1500;
+
 /** Heights of scattered props by size: a crate, a bench or barrel, a street lamp or parked car. */
 const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large: 3.2 };
 /** Street lamps at city crossings stand taller than a large prop. */
@@ -124,6 +127,22 @@ function extraInteraction(asset: string): Interaction {
   return INTERACT.find(([re]) => re.test(a))?.[1] ?? 'none';
 }
 interface Entry { root: THREE.Group; spec: Spec; collider: Collider | null }
+
+/**
+ * Narrowest a house may be. Models are fitted by height, so a tall, slim one (a pointed fisherman's hut) came out
+ * 2 m wide with a door about 1 m high: it is scaled up evenly, at most 2.2x, until it is this wide.
+ */
+const MIN_HOUSE_WIDTH = 4.5;
+const MAX_HOUSE_GROWTH = 2.2;
+
+export function widenHouse(content: THREE.Object3D): void {
+  content.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(content).getSize(new THREE.Vector3());
+  const w = Math.max(size.x, size.z);
+  if (w <= 0 || w >= MIN_HOUSE_WIDTH) return;
+  content.scale.multiplyScalar(Math.min(MAX_HOUSE_GROWTH, MIN_HOUSE_WIDTH / w));
+  content.updateMatrixWorld(true);
+}
 
 /** A group member's own height (city towers), else the size's house height; centre pieces by what they are. */
 function buildingHeight(b: Building, size: PlaceSize): number {
@@ -293,6 +312,7 @@ export class WorldObjects {
   }
 
   private fit(content: THREE.Group, s: Spec): THREE.Group {
+    if (s.info.kind === 'building' && s.info.objectId.includes('-house-')) widenHouse(content);
     // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
     if (s.maxWidth) return fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group;
     // Models are fitted by height, so a low, wide one balloons (a 6 m-tall manhole cover was 100 m across): cap the
@@ -316,9 +336,12 @@ export class WorldObjects {
     if (e.spec.info.interaction === 'push' || e.spec.info.interaction === 'drive' || size.y < 1.2) return;
     // Shaped like the model (stand on its real surface); a box only for rigged or very heavy models.
     const surface = surfaceOf(e.root);
-    e.collider = surface
+    // A detailed group building collides as its convex hull: pushing against a 5-12k-triangle house mesh ran the
+    // character controller's full 20 iterations every frame (5 ms). The hull keeps the roof; single places keep the mesh.
+    const hull = surface && e.spec.info.kind === 'building' && surface.indices.length / 3 > HULL_ABOVE_TRIS ? this.physics.addFixedHull(surface.positions) : null;
+    e.collider = hull ?? (surface
       ? this.physics.addFixedTrimesh(surface.positions, surface.indices)
-      : this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation);
+      : this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation));
   }
 
   private clear(): void {

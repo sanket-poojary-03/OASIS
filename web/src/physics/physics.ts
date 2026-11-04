@@ -27,6 +27,12 @@ export class Physics {
     return this.world.createCollider(this.R.ColliderDesc.trimesh(positions, indices));
   }
 
+  /** One convex shape around a model's world-space vertices (its roof included); null when no hull can be made. */
+  addFixedHull(positions: Float32Array): Collider | null {
+    const desc = this.R.ColliderDesc.convexHull(positions);
+    return desc ? this.world.createCollider(desc) : null;
+  }
+
   addFixedBox(x: number, y: number, z: number, hx: number, hy: number, hz: number, rotY: number): Collider {
     return this.world.createCollider(this.R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setRotation(quatY(rotY)));
   }
