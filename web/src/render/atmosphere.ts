@@ -52,6 +52,11 @@ export class AtmosphereSystem {
    * lake or a road there would otherwise hang in the sky, and the land would end in a visible cut. Weather only thickens it.
    */
   private readonly fog = new THREE.Fog(0xbfd6ea, 60, TERRAIN_RANGE);
+  /**
+   * Metres the view reaches past the loaded-terrain radius. 0 for a player (land loads around them); an orbiting
+   * camera looks across the land loaded around its centre, so it may see farther (App.showcase).
+   */
+  reach = 0;
   private spec: Atmosphere = { time: 'day', weather: 'clear', fog: 0.2, wind: 0.3 };
   private precip: THREE.Points | null = null;
   private precipSpeed = 0;
@@ -160,7 +165,7 @@ export class AtmosphereSystem {
     }
     // The old exp2 density, turned into the distance where it was ~97% fog; never past the loaded terrain.
     const density = 0.0012 + this.spec.fog * 0.01 + FOG_EXTRA[this.spec.weather];
-    this.fog.far = Math.min(TERRAIN_RANGE, 1.87 / density);
+    this.fog.far = Math.min(TERRAIN_RANGE + this.reach, 1.87 / density);
     this.fog.near = this.fog.far * clamp(0.55 - density * 40, 0.05, 0.55);
     if (this.precip) {
       const p = this.precip.geometry.getAttribute('position') as THREE.BufferAttribute;

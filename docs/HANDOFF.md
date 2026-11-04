@@ -1,4 +1,4 @@
-# WorldSeed: session handoff (2026-11-04)
+# OASIS: session handoff (2026-11-04)
 
 Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (the newest entries are under `## 2026-11-03`).
 

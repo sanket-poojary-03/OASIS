@@ -34,7 +34,8 @@ import { buildWorld, type BuiltWorld } from './world/build';
 import { snapshotField } from './world/field';
 import type { Placement } from './world/placement';
 
-export interface Cinematic { x: number; y: number; z: number; radius: number; height: number; speed: number }
+/** An orbiting camera (the demo, the start screen). `look`: how high above the centre it aims (default 4 m). */
+export interface Cinematic { x: number; y: number; z: number; radius: number; height: number; speed: number; look?: number }
 /** One undo step. `atmosphereOnly` steps are undone without a geometry rebuild (spec §7 rebuild rule). */
 interface Snapshot { recipe: Recipe; placements: Placement[]; atmosphereOnly: boolean }
 
@@ -63,6 +64,10 @@ export class App {
   private readonly isReady = (x: number, z: number): boolean => this.chunks.isReady(x, z);
   private lookTimer = 0;
   private cineAngle = 0;
+  /** The start screen's world is turning behind it (showcase); a world the player enters ends it. */
+  private menuWorld = false;
+  private menuArgs: Parameters<App['showcase']> | null = null;
+  private readonly dayScale: number;
   private artStarted = false;
   private backendSeen = false;
   /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
@@ -102,9 +107,10 @@ export class App {
     objects.onReady.push((root, info) => { if (info.interaction === 'drive') this.vehicles.adopt(root, info); });
     objects.onCleared.push(() => this.interactions.clear());
     objects.onCleared.push(() => this.vehicles.dropAdopted());
-    objects.onLoading.push((e) => this.ui?.notices.loading(e));
+    objects.onLoading.push((e) => { if (!this.menuWorld) this.ui?.notices.loading(e); }); // the menu's world loads quietly
     this.booster = new Booster(engine.scene);
     avatar.attach(this.booster.pack);
+    this.dayScale = atmosphere.timeScale;
     this.characters = new CharacterRoster(avatar);
     void this.characters.start();
   }
@@ -152,6 +158,8 @@ export class App {
     this.backendSeen = true;
     this.models.reset?.();
     this.startArt();
+    // The menu's world was built while the server slept (simple shapes): build it again with real models.
+    if (this.menuWorld && this.menuArgs) this.showcase(...this.menuArgs);
   }
 
   /** Bookkeeping for every world/edit answer: tell the player about a rate-limited fallback, note a live backend. */
@@ -237,8 +245,45 @@ export class App {
     }
   }
 
+  /**
+   * The start screen's backdrop: `recipe` built like any world, with no player in it, the camera circling its biggest
+   * group (else its first place) and the clock held at `hours`. Minecraft-style: the menu floats over a living world.
+   */
+  showcase(recipe: Recipe, orbit: { radius: number; height: number; look: number; speed: number }, hours: number): void {
+    if (this.working || (this.built && !this.menuWorld)) return; // never replaces a world the player is in
+    const again = this.menuWorld;
+    this.menuWorld = true;
+    this.menuArgs = [recipe, orbit, hours];
+    const built = this.load(recipe);
+    this.spawnPending = null; // nobody spawns: the camera orbits
+    this.player.enabled = false;
+    const count = new Map<string, number>();
+    for (const b of built.buildings) count.set(b.placeId, (count.get(b.placeId) ?? 0) + 1);
+    const heart = [...count].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const c = built.placements.find((p) => p.id === heart) ?? built.placements[0] ?? built.spawn;
+    if (!again) this.cineAngle = Math.PI * 0.25; // a rebuild (server woke up) keeps turning from where it was
+    this.cinematic = { x: c.x, y: c.y, z: c.z, ...orbit };
+    this.atmosphere.hours = hours;
+    this.atmosphere.timeScale = 0;
+    // The camera looks inward across land loaded around the centre: it can see about 0.6 × radius farther.
+    this.atmosphere.reach = orbit.radius * 0.6;
+    this.culler.setRange(TERRAIN_RANGE + orbit.radius * 0.6);
+  }
+
+  /** Leave the start screen's backdrop: the camera and the clock are the player's again. */
+  private endShowcase(): void {
+    if (!this.menuWorld) return;
+    this.menuWorld = false;
+    this.menuArgs = null;
+    this.cinematic = null;
+    this.atmosphere.reach = 0;
+    this.culler.setRange(TERRAIN_RANGE);
+    this.atmosphere.timeScale = this.dayScale;
+  }
+
   private async enter(res: Extract<WorldResult, { type: 'recipe' }>): Promise<boolean> {
     const ui = this.ui;
+    this.endShowcase();
     ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
     await nextFrame();
     this.models.reset?.(); // a new world may find models that were missing (or offline) before
@@ -387,7 +432,7 @@ export class App {
       const c = this.cinematic;
       this.cineAngle += dt * c.speed;
       this.engine.camera.position.set(c.x + Math.cos(this.cineAngle) * c.radius, c.y + c.height, c.z + Math.sin(this.cineAngle) * c.radius);
-      this.engine.camera.lookAt(c.x, c.y + 4, c.z);
+      this.engine.camera.lookAt(c.x, c.y + (c.look ?? 4), c.z);
     } else if (this.built && this.vehicles.driving) {
       this.vehicles.update(dt, this.engine.camera);
       this.ui?.setFuel(this.player.jetpack.fuel, false);

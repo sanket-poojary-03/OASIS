@@ -47,7 +47,7 @@ def cors_origins(raw: str | None) -> list[str]:
 
 def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
                asset_limiter: RateLimiter | None = None, pick_limiter: RateLimiter | None = None, world_llm=None) -> FastAPI:
-    app = FastAPI(title="WorldSeed API")
+    app = FastAPI(title="OASIS API")
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(os.getenv("CORS_ORIGINS")), allow_methods=["*"], allow_headers=["*"])
     cache_root = cache_dir or BACKEND_DIR / ".cache"
     world = WorldService(llm, FileCache(cache_root / "llm"), world_llm)

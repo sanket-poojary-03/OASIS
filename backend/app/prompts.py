@@ -4,7 +4,7 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p10"
+PROMPT_VERSION = "p11"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -57,7 +57,8 @@ Rules:
   gravestones + a crooked chapel + lanterns. Connect the main places with paths and add fitting life.
 - Cities (any world that is mostly a city, town or metropolis, modern, futuristic or old): flat land so blocks fit
   (terrain plains or valley, roughness <= 0.3, height <= 0.35). Its heart is a DOWNTOWN: one settlement, layout grid,
-  height tall, count 36-60, size large, with 3-4 variants of tower types. Add 2-3 more districts of their own character
+  height tall, count 36-60, size large, with 3-4 variants of tower types in plain words
+  ("glass skyscraper", "office tower", "apartment block", "hotel"; each is designed in code with its own shape and colours). Add 2-3 more districts of their own character
   (a mixed-height grid of apartments or offices, a low grid of shops or old houses, a line high street or waterfront),
   each with variants, plus a park, a plaza, a station, one or two landmark towers and a waterfront or bridge.
   Keep the city together: give every district and city building {"rel":"near","target":<downtown id>,"maxDist":40-150},

@@ -2,6 +2,7 @@ import './styles.css';
 import { wakeBackend } from './api/wake';
 import { App } from './app';
 import { runDirector } from './logic/director';
+import { showcaseRecipe, SHOWCASE_HOURS, SHOWCASE_ORBIT } from './ui/showcase';
 import { UI } from './ui/ui';
 
 const editable = (el: unknown): boolean =>
@@ -16,10 +17,10 @@ function uiOwnsKey(e: KeyboardEvent, root: HTMLElement): boolean {
 
 /** WebGL (or the physics WebAssembly) is unavailable: say so instead of leaving a blank page (m3). */
 function showFatal(root: HTMLElement, e: unknown): void {
-  console.error('WorldSeed could not start', e);
+  console.error('OASIS could not start', e);
   const msg = document.createElement('div');
   msg.className = 'fatal';
-  msg.textContent = 'WebGL is required to run WorldSeed. Please try an up-to-date Chrome, Edge or Firefox with hardware acceleration turned on.';
+  msg.textContent = 'WebGL is required to run OASIS. Please try an up-to-date Chrome, Edge or Firefox with hardware acceleration turned on.';
   root.replaceChildren(msg);
 }
 
@@ -50,6 +51,8 @@ void (async () => {
   });
   app.ui = ui;
   ui.showStart(true);
+  // Behind the start screen a real world turns slowly (dev ?w= worlds skip it).
+  if (!(import.meta.env.DEV && new URLSearchParams(location.search).has('w'))) app.showcase(showcaseRecipe(), SHOWCASE_ORBIT, SHOWCASE_HOURS);
   // Dev only (screenshot checks): ?w=<fixture> enters a shared fixture at once, &t=dawn|day|dusk|night sets the time, &wx= the weather.
   if (import.meta.env.DEV) {
     (window as unknown as { __ws: unknown }).__ws = { app, ui };

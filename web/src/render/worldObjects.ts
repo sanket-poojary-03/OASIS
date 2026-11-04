@@ -10,6 +10,9 @@ import { fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
 import { surfaceOf } from './meshCollider';
 import { buildPlaceholder } from './placeholders';
+import { buildTower } from './towers';
+import { hashString } from '../core/rng';
+import { towerFacade, towerSpec, type FacadeHint } from '../world/towerSpec';
 
 export interface ObjectInfo {
   placeId: string;
@@ -18,7 +21,7 @@ export interface ObjectInfo {
   description?: string;
   reasons: string[];
   warnings: string[];
-  source: 'placeholder' | 'library' | 'online' | 'generated';
+  source: 'placeholder' | 'library' | 'online' | 'generated' | 'procedural';
   /** Attribution for CC-BY models found online, e.g. "Giraffe by X (CC-BY 3.0, Poly Pizza)". */
   credit?: string;
   interaction: Interaction;
@@ -101,7 +104,14 @@ function shadows(o: THREE.Object3D): void {
 }
 
 /** `extra`: a prop scattered around its place (place.props): waits for its model silently, never in the place's notice. */
-interface Spec { asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean }
+interface Spec {
+  asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean;
+  /** A modern building designed in code (towerSpec) instead of a model, from this seed. */
+  tower?: { facade: FacadeHint; seed: number };
+}
+
+/** A single modern tower (a "glass skyscraper" landmark) stands this tall; group members keep their layout height. */
+const SINGLE_TOWER_HEIGHT: Record<PlaceSize, number> = { small: 36, medium: 56, large: 84 };
 
 /** Heights of scattered props by size: a crate, a bench or barrel, a street lamp or parked car. */
 const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large: 3.2 };
@@ -160,8 +170,11 @@ export class WorldObjects {
     for (const pl of world.placements) {
       const place = world.recipe.places.find((p) => p.id === pl.id);
       if (!place || place.kind === 'settlement') continue;
+      const facade = place.kind !== 'prop' && place.interaction !== 'drive' ? towerFacade(place.asset, false, false) : null;
       specs.push({
-        asset: place.asset, kind: place.kind, variant: 0, height: place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : HEIGHT[place.kind][place.size], x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
+        asset: place.asset, kind: place.kind, variant: 0, x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
+        height: facade ? SINGLE_TOWER_HEIGHT[place.size] : place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : HEIGHT[place.kind][place.size],
+        tower: facade ? { facade, seed: (world.recipe.seed ?? 0) ^ hashString(pl.id) } : undefined,
         info: { placeId: pl.id, objectId: pl.id, label: place.label, description: place.description, reasons: pl.reasons, warnings: pl.warnings, source: 'placeholder', interaction: place.interaction, kind: place.kind },
       });
     }
@@ -169,7 +182,9 @@ export class WorldObjects {
       const place = world.recipe.places.find((p) => p.id === b.placeId);
       const pl = world.placements.find((p) => p.id === b.placeId);
       if (!place) continue;
+      const facade = b.kind === 'house' ? towerFacade(b.asset, !!place.layout, place.layout?.pattern === 'grid') : null;
       specs.push({
+        tower: facade ? { facade, seed: (world.recipe.seed ?? 0) ^ hashString(b.id) } : undefined,
         // `village-house-3` → 3, so every house can be a different model; `…-centre` → 0.
         asset: b.asset, kind: 'structure', variant: Number(b.id.split('-').pop()) || 0, height: buildingHeight(b, place.size), maxWidth: b.maxWidth, x: b.x, y: b.y, z: b.z, rotation: b.rotation,
         info: { placeId: place.id, objectId: b.id, label: buildingLabel(b, place.label, !!place.layout), description: place.description, reasons: pl?.reasons ?? [], warnings: pl?.warnings ?? [], source: 'placeholder', interaction: b.interaction, kind: 'building' },
@@ -247,6 +262,7 @@ export class WorldObjects {
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info);
     };
+    if (s.tower) { this.spawnTower(entry, wait); return; }
     if (!wait) placeholder();
     void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
       if (version !== this.version) return;
@@ -260,6 +276,20 @@ export class WorldObjects {
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info); // again: interactions re-fit the loaded model (its own door, size)
     });
+  }
+
+  /** A modern building designed in code: built at once at its real size, no model request. */
+  private spawnTower(entry: Entry, wait: boolean): void {
+    const s = entry.spec, t = s.tower!;
+    const width = s.maxWidth ?? Math.min(22, Math.max(12, s.height * 0.24));
+    const content = new THREE.Group();
+    content.name = 'content';
+    content.add(buildTower(towerSpec(t.seed, t.facade, s.height, width), t.seed));
+    this.setContent(entry.root, content);
+    s.info.source = 'procedural';
+    this.refreshCollider(entry);
+    for (const cb of this.onReady) cb(entry.root, s.info);
+    if (wait && !s.extra) queueMicrotask(() => this.settle(s.info.placeId, false));
   }
 
   private fit(content: THREE.Group, s: Spec): THREE.Group {

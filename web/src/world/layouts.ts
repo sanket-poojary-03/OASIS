@@ -63,7 +63,8 @@ function heightFor(layout: Layout, size: PlaceSize, rng: () => number, t: number
   const base = LOW_HEIGHT[size];
   if (layout.height === 'low') return base * (0.9 + rng() * 0.2);
   if (layout.height === 'mixed') return base * (0.8 + rng() * 1.6);
-  return (42 + (11 - 42) * Math.min(1, Math.max(0, t))) * (0.75 + rng() * 0.5);
+  // Towers are designed in code (towerSpec), not stretched models, so a downtown can rise to about 70 m.
+  return (58 + (12 - 58) * Math.min(1, Math.max(0, t))) * (0.75 + rng() * 0.5);
 }
 
 const BUILDING_LIKE = /house|home|cottage|hut|cabin|shack|lodge|apartment|flat|office|shop|store|market|building|block|tower|hall|inn|tavern|cafe|café|bakery|barn|shed|church|chapel|temple|school|station|tent|yurt|dome|hangar|warehouse|factory|garage|villa|mansion/i;

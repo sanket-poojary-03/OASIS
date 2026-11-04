@@ -1,10 +1,10 @@
-# WorldSeed: Victoria VR AI Builder Hackathon 2026
+# OASIS: Victoria VR AI Builder Hackathon 2026
 
 **Focus category:** Prompt-to-World Creation
 **Live demo:** <vercel url>  ·  **Repo:** <github url>  ·  **Video:** <link>
 
 ## What we built
-Describe a world in plain language, then walk around inside it a few seconds later. WorldSeed builds an endless, walkable 3D world (terrain, rivers, biomes, villages, landmarks, roads, wildlife) and lets you change it by typing while you play.
+Describe a world in plain language, then walk around inside it a few seconds later. OASIS builds an endless, walkable 3D world (terrain, rivers, biomes, villages, landmarks, roads, wildlife) and lets you change it by typing while you play.
 
 ## The problem
 Prompt-to-3D tools usually stop at a picture or a small fixed board, and models that write raw coordinates put houses in rivers and on cliffs.

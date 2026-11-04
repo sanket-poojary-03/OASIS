@@ -20,6 +20,18 @@ const EXAMPLES = [
   'A tropical island with a beach village, a lighthouse on the east coast and lots of birds',
 ];
 
+/** The tilted line by the logo, one per visit. */
+const SPLASHES = [
+  'Type a world into being!',
+  'Every tower is unique!',
+  'Walk in seconds later!',
+  'Ask for anything!',
+  'Now with skylines!',
+  'Rivers find their own way!',
+  'The car is parked by you!',
+  'Change it while you play!',
+];
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -58,8 +70,12 @@ export class UI {
   private toastTimer = 0;
 
   constructor(root: HTMLElement, private readonly h: UIHandlers) {
-    // start screen
-    this.start.append(el('h1', '', 'WorldSeed'), el('p', 'tagline', 'Describe a world. Walk into it. Change it by talking to it.'));
+    // start screen: floats over a world turning behind it (App.showcase), like a game's title screen
+    const logo = el('div', 'logo');
+    logo.append(el('h1', 'logo-word', 'OASIS'), el('span', 'splash', SPLASHES[Math.floor(Math.random() * SPLASHES.length)]));
+    const head = el('div', 'start-head');
+    head.append(logo, el('p', 'subtitle', 'PROMPT  ·  WORLD  ·  PLAY'), el('p', 'tagline', 'Describe a world. Walk into it. Change it by talking to it.'));
+    this.start.append(el('div', 'start-vignette'), head);
     this.prompt.placeholder = 'Describe your world…';
     this.prompt.maxLength = 600;
     this.prompt.value = EXAMPLES[0];
@@ -76,7 +92,11 @@ export class UI {
     this.back.onclick = () => { this.showStart(false); this.showHud(true); };
     const actions = el('div', 'actions');
     actions.append(go, demo, this.back);
-    this.start.append(this.prompt, chips, actions, this.healthLine);
+    const panel = el('div', 'start-panel');
+    panel.append(this.prompt, actions, chips);
+    const foot = el('div', 'start-foot');
+    foot.append(this.healthLine, el('div', 'credit', 'Behind this menu: a real world built live by the OASIS engine · Victoria VR AI Builder Hackathon 2026'));
+    this.start.append(panel, foot);
     // busy overlay
     this.busy.append(this.busyText, this.busyBrief, this.logList);
     // hud
@@ -159,7 +179,7 @@ export class UI {
   setCard(info: ObjectInfo | null): void {
     this.card.classList.toggle('hidden', info === null);
     if (!info) return;
-    const BADGE = { placeholder: 'procedural model', library: 'CC0 library model', online: 'free model found online', generated: 'AI-generated model' } as const;
+    const BADGE = { placeholder: 'procedural model', library: 'CC0 library model', online: 'free model found online', generated: 'AI-generated model', procedural: 'building designed in code' } as const;
     const badge = el('span', `badge ${info.source}`, BADGE[info.source]);
     const children: HTMLElement[] = [el('h3', '', info.label), badge];
     if (info.description) children.push(el('p', '', info.description));

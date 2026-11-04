@@ -24,6 +24,11 @@ const litCopies = new WeakMap<THREE.Material, THREE.MeshStandardMaterial>();
 const PANE_GEOMETRY = new THREE.PlaneGeometry(1, 1);
 const raycaster = new THREE.Raycaster();
 
+/** A material whose emissive part (its windows) follows the night factor, like the placeholder windows. */
+export function glowsAtNight(m: THREE.MeshStandardMaterial): void {
+  NIGHT_MATERIALS.add(m);
+}
+
 /** Sets how brightly every window and lamp glows (0 by day). */
 export function setNightGlow(intensity: number): void {
   for (const m of NIGHT_MATERIALS) m.emissiveIntensity = intensity;

@@ -1,4 +1,4 @@
-# WorldSeed
+# OASIS
 
 Describe a world. Walk into it. Change it by talking to it.
 

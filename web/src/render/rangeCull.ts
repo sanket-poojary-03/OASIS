@@ -21,7 +21,13 @@ export class RangeCuller {
   private wait = 0;
   private readonly sphere = new THREE.Sphere();
 
-  constructor(private readonly range: number) {}
+  constructor(private range: number) {}
+
+  /** A camera looking across land loaded around another point sees farther (App.showcase). */
+  setRange(range: number): void {
+    this.range = range;
+    this.wait = 0;
+  }
 
   /** `objects`: children are placed-object roots (judged by position); otherwise meshes (judged by their geometry). */
   track(root: THREE.Object3D, objects = false): void {

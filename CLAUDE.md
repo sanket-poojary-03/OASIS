@@ -1,4 +1,4 @@
-# WorldSeed: project guide for Claude Code
+# OASIS: project guide for Claude Code
 
 Victoria VR **AI Builder Hackathon 2026** entry, focus category **Prompt-to-World Creation**.
 **Deadline: 2026-11-11 16:30 CEST.** Winners are announced Nov 25. Submission needs a public repo, a hosted browser demo, a video under 3 minutes, and a short description.
