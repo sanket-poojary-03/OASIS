@@ -19,7 +19,7 @@ Prompt-to-3D tools usually stop at a picture or a small fixed board, and models 
 Day/night cycle, weather, doors, lamps that light at night, campfires, bells, seats, pushable props (physics), driveable cars (one parked at every spawn, plus any car, jeep or rover the AI adds), a rocket-booster jetpack, three switchable animated characters, wildlife that flees from you, swimming, and a checks panel that confirms every place is on solid ground and reachable on foot. A self-running demo mode shows the full flow in about a minute.
 
 ## Always works
-Without the backend, the web app falls back to an offline mode that mirrors the backend's mock and uses bundled example worlds. When the backend is up, every world comes from the AI: a busy AI retries, then switches to a backup model, and if that fails too it says so honestly and keeps your world instead of showing a fake one.
+Every world comes from the AI, and there are no preset worlds: with no LLM available the app says so. A fresh answer is generated for every prompt: a busy AI retries, then switches to a backup model, and if that fails too it says so honestly and keeps your world instead of showing a fake one.
 
 ## Art and tech
 Art is one CC0 family: Quaternius nature, village and animal packs plus a KayKit adventurer, with wind-animated grass, bloom and a third-person animated player. Built with three.js, Rapier, Web Workers, TypeScript, Zod, Vite · Python FastAPI, Pydantic · any OpenAI-compatible LLM (Sarvam `sarvam-105b-conversations` by default, about 2–3 s per world, with `sarvam-105b` as the backup) · Meshy (optional).
@@ -37,7 +37,7 @@ Art is one CC0 family: Quaternius nature, village and animal packs plus a KayKit
 | 0:45–1:20 | Use things: open a door, light the campfire, ring the bell, push a barrel. Deer flee. |
 | 1:20–2:10 | Talk to the world: "make it night" (windows glow), "put a lighthouse there" (lands at the crosshair), "make it winter" (whole world rebuilds), U to undo. |
 | 2:10–2:40 | A second, very different prompt ("a red planet with a research base" or "a neon city") to prove generality: own colours, a grid city or ring colony. "Make the sky orange" recolours it live. Show the checks panel. |
-| 2:40–2:55 | Architecture slide: LLM → recipe → solver → world, offline mode. |
+| 2:40–2:55 | Architecture slide: LLM → recipe → solver → world. |
 
 Record at 1080p with OBS, keep it under 3:00, upload as unlisted to YouTube. Recording and form submission are manual.
 
@@ -46,7 +46,7 @@ Record at 1080p with OBS, keep it under 3:00, upload as unlisted to YouTube. Rec
 - [ ] `cd web && npx vitest run && npx tsc --noEmit && npm run build` passes
 - [ ] `cd backend && pytest -q` passes
 - [ ] The public repo is visible logged out, and the README links the demo, video and docs
-- [ ] The hosted demo works in a fresh private window (live AI) and with the backend down (offline)
+- [ ] The hosted demo works in a fresh private window (live AI), and with the backend down says "LLM not available"
 - [ ] The backend stays up for judging (paid instance or warm-up)
 - [ ] The video is under 3:00
 - [ ] The submission form or Kaggle writeup includes the description, focus category, demo URL, repo URL and video URL

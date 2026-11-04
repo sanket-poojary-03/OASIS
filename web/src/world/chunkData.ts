@@ -49,10 +49,10 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const x = cx * CHUNK_SIZE + i * step, z = cz * CHUNK_SIZE + j * step;
     const k = (j * n + i) * 3;
-    const h = field.heightAt(x, z);
+    const h = field.meshHeightAt(x, z);
     positions[k] = x; positions[k + 1] = h; positions[k + 2] = z;
-    const dx = (field.heightAt(x + 1, z) - field.heightAt(x - 1, z)) / 2;
-    const dz = (field.heightAt(x, z + 1) - field.heightAt(x, z - 1)) / 2;
+    const dx = (field.meshHeightAt(x + 1, z) - field.meshHeightAt(x - 1, z)) / 2;
+    const dz = (field.meshHeightAt(x, z + 1) - field.meshHeightAt(x, z - 1)) / 2;
     const len = Math.hypot(dx, 1, dz);
     normals[k] = -dx / len; normals[k + 1] = 1 / len; normals[k + 2] = -dz / len;
     let [r, g, b] = blendedGroundColor(biomeSample(field, x, z), tint);

@@ -33,6 +33,11 @@ export class Physics {
     return desc ? this.world.createCollider(desc) : null;
   }
 
+  /** A fixed upright cylinder (a floating deck). */
+  addFixedCylinder(x: number, y: number, z: number, halfHeight: number, radius: number): Collider {
+    return this.world.createCollider(this.R.ColliderDesc.cylinder(halfHeight, radius).setTranslation(x, y, z));
+  }
+
   addFixedBox(x: number, y: number, z: number, hx: number, hy: number, hz: number, rotY: number): Collider {
     return this.world.createCollider(this.R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setRotation(quatY(rotY)));
   }

@@ -26,7 +26,7 @@ export class Notices {
     if (e.state === 'cancelled') { this.remove(e.placeId); return; }
     if (e.state === 'loading') this.show(e.placeId, 'spin', `Loading ${name}`, 'finding or making a 3D model…', false);
     else if (e.state === 'ready') this.show(e.placeId, 'ok', `${name} is here`, '', true);
-    else if (e.shape) this.show(e.placeId, 'miss', `No 3D model for ${name}`, 'offline: showing a simple shape instead', true);
+    else if (e.shape) this.show(e.placeId, 'miss', `No 3D model for ${name}`, 'showing a simple shape instead', true);
     else this.show(e.placeId, 'miss', `Couldn’t find or make a 3D model for ${name}`, 'so it was left out', true);
   }
 

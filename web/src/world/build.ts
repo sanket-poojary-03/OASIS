@@ -1,9 +1,10 @@
 import type { Recipe } from '../core/recipe';
 import { runChecks, type Check } from './checks';
 import { createField, type Road, type WorldField } from './field';
-import { findSpawn, solvePlacements, type Placement } from './placement';
+import { findSpawn, oceanSpawn, solvePlacements, type Placement } from './placement';
 import { scatterProps, type Extra, type StreetGroup } from './props';
-import { findPath, roadNetwork, type RoadNode } from './roads';
+import { findRoad, roadNetwork, type RoadNode } from './roads';
+import { isUrban } from './layouts';
 import { layoutSettlement, type Building } from './settlement';
 
 /** The spawn point's id in the road network. */
@@ -55,21 +56,24 @@ export function buildWorld(recipe: Recipe, keep: Placement[] = []): BuiltWorld {
   }
   // Roads everywhere: one connected network over every place (small props aside) and the spawn, so the player can
   // always follow a road to the next thing; the AI's own paths are added on top.
-  const spawn = findSpawn(field, placements);
+  const ocean = field.deckY !== null;
+  const spawn = ocean ? oceanSpawn(field, placements) : findSpawn(field, placements);
   // A world with a city grid gets asphalt roads between its places too; elsewhere they stay dirt tracks.
-  const urban = recipe.places.some((p) => p.kind === 'settlement' && p.layout?.pattern === 'grid');
+  const urban = recipe.places.some((p) => p.kind === 'settlement' && p.layout?.pattern === 'grid' && isUrban(p));
   const nodes: RoadNode[] = [{ id: SPAWN, x: spawn.x, z: spawn.z }];
   for (const p of placements) {
-    if (recipe.places.find((q) => q.id === p.id)?.kind !== 'prop') nodes.push({ id: p.id, x: p.x, z: p.z });
+    // In an ocean only decks can be walked to; a scatter floats on its own.
+    if (recipe.places.find((q) => q.id === p.id)?.kind !== 'prop' && (!ocean || p.padded)) nodes.push({ id: p.id, x: p.x, z: p.z });
   }
   const at = new Map(nodes.map((n) => [n.id, n]));
   const name = (id: string) => (id === SPAWN ? 'where you start' : recipe.places.find((q) => q.id === id)?.label ?? id);
   for (const [from, to] of roadNetwork(nodes, recipe.paths.map((p) => [p.from, p.to]))) {
     const a = at.get(from)!, b = at.get(to)!;
     if (Math.hypot(a.x - b.x, a.z - b.z) < 12) continue; // already next to each other
-    const road = findPath(field, a, b);
+    const road = findRoad(field, a, b);
+    if (!road) log.push(`No road from ${name(from)} to ${name(to)}: open water between them`);
     if (road) {
-      if (urban) road.paved = true;
+      if (urban && !ocean) road.paved = true;
       field.addRoad(road);
       roads.push(road);
       log.push(`Built a road from ${name(from)} to ${name(to)}${road.bridges.some(Boolean) ? ' (with a bridge)' : ''}`);

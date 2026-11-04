@@ -8,7 +8,7 @@ Victoria VR AI Builder Hackathon 2026 entry. Focus category: Prompt-to-World Cre
     cd backend && source .venv/Scripts/activate && uvicorn app.main:app --reload --port 8000
     cd web && npm run dev    # http://localhost:5173
 
-Without `LLM_API_KEY` the backend runs in mock mode. Without the backend the web app uses its offline mock.
+Without `LLM_API_KEY`, or without the backend, the app shows "LLM not available" and makes no world.
 
 ## How AI is used
 The LLM writes a validated world recipe (relations, not coordinates) and live edit operations; code validates and places everything. It never emits code. Any requested object goes through a model finder: bundled CC0 library, cache, Poly Pizza, Sketchfab (CC0 or CC-BY only, credited in the place card), then optional Meshy text-to-3D for landmarks, then a procedural placeholder.
@@ -19,8 +19,8 @@ Browser (Vite, TypeScript, three.js, Rapier) builds an endless deterministic wor
 ## Controls
 WASD move, mouse look (click the view to lock the pointer), Space jump/swim, Shift run, E interact, T type a command (for example "make it night", "put a giraffe here"; Enter sends, Esc closes), Enter/Esc confirm or cancel the previewed edit, U undo, V switch between first and third person, C show checks, N (or the "New world" button) back to the start screen to describe another world ("Back to my world" returns). Esc stops the demo.
 
-## Offline mode
-If the backend is unreachable the web app falls back to a local mock using `shared/fixtures`, so it always works. If the backend is up but the AI is busy, you get a "try again" message instead: a working backend never answers with a fake world.
+## AI only
+Every world and edit comes from the LLM; nothing is cached but 3D models. With no LLM (no key, or the backend unreachable) the app says "LLM not available". If the AI is busy, you get a "try again" message. There are no preset or fake worlds.
 
 ## Deploy
 Backend (Render, Docker): Dockerfile `backend/Dockerfile`, build context `.` (repo root), health check `/api/health`. Env: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_FALLBACK_MODELS`, `LLM_WORLD_MODEL=glm5.3-flash`, `LLM_WORLD_BASE_URL=https://api.sarvam.ai/v2`, `LLM_REASONING_EFFORT`, `LLM_JSON_MODE`, `LLM_DAILY_CAP=300`, `POLY_PIZZA_KEY`, `SKETCHFAB_TOKEN`, `ASSET_LLM_PICK`, `ASSET_DAILY_CAP=500`, `ASSET_PICK_DAILY_CAP=200`, `CORS_ORIGINS=https://<vercel-domain>`.

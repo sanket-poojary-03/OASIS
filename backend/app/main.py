@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 
 from .asset_match import LLMAlternatives
 from .assets import AssetLibrary, AssetService, LLMPicker, MeshyClient, ModelCache, PolyPizzaFinder, SketchfabFinder, default_pick
-from .cache import FileCache
 from .clientip import client_ip as forwarded_client
 from .llm import LLMClient
 from .ratelimit import RateLimiter
@@ -45,12 +44,11 @@ def cors_origins(raw: str | None) -> list[str]:
     return origins or ["*"]
 
 
-def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
+def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetService | None = None,
                asset_limiter: RateLimiter | None = None, pick_limiter: RateLimiter | None = None, world_llm=None) -> FastAPI:
     app = FastAPI(title="OASIS API")
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(os.getenv("CORS_ORIGINS")), allow_methods=["*"], allow_headers=["*"])
-    cache_root = cache_dir or BACKEND_DIR / ".cache"
-    world = WorldService(llm, FileCache(cache_root / "llm"), world_llm)
+    world = WorldService(llm, world_llm)
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
     # Separate budget for the external asset path (library/cache hits are free and never counted).
     asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
@@ -71,9 +69,9 @@ def create_app(llm=None, cache_dir: Path | None = None, limiter: RateLimiter | N
 
     @app.get("/api/health")
     def health() -> dict:
-        out = {"ok": True, "provider": "live" if llm else "mock"}
+        out = {"ok": True, "provider": "live" if llm else "none"}
         if model := getattr(llm, "model", None):
-            out["model"] = model  # omitted in mock mode: no nulls reach the browser (m5)
+            out["model"] = model  # omitted without an LLM: no nulls reach the browser (m5)
         if world_llm is not None and (wm := getattr(world_llm, "model", None)) and wm != out.get("model"):
             out["worldModel"] = wm
         return out

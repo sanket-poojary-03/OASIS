@@ -1,38 +1,35 @@
 import pytest
 import json
-from app.cache import FileCache
 from app.llm import LLMError
-from app.mock import prompt_seed
-from app.prompts import PROMPT_VERSION
 from app.schemas import FIXTURES_DIR
-from app.service import AIUnavailable, WorldService
+from app.service import AIUnavailable, WorldService, prompt_seed
 from tests.conftest import FakeLLM
 
 
-def test_live_then_cache(tmp_path, valley_json):
-    llm = FakeLLM(valley_json)
-    svc = WorldService(llm, FileCache(tmp_path))
+def test_every_world_is_a_fresh_answer(tmp_path, valley_json):
+    llm = FakeLLM(valley_json, valley_json)
+    svc = WorldService(llm)
     out = svc.generate("a misty valley")
     assert out["source"] == "live" and out["recipe"]["seed"] == prompt_seed("a misty valley")
     again = svc.generate("a misty valley")
-    assert again["source"] == "cache" and len(llm.calls) == 1
+    assert again["source"] == "live" and len(llm.calls) == 2  # never cached: the same prompt asks the AI again
 
 
 def test_retry_after_invalid_answer(tmp_path, valley_json):
     llm = FakeLLM('{"type": "recipe", "recipe": {"version": 2}}', valley_json)
-    out = WorldService(llm, FileCache(tmp_path)).generate("valley")
+    out = WorldService(llm).generate("valley")
     assert out["source"] == "live" and len(llm.calls) == 2
     assert "invalid" in llm.calls[1][1]
 
 
 def test_two_bad_answers_raise_instead_of_faking_a_world(tmp_path):
     with pytest.raises(AIUnavailable):
-        WorldService(FakeLLM("garbage", "still garbage"), FileCache(tmp_path)).generate("desert canyon")
+        WorldService(FakeLLM("garbage", "still garbage")).generate("desert canyon")
 
 
 def test_unsupported_passes_through(tmp_path):
     no = json.dumps({"type": "unsupported", "reason": "nope"})
-    out = WorldService(FakeLLM(no, no), FileCache(tmp_path)).generate("x y z")
+    out = WorldService(FakeLLM(no, no)).generate("x y z")
     assert out == {"type": "unsupported", "reason": "nope", "source": "live"}
 
 
@@ -44,11 +41,12 @@ def test_llm_error_raises(tmp_path):
             raise LLMError("down")
 
     with pytest.raises(AIUnavailable):
-        WorldService(Broken(), FileCache(tmp_path)).generate("island")
+        WorldService(Broken()).generate("island")
 
 
-def test_no_llm_uses_mock(tmp_path):
-    assert WorldService(None, FileCache(tmp_path)).generate("island")["source"] == "mock"
+def test_no_llm_raises_instead_of_making_up_a_world(tmp_path):
+    with pytest.raises(AIUnavailable, match="LLM not available"):
+        WorldService(None).generate("island")
 
 
 @pytest.mark.parametrize("notes,expected", [(None, []), (7, []), ("abc", []), (["ok", 3, "fine"], ["ok", "fine"])])
@@ -56,23 +54,8 @@ def test_odd_notes_are_ignored(tmp_path, notes, expected):
     data = json.loads(json.dumps({"type": "recipe", "notes": notes}))
     recipe = json.loads((FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8"))
     data["recipe"] = recipe
-    out = WorldService(FakeLLM(json.dumps(data)), FileCache(tmp_path)).generate("valley")
+    out = WorldService(FakeLLM(json.dumps(data))).generate("valley")
     assert out["source"] == "live" and out["notes"] == expected
-
-
-def test_corrupt_cache_entry_is_a_miss(tmp_path, valley_json):
-    cache = FileCache(tmp_path)
-    key = cache.key("world", PROMPT_VERSION, "fake-model", "valley")
-    (tmp_path / f"{key}.json").write_text("{half", encoding="utf-8")
-    llm = FakeLLM(valley_json)
-    assert WorldService(llm, cache).generate("valley")["source"] == "live"
-    assert cache.get(key)["source"] == "live"
-
-
-def test_cache_put_leaves_no_temp_files(tmp_path):
-    cache = FileCache(tmp_path)
-    cache.put("k", {"a": 1})
-    assert [p.name for p in tmp_path.iterdir()] == ["k.json"]
 
 
 def test_unexpected_type_error_raises(tmp_path, caplog):
@@ -84,20 +67,20 @@ def test_unexpected_type_error_raises(tmp_path, caplog):
 
     with caplog.at_level("WARNING"):
         with pytest.raises(AIUnavailable):
-            WorldService(Odd(), FileCache(tmp_path)).generate("island")
+            WorldService(Odd()).generate("island")
     assert "AI unavailable" in caplog.text
 
 
 def test_unsupported_is_challenged_once_then_accepted(tmp_path, valley_json):
     llm = FakeLLM(json.dumps({"type": "unsupported", "reason": "not a city engine"}), valley_json)
-    out = WorldService(llm, FileCache(tmp_path)).generate("a big modern city")
+    out = WorldService(llm).generate("a big modern city")
     assert out["type"] == "recipe" and len(llm.calls) == 2
     assert "only for harmful" in llm.calls[1][1]
 
 
 def test_unsupported_twice_is_respected(tmp_path):
     no = json.dumps({"type": "unsupported", "reason": "harmful"})
-    out = WorldService(FakeLLM(no, no), FileCache(tmp_path)).generate("something harmful")
+    out = WorldService(FakeLLM(no, no)).generate("something harmful")
     assert out == {"type": "unsupported", "reason": "harmful", "source": "live"}
 
 
@@ -126,13 +109,13 @@ class BackupLLM(FakeLLM):
 
 def test_broken_answers_get_one_try_on_the_backup_model(tmp_path, valley_json):
     llm = BackupLLM("{broken", "{still broken", backup=[valley_json])
-    out = WorldService(llm, FileCache(tmp_path)).generate("an apple orchard")
+    out = WorldService(llm).generate("an apple orchard")
     assert out["type"] == "recipe" and llm.backup_calls == 1
 
 
 def test_unusable_answers_say_so_not_busy(tmp_path):
     with pytest.raises(AIUnavailable) as e:
-        WorldService(BackupLLM("{x", "{y", backup=["{z"]), FileCache(tmp_path)).generate("an apple orchard")
+        WorldService(BackupLLM("{x", "{y", backup=["{z"])).generate("an apple orchard")
     assert "could not be used" in str(e.value)
 
     class Down:
@@ -142,7 +125,7 @@ def test_unusable_answers_say_so_not_busy(tmp_path):
             raise LLMError("429")
 
     with pytest.raises(AIUnavailable) as e:
-        WorldService(Down(), FileCache(tmp_path)).generate("an orchard")
+        WorldService(Down()).generate("an orchard")
     assert "busy" in str(e.value)
 
 
@@ -151,7 +134,7 @@ def test_notes_put_inside_the_recipe_are_moved_not_rejected(tmp_path, valley_jso
     data["recipe"]["notes"] = ["The grid is approximate."]
     data["notes"] = ["ok"]
     llm = FakeLLM(json.dumps(data))
-    out = WorldService(llm, FileCache(tmp_path)).generate("a valley")
+    out = WorldService(llm).generate("a valley")
     assert out["type"] == "recipe" and len(llm.calls) == 1
     assert out["notes"] == ["ok", "The grid is approximate."] and "notes" not in out["recipe"]
 
@@ -237,6 +220,6 @@ def test_a_few_bad_places_are_left_out_not_the_whole_world(tmp_path, valley_json
     assert [p.id for p in recipe.places] == ["village", "tower", "campfire"] and dropped == ["Odd", "odd2"]
     reply = json.loads(valley_json)
     reply["recipe"] = data
-    out = WorldService(FakeLLM(json.dumps(reply)), FileCache(tmp_path)).generate("valley")
+    out = WorldService(FakeLLM(json.dumps(reply))).generate("valley")
     # in the service the size slip of "Odd" is repaired first, so only the nameless one is left out
     assert len(out["recipe"]["places"]) == 4 and any("Left out 1 place" in n and "odd2" in n for n in out["notes"])

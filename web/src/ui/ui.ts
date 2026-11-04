@@ -95,7 +95,7 @@ export class UI {
     const panel = el('div', 'start-panel');
     panel.append(this.prompt, actions, chips);
     const foot = el('div', 'start-foot');
-    foot.append(this.healthLine, el('div', 'credit', 'Behind this menu: a real world built live by the OASIS engine · Victoria VR AI Builder Hackathon 2026'));
+    foot.append(this.healthLine, el('div', 'credit', 'Behind this menu: a hand-made showcase world, built live by the OASIS engine · Victoria VR AI Builder Hackathon 2026'));
     this.start.append(panel, foot);
     // busy overlay
     this.busy.append(this.busyText, this.busyBrief, this.logList);

@@ -26,7 +26,8 @@ Recommended way to run the plan: `superpowers:subagent-driven-development`, or `
 - `web/src/core/**` and `web/src/world/**` are pure (no three.js, no DOM) and unit-tested with vitest.
 - Units are metres, y is up, **north is −z**. `CORE_HALF = 512`, `CHUNK_SIZE = 64`, `CHUNK_RES = 32`, `VIEW = 3`.
 - The recipe and ops schemas exist twice: `web/src/core/{recipe,ops}.ts` (Zod) and `backend/app/schemas.py` (Pydantic). **Change both together.** `shared/fixtures/**` is the contract, and both test suites validate it.
-- The mock keyword lists exist twice: `backend/app/mock.py` and `web/src/api/localMock.ts`. Keep them in sync.
+- **No mock or offline worlds, by the user's explicit choice.** Without an LLM (no key, or the backend unreachable) the player sees "LLM not available" and no world is made. `shared/fixtures` are only the prompt example, test data and dev `?w=` links.
+- **Only 3D models are cached.** Every prompt gets a fresh brief and world from the AI.
 - Python responses sent to the browser go through `dump()` or `dump_ops()`, so no `null` values reach the browser.
 - Show model-written text with `textContent` only, never `innerHTML`.
 - Secrets live only in `backend/.env`. Never commit `.env`.
@@ -43,7 +44,7 @@ cd backend && source .venv/Scripts/activate && uvicorn app.main:app --reload --p
 cd backend && pytest -q
 python scripts/build_manifest.py # after adding CC0 models to backend/assets/library/
 ```
-Without `LLM_API_KEY` the backend runs in **mock mode**. Without the backend, the web app runs in **offline mode** using `shared/fixtures`.
+Without `LLM_API_KEY`, or without the backend, the app says "LLM not available" and makes no world.
 
 ## Stack
 - **Web:** Vite, TypeScript, three.js, @dimforge/rapier3d-compat, simplex-noise, zod, vitest
@@ -60,4 +61,4 @@ Without `LLM_API_KEY` the backend runs in **mock mode**. Without the backend, th
 - **prompt-to-playable:** flat 60×60 with 24 objects.
 - **Anima:** one fixed splat scene.
 - LevelProof's props are all built in code from three.js primitives; its only loaded file is one CC0 character. Its look comes from polish (rounded edges, colour variants, bloom) on a small, close-framed board.
-- **Our edge:** endless walkable terrain, relation-based placement that explains itself, real CC0 pack models, a model finder that fetches anything you ask for, live edits with undo, and an offline mode that always works.
+- **Our edge:** endless walkable terrain, relation-based placement that explains itself, real CC0 pack models, a model finder that fetches anything you ask for, and live edits with undo.

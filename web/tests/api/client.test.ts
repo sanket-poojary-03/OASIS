@@ -7,13 +7,13 @@ const ctx = { player: { x: 0, z: 0 }, lookAt: null, lookingAt: null, placements:
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('AI only: a reachable backend never gets swapped for the offline mock', () => {
+describe('AI only: no stand-in world or edit, ever', () => {
   it('429 / 503 / 500 from /api/world or /api/edit become an "AI busy" message, never a keyword world', async () => {
     const r = loadRecipeFixture('fishing-valley');
     for (const status of [429, 500, 503]) {
       vi.stubGlobal('fetch', reply(status, { detail: 'The AI is busy right now. Please try again in a moment.' }));
-      expect(await generateWorld('a desert')).toEqual({ type: 'unsupported', reason: 'The AI is busy right now. Please try again in a moment.', source: 'live' });
-      expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'unsupported', source: 'live' });
+      expect(await generateWorld('a desert')).toEqual({ type: 'unsupported', reason: 'The AI is busy right now. Please try again in a moment.', source: 'none' });
+      expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'unsupported', source: 'none' });
     }
   });
 
@@ -30,16 +30,20 @@ describe('AI only: a reachable backend never gets swapped for the offline mock',
     expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'unsupported', reason: AI_BAD_ANSWER });
   });
 
-  it('a timeout is "AI busy" (the backend is up but slow), not offline', async () => {
+  it('a timeout is "AI busy" (the backend is up but slow)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); }));
     expect(await generateWorld('a desert')).toMatchObject({ type: 'unsupported', reason: AI_BUSY });
   });
 
-  it('only an unreachable backend uses offline mode, labelled offline', async () => {
+  it('an unreachable backend, or one without an LLM, says "LLM not available" and makes up nothing', async () => {
     const r = loadRecipeFixture('fishing-valley');
+    const none = { type: 'unsupported', reason: 'LLM not available.', source: 'none' };
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
-    expect(await generateWorld('a desert')).toMatchObject({ type: 'recipe', source: 'offline' });
-    expect(await editWorld(r, 'make it night', ctx)).toMatchObject({ type: 'ops', source: 'offline' });
+    expect(await generateWorld('a desert')).toEqual(none);
+    expect(await editWorld(r, 'make it night', ctx)).toEqual(none);
+    vi.stubGlobal('fetch', reply(503, { detail: 'LLM not available.' }));
+    expect(await generateWorld('a desert')).toEqual(none);
+    expect(await editWorld(r, 'make it night', ctx)).toEqual(none);
   });
 });
 
@@ -74,11 +78,11 @@ describe('client hardening', () => {
     const { health } = await import('../../src/api/client');
     vi.stubGlobal('fetch', reply(200, { weird: 1 }));
     expect(await health()).toBeNull();
-    vi.stubGlobal('fetch', reply(200, { ok: true, provider: 'mock' }));
-    expect(await health()).toEqual({ ok: true, provider: 'mock' });
+    vi.stubGlobal('fetch', reply(200, { ok: true, provider: 'none' }));
+    expect(await health()).toEqual({ ok: true, provider: 'none' });
     const r = loadRecipeFixture('fishing-valley');
     vi.stubGlobal('fetch', reply(200, { type: 'unsupported', reason: 'x', source: 'weird' }));
-    expect((await editWorld(r, 'make it night', ctx)).source).toBe('mock');
+    expect((await editWorld(r, 'make it night', ctx)).source).toBe('none');
     const f = reply(200, { type: 'unsupported', reason: 'x', source: 'live' });
     vi.stubGlobal('fetch', f);
     await generateWorld('x'.repeat(900));

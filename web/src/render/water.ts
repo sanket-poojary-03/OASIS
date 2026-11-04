@@ -22,6 +22,9 @@ export class WaterSystem {
     this.group.clear();
     this.sea = null;
     this.material.color.set(field.recipe.palette?.water ?? WATER); // a palette water colour: "a purple sea"
+    // An ocean is opaque: through it, the edge of the sea bed loaded around the player showed as a grey square.
+    const clear = field.deckY === null;
+    if (this.material.transparent !== clear) { this.material.transparent = clear; this.material.opacity = clear ? 0.82 : 1; this.material.needsUpdate = true; }
     if (field.hasSea) {
       this.sea = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.material);
       this.sea.position.y = field.seaLevelY;

@@ -4,7 +4,6 @@ import json
 
 from .schemas import FIXTURES_DIR, EditRequest, Recipe, dump, ops_adapter
 
-PROMPT_VERSION = "p11"
 EXAMPLE = (FIXTURES_DIR / "recipes" / "fishing-valley.json").read_text(encoding="utf-8")
 
 WORLD_TEMPLATE = """You design explorable outdoor 3D worlds for a browser game engine.
@@ -36,7 +35,12 @@ Rules:
 - "asset" is a short visual description of ONE 3D model, e.g. "ruined stone watchtower". It is used to find or generate the model.
 - interaction makes it usable: door (buildings), light (lamps, lighthouses), fire (campfires), sound (bells, gongs), sit (benches), push (barrels, crates),
   drive (cars, jeeps, trucks, buggies, rovers: kind prop, the player can get in and drive them); otherwise "none".
-- terrain.shape: island (sea all round; seaLevel 0.25-0.4), valley, canyon, mountains, hills, plains. seaLevel 0 = no sea.
+- terrain.shape: island (one island, sea all round; seaLevel 0.25-0.4), archipelago (many small islets in open sea; seaLevel
+  0.5-0.65; for island chains; roads never bridge open sea between islets), ocean (NO land at all; seaLevel 0.6; for water
+  worlds, "no land", "only water": every place stands on a wooden deck floating on the sea, boardwalks join the decks, and
+  a scatter group floats on its own; so choose things that float or stand on decks: stilt huts, pontoons, rafts, boats, buoys,
+  kelp, floating markets, lighthouses; no islands, beaches or trees on land, and birds as the only life), valley, canyon,
+  mountains, hills, plains. seaLevel 0 = no sea.
 - climate.temperature 0 frozen .. 1 scorching; climate.moisture 0 dry .. 1 lush.
 - water.river true if a river/stream is mentioned or it fits a valley or canyon; water.lake true for lakes/ponds.
 - atmosphere from mood words: time dawn/day/dusk/night; weather clear/rain/snow/mist/storm; fog 0-1; wind 0-1.
@@ -84,7 +88,9 @@ BRIEF_TEMPLATE = """You are the world designer for an open-world 3D exploration 
 specific world brief that a level builder will turn into a 3D world. The player's request is the heart of the world: if they
 ask for a city, the world IS a city and most places are city things (towers, plazas, stations, parks, streets); a forest
 world is mostly forest places; and so on. Keep everything the player asked for and only add what fits it. Keep the world
-Earth-like (green land, blue sky and sea) unless the player asks for something else. Write 150-250 words covering:
+Earth-like (green land, blue sky and sea) unless the player asks for something else. If they ask for only water or no land,
+there is truly no land: no islands, atolls, reefs or beaches above the sea; every place stands on a wooden deck floating on the
+open sea, boardwalks join the decks, and things like rafts, boats and kelp float on their own. Write 150-250 words covering:
 - the land: terrain shape, water (river, lake or sea), climate and vegetation, time of day and weather;
 - 12-18 distinct, named places spread over different areas (a city has a tall downtown of mixed towers at its heart plus
   2-3 districts of different character, parks, plazas, a station and landmark towers): buildings, landmarks, groups of things (a village, a city district,

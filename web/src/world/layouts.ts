@@ -3,6 +3,7 @@ import { hashString, mulberry32 } from '../core/rng';
 import type { Paved, Road, WorldField } from './field';
 import type { Placement } from './placement';
 import { siteIsDry, type Building } from './settlement';
+import { towerFacade } from './towerSpec';
 
 /**
  * Group layouts other than the village street: a city grid, a ring around a centre piece, a line along one street,
@@ -82,19 +83,47 @@ export function centreInteraction(asset: string): Interaction {
   return 'none';
 }
 
-/** A straight street sampled every few metres and split where it would cross water. */
-function street(field: WorldField, ax: number, az: number, bx: number, bz: number): Road[] {
+/** Urban buildings: streets between them are asphalt, and a grid of them is a city block (paving, street lamps). */
+const URBAN = /\b(shops?|stores?|caf[eé]s?|restaurants?|malls?|banks?|garages?|warehouses?|factor(?:y|ies)|townhouses?|offices?|apartments?|flats|hotels?|stations?|modern|urban|city|downtown|suburban)\b/i;
+
+/**
+ * A group of city buildings. A grid of anything else (coral garden beds, market stalls, tents) is not a city: before,
+ * any grid paved its square, lit its crossings and turned every road in the world to asphalt.
+ */
+export const isUrban = (place: Place): boolean =>
+  [place.asset, ...(place.layout?.variants ?? [])].some((a) => URBAN.test(a) || towerFacade(a, true, place.layout?.pattern === 'grid') !== null);
+
+/** A straight street sampled every few metres and split where it would cross water; asphalt when `paved`. */
+function street(field: WorldField, ax: number, az: number, bx: number, bz: number, paved = false): Road[] {
   const len = Math.hypot(bx - ax, bz - az);
   const steps = Math.max(1, Math.ceil(len / STREET_SAMPLE));
   const out: Road[] = [];
   let run: Array<{ x: number; z: number }> = [];
-  const flush = () => { if (run.length >= 2) out.push({ points: run, width: STREET_WIDTH, bridges: run.slice(1).map(() => false), paved: true }); run = []; };
+  const flush = () => { if (run.length >= 2) out.push({ points: run, width: STREET_WIDTH, bridges: run.slice(1).map(() => false), paved }); run = []; };
   for (let i = 0; i <= steps; i++) {
     const x = ax + ((bx - ax) * i) / steps, z = az + ((bz - az) * i) / steps;
     if (field.isWater(x, z)) flush(); else run.push({ x, z });
   }
   flush();
   return out;
+}
+
+/** Boats and the like float: a dockyard's boats stood on the grass. Wrecks and hulls may lie anywhere; air and space ships do not float. */
+const WATERCRAFT = /\b(boats?|rowboats?|sailboats?|ships?|yachts?|rafts?|canoes?|kayaks?|ferr(?:y|ies)|skiffs?|trawlers?|dinghy|dinghies|gondolas?|catamarans?|barges?)\b/i;
+const NOT_AFLOAT = /wreck|hull|sunken|stranded|beached|ruin|graveyard|rusted|space|\bair|star/i;
+export const isWatercraft = (asset: string): boolean => WATERCRAFT.test(asset) && !NOT_AFLOAT.test(asset);
+/** How far a floating thing sits below the surface. */
+const AFLOAT_SINK = 0.2;
+
+/** The nearest open water to (x, z), at most `reach` away, with clear water around it; null on dry land. */
+function waterSpot(field: WorldField, x: number, z: number, reach: number): { x: number; z: number } | null {
+  for (let d = 0; d <= reach; d += 6) {
+    for (let k = 0; k < (d === 0 ? 1 : 8); k++) {
+      const a = (k / 8) * Math.PI * 2, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+      if (field.isWater(px, pz) && field.isWater(px + 4, pz) && field.isWater(px - 4, pz) && field.isWater(px, pz + 4) && field.isWater(px, pz - 4)) return { x: px, z: pz };
+    }
+  }
+  return null;
 }
 
 export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: WorldField, seed: number): GroupLayout {
@@ -110,6 +139,7 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
   const streets: Road[] = [];
   const lampSpots: Spot[] = [];
   const assetOf = memberAsset(place, seed);
+  const city = isUrban(place);
   let paved: Paved | undefined;
 
   const centreAsset = centrePiece(layout.centre) ?? (layout.pattern === 'grid' ? 'fountain' : undefined);
@@ -120,14 +150,20 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
     });
   }
   const members = () => buildings.filter((b) => b.kind === 'house').length;
-  const add = (x: number, z: number, rotation: number, gap: number, maxWidth: number): boolean => {
-    if (members() >= count || !inRadius(x, z) || !siteIsDry(field, x, z, MEMBER_FOOTPRINT)) return false;
+  // In an ocean a loose scatter has no deck: all of it floats (kelp, rafts, buoys).
+  const allAfloat = field.deckY !== null && layout.pattern === 'scatter';
+  const add = (ax: number, az: number, rotation: number, gap: number, maxWidth: number): boolean => {
+    if (members() >= count || !inRadius(ax, az)) return false;
+    const n = members();
+    const asset = assetOf(n);
+    const water = allAfloat || isWatercraft(asset) ? waterSpot(field, ax, az, pl.radius * 1.8 + 30) : null; // past the land its pad flattens, up to 1.8 x its radius
+    if (!water && (allAfloat || !siteIsDry(field, ax, az, MEMBER_FOOTPRINT))) return false;
+    const { x, z } = water ?? { x: ax, z: az };
     if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < (b.kind === 'centre' ? gap * 0.8 : gap))) return false;
     const t = Math.hypot(x - pl.x, z - pl.z) / (pl.radius * 0.8);
-    const n = members();
     buildings.push({
-      id: `${place.id}-house-${n}`, placeId: place.id, x, z, y: field.heightAt(x, z), rotation, kind: 'house',
-      asset: assetOf(n), footprint: MEMBER_FOOTPRINT, interaction: memberInteraction,
+      id: `${place.id}-house-${n}`, placeId: place.id, x, z, y: water ? (field.waterSurfaceAt(x, z) ?? field.heightAt(x, z)) - AFLOAT_SINK : field.heightAt(x, z), rotation, kind: 'house',
+      asset, footprint: MEMBER_FOOTPRINT, interaction: memberInteraction,
       height: heightFor(layout, place.size, rng, t), maxWidth,
     });
     return true;
@@ -150,11 +186,11 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
       for (let k = 0; k <= n; k++) {
         const o = -ext + k * CELL;
         const a1 = at(-ext, o), a2 = at(ext, o), b1 = at(o, -ext), b2 = at(o, ext);
-        streets.push(...street(field, a1.x, a1.z, a2.x, a2.z), ...street(field, b1.x, b1.z, b2.x, b2.z));
+        streets.push(...street(field, a1.x, a1.z, a2.x, a2.z, city), ...street(field, b1.x, b1.z, b2.x, b2.z, city));
       }
       // City ground is paved, and every crossing gets a lamp on one kerb corner (alternating, so streets are lit evenly).
-      paved = { x: pl.x, z: pl.z, half: ext + STREET_WIDTH / 2, angle };
-      for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
+      if (city) paved = { x: pl.x, z: pl.z, half: ext + STREET_WIDTH / 2, angle };
+      if (city) for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
         const sa = (i + j) % 2 ? 1 : -1, sl = i % 2 ? 1 : -1;
         const p = at(-ext + i * CELL + sa * KERB, -ext + j * CELL + sl * KERB);
         if (field.isWater(p.x, p.z)) continue;
@@ -198,7 +234,7 @@ export function layoutGroup(place: Place, layout: Layout, pl: Placement, field: 
     // Every other group gets one main street through its middle, so paths and the player can reach it.
     const reach = layout.pattern === 'line' ? (Math.ceil(count / 2) * LINE_STEP) / 2 + 6 : pl.radius * 0.9;
     const s1 = at(-reach, 0), s2 = at(reach, 0);
-    const main = street(field, s1.x, s1.z, s2.x, s2.z).sort((p, q) => q.points.length - p.points.length);
+    const main = street(field, s1.x, s1.z, s2.x, s2.z, city).sort((p, q) => q.points.length - p.points.length);
     spine = main.shift() ?? { points: [{ x: pl.x, z: pl.z }, { x: pl.x + dir.x, z: pl.z + dir.z }], width: 4, bridges: [false] };
     streets.push(...main);
   }

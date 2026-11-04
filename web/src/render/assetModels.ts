@@ -29,7 +29,7 @@ export interface AssetDeps {
  * Asks the backend model finder (library, cache, Poly Pizza, Sketchfab, Meshy job for landmarks); polls jobs every 5 s
  * for up to 5 min. `none` or any failure resolves null so the caller keeps the placeholder. World rebuilds call load()
  * for every object, so: successes and in-flight requests are shared per asset; misses are remembered with an expiry;
- * and a transport failure opens a source-wide breaker so an offline edit costs no requests at all.
+ * and a transport failure opens a source-wide breaker so an unreachable backend costs no requests at all.
  * Variants (house 0, 1, 2…) ride on the base lookup: a variant is asked for only when the base model came from the
  * library (only library ties rotate), and identical GLB URLs are loaded once.
  */

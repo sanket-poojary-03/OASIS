@@ -1,4 +1,5 @@
 import './styles.css';
+import { LLM_UNAVAILABLE } from './api/client';
 import { wakeBackend } from './api/wake';
 import { App } from './app';
 import { runDirector } from './logic/director';
@@ -58,7 +59,7 @@ void (async () => {
     (window as unknown as { __ws: unknown }).__ws = { app, ui };
     const q = new URLSearchParams(location.search), name = q.get('w'), time = q.get('t'), wx = q.get('wx');
     if (name) {
-      void import('./api/localMock').then(({ fixtureRecipe }) => {
+      void import('./api/devFixtures').then(({ fixtureRecipe }) => {
         const r = fixtureRecipe(name), atmosphere = { ...r.atmosphere };
         if (time === 'dawn' || time === 'day' || time === 'dusk' || time === 'night') atmosphere.time = time;
         if (wx === 'clear' || wx === 'rain' || wx === 'snow' || wx === 'mist' || wx === 'storm') { atmosphere.weather = wx; if (wx === 'clear') atmosphere.fog = 0.1; }
@@ -67,11 +68,12 @@ void (async () => {
     }
   }
   // Wake a sleeping backend (I8). Once it answers: forget remembered asset misses and load the pack art concurrently.
-  // If it wakes only after these pings, the first non-offline world/edit answer does the same (App.backendAnswered, I6).
+  // If it wakes only after these pings, the first world/edit answer does the same (App.backendAnswered, I6).
   void wakeBackend((h, final) => {
     if (!h && app.backendOnline) return; // a world/edit answer already proved it is up
-    ui.setHealth(h ? (h.provider === 'live' ? 'AI online' : 'AI server in mock mode (no API key)')
-      : final ? 'Offline mode: preset worlds and basic edits only' : 'Waking the AI server… (offline mode until it answers)');
+    const llm = h?.provider === 'live';
+    ui.setHealth(llm ? 'AI online' : final ? LLM_UNAVAILABLE : 'Waking the AI server…');
+    if (final && !llm) ui.toast(LLM_UNAVAILABLE);
   }).then((h) => {
     if (h?.ok) app.backendAnswered();
   });

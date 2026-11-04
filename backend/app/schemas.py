@@ -13,7 +13,7 @@ MAX_PLACES = 24
 Id = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")]
 Unit = Annotated[float, Field(ge=0, le=1)]
 Coord = Annotated[float, Field(ge=-CORE_HALF, le=CORE_HALF)]
-Shape = Literal["plains", "hills", "valley", "mountains", "island", "canyon"]
+Shape = Literal["plains", "hills", "valley", "mountains", "island", "canyon", "archipelago", "ocean"]
 Kind = Literal["settlement", "landmark", "structure", "prop"]
 Size = Literal["small", "medium", "large"]
 Interaction = Literal["none", "door", "light", "fire", "sound", "sit", "push", "drive"]

@@ -19,6 +19,7 @@ import { AssetModelSource } from './render/assetModels';
 import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
 import { disposeGroup } from './render/dispose';
+import { DeckSystem } from './render/decks';
 import { Engine } from './render/engine';
 import { GrassSystem } from './render/grass';
 import { setNightGlow } from './render/nightGlow';
@@ -43,9 +44,11 @@ const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()
 /** Frame time allowed for the spawn chunk to arrive before generate() gives up (a hidden tab does not count). */
 const SPAWN_TIMEOUT_MS = 20_000;
 const MAX_UNDO = 50;
+/** How far the view carries across an ocean (metres); weather still brings the fog closer. */
+const OCEAN_VIEW = 700;
 /** Interaction reach from the camera: 4 m at the eye, 9 m from the third-person camera 5 m behind. */
 const REACH_FIRST = 4, REACH_THIRD = 9;
-const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', cache: 'AI: cached answer', mock: 'AI: mock mode', offline: 'Offline mode' };
+const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', none: 'Dev preset' };
 
 export class App {
   built: BuiltWorld | null = null;
@@ -56,6 +59,7 @@ export class App {
   private roads: THREE.Group | null = null;
   private readonly culler = new RangeCuller(TERRAIN_RANGE);
   private bridgeColliders: Collider[] = [];
+  private readonly decks: DeckSystem;
   private spawnPending: { x: number; y: number; z: number; yaw?: number } | null = null;
   private history: Snapshot[] = [];
   private pending: { applied: ApplyResult; ops: Op[] } | null = null;
@@ -111,6 +115,7 @@ export class App {
     this.booster = new Booster(engine.scene);
     avatar.attach(this.booster.pack);
     this.dayScale = atmosphere.timeScale;
+    this.decks = new DeckSystem(engine.scene, physics);
     this.characters = new CharacterRoster(avatar);
     void this.characters.start();
   }
@@ -146,11 +151,11 @@ export class App {
       console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
     });
   }
-  /** True once the backend has answered (a health ping or any world/edit answer that was not offline). */
+  /** True once the backend has answered (a health ping or any world/edit answer from the LLM). */
   get backendOnline(): boolean { return this.backendSeen; }
 
   /**
-   * The backend answered: health at boot, or the first world/edit answer that did not fall back to offline (a backend
+   * The backend answered: health at boot, or the first world/edit answer from the LLM (a backend
    * that wakes after the boot pings gave up). Forgets remembered asset misses and starts the pack art, once (I6).
    */
   backendAnswered(): void {
@@ -165,9 +170,9 @@ export class App {
   /** Bookkeeping for every world/edit answer: tell the player about a rate-limited fallback, note a live backend. */
   private noteAnswer(res: { source: Source; notice?: string }): void {
     if (res.notice) this.ui?.toast(res.notice);
-    if (res.source === 'offline') return;
-    // A backend that woke after the health pings gave up: correct the "Offline mode" line too.
-    if (!this.backendSeen) this.ui?.setHealth(res.source === 'mock' ? 'AI server in mock mode (no API key)' : 'AI online');
+    if (res.source !== 'live') return;
+    // A backend that woke after the health pings gave up: correct the "LLM not available" line too.
+    if (!this.backendSeen) this.ui?.setHealth('AI online');
     this.backendAnswered();
   }
 
@@ -182,6 +187,11 @@ export class App {
     this.chunks.setSnapshot(snapshotField(built.field));
     this.atmosphere.apply(recipe.atmosphere, respawn || timeChanged);
     this.water.rebuild(built.field);
+    this.decks.rebuild(built.field);
+    // Fog and culling end at the loaded terrain so its edge never shows; an open sea has no edge to hide.
+    const reach = built.field.deckY === null ? 0 : OCEAN_VIEW - TERRAIN_RANGE;
+    this.atmosphere.reach = reach;
+    this.culler.setRange(TERRAIN_RANGE + reach);
     this.atmosphere.setSkyTint(recipe.palette?.sky);
     this.grass.setTint(recipe.palette?.ground);
     if (this.roads) { this.engine.scene.remove(this.roads); disposeGroup(this.roads); }
@@ -190,11 +200,12 @@ export class App {
     // Nothing is drawn past the loaded terrain (it would hang in the sky): roads, water and placed objects.
     this.culler.track(this.roads);
     this.culler.track(this.water.group);
+    this.culler.track(this.decks.group);
     this.culler.track(this.objects.group, true);
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
     if (respawn) this.vehicles.reset(); // before objects: a new world's cars never inherit old poses
-    this.objects.standIns = !this.backendSeen; // stand-in shapes only offline; with a server, real models or nothing
+    this.objects.standIns = !this.backendSeen; // stand-in shapes only while no server has answered (the menu's world, dev presets)
     if (this.scatter.standIns !== !this.backendSeen) { this.scatter.standIns = !this.backendSeen; this.artDirty = true; }
     this.objects.rebuild(built, wait, respawn); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
@@ -239,7 +250,7 @@ export class App {
     this.cancel();
     this.working = true;
     try {
-      return await this.enter({ type: 'recipe', recipe, notes: [], source: 'offline' });
+      return await this.enter({ type: 'recipe', recipe, notes: [], source: 'none' });
     } finally {
       this.working = false;
     }
@@ -276,8 +287,6 @@ export class App {
     this.menuWorld = false;
     this.menuArgs = null;
     this.cinematic = null;
-    this.atmosphere.reach = 0;
-    this.culler.setRange(TERRAIN_RANGE);
     this.atmosphere.timeScale = this.dayScale;
   }
 
@@ -286,7 +295,7 @@ export class App {
     this.endShowcase();
     ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
     await nextFrame();
-    this.models.reset?.(); // a new world may find models that were missing (or offline) before
+    this.models.reset?.(); // a new world may find models that were missing (or unreachable) before
     const built = this.load(res.recipe);
     for (const line of [...res.notes, ...built.log]) ui?.log(line);
     ui?.setSource(SOURCE_LABEL[res.source]);
@@ -426,7 +435,7 @@ export class App {
       if (s.yaw !== undefined) this.engine.camera.rotation.set(-0.06, s.yaw, 0, 'YXZ'); // facing the place asked for
       this.player.enabled = true;
       this.spawnPending = null;
-      void this.vehicles.parkNear(s.x, s.z);
+      if (this.built?.field.deckY === null) void this.vehicles.parkNear(s.x, s.z); // no car on a floating deck
     }
     this.avatar.riding = !!this.vehicles.driving; // also after a world edit put the driver out
     if (this.cinematic) {

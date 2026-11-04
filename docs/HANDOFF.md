@@ -66,10 +66,12 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | ff5956c | **Playability from measurements.** Convex-hull colliders for detailed group buildings (controller 5 ms → 0.4 ms); adaptive render resolution; thinner outer scatter (1080p on an Iris Xe, sprinting: 45–59 fps); slim houses widened to person scale; a named time completes atmosphere edits (the demo ends at day). |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
+**Since ff5956c (see DECISIONS 2026-11-04 "No mock, no world cache, real water worlds"):** mock and offline modes removed ("LLM not available" instead), only 3D models cached, `archipelago` and `ocean` terrain, wooden decks and boardwalks, boats float, asphalt only for real cities. Older rows above mention mocks and offline mode: history, no longer true.
+
 ## User preferences (also in memory)
 - **Status after every task:** what was done, findings, and what's next.
 - **Anything goes.** The user can ask for *anything*: build general mechanisms, never one-off modes. What matters is natural language → 3D creation → functional interaction.
-- **AI only.** No fake or hardcoded worlds when the AI fails. Show an honest message.
+- **AI only.** No mock, offline or hardcoded worlds, and no world caching (only 3D models). With no LLM, say "LLM not available". Avoid keyword rules that override the AI.
 - Get the user's approval before any push, deploy or account action.
 
 ## Open items / next steps
@@ -93,7 +95,7 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
    - Vercel (root `web`, include files outside root, `VITE_API_URL`).
    - The Docker image has never been built (Docker Desktop wasn't running).
 5. **Manual checks still open** (the rest of the plan's browser checks were measured and ticked on 2026-11-04):
-   - By eye: grass sway, the walk/run animation, night bloom (Task 24b Step 9); the 50° cliff limit and Esc (Task 14); the demo in offline mode (Task 25).
+   - By eye: grass sway, the walk/run animation, night bloom (Task 24b Step 9); the 50° cliff limit and Esc (Task 14); the demo with no LLM, which should only show the message (Task 25).
    - Doors on library houses do not open (no door part in the models); decide whether to add stand-in doors to loaded houses.
    - The snowy valley floor reads teal under dawn light, and bright green grass grows in snowy valleys.
    - From high up (jetpack) the edge of the loaded land is still faintly visible.

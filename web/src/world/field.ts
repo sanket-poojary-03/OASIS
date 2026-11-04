@@ -16,6 +16,12 @@ export interface WorldField {
   readonly recipe: Recipe;
   readonly amplitude: number;
   readonly seaLevelY: number;
+  /** An ocean world (no land): the height of the wooden decks places float on; null in every other world. */
+  readonly deckY: number | null;
+  /** On a floating deck (ocean worlds only). */
+  isDeck(x: number, z: number): boolean;
+  /** The height of the terrain mesh: heightAt, except that an ocean's mesh stays on the sea bed under its decks (render/decks). */
+  meshHeightAt(x: number, z: number): number;
   readonly hasSea: boolean;
   readonly river: Vec2[];
   readonly lakes: Lake[];
@@ -41,6 +47,8 @@ export interface WorldField {
 export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[]; paved?: Paved[] };
 
 const RIVER_WET = 16;
+/** Decks stand this far above the sea: the height of a bridge deck, so boardwalks meet them level. */
+const DECK_ABOVE_SEA = 1.2;
 const RIVER_CARVE_WIDTH = 26;
 const RIVER_DEPTH = 5;
 
@@ -50,8 +58,12 @@ export function createField(recipe: Recipe): WorldField {
   const nB = createNoise2D(mulberry32(seed ^ 0x9e3779b9));
   const nD = createNoise2D(mulberry32(seed ^ 0x85ebca6b));
   const amplitude = 20 + terrain.height * 140;
-  const seaLevelY = terrain.seaLevel * amplitude;
-  const hasSea = terrain.seaLevel > 0;
+  // An ocean always has its sea, whatever level the AI wrote.
+  const ocean = terrain.shape === 'ocean';
+  const seaLevel = ocean ? Math.max(terrain.seaLevel, 0.5) : terrain.seaLevel;
+  const seaLevelY = seaLevel * amplitude;
+  const hasSea = seaLevel > 0;
+  const deckY = ocean ? seaLevelY + DECK_ABOVE_SEA : null;
   const freq = 1 / (420 - terrain.roughness * 260);
   const gain = 0.42 + terrain.roughness * 0.18;
 
@@ -62,7 +74,7 @@ export function createField(recipe: Recipe): WorldField {
   const coastAngle = mulberry32(seed ^ 0x27d4eb2f)() * Math.PI * 2;
   const coastX = Math.cos(coastAngle), coastZ = Math.sin(coastAngle);
   const coast = (x: number, z: number, h: number): number => {
-    if (!hasSea || terrain.shape === 'island') return h;
+    if (!hasSea || terrain.shape === 'island' || terrain.shape === 'archipelago' || ocean) return h;
     const along = (x * coastX + z * coastZ) / CORE_HALF + 0.12 * nB(x * 0.003 + 5.1, z * 0.003 - 7.3);
     const k = smoothstep(0.25, 0.75, along);
     return h + (terrain.seaLevel - 0.12 - h) * k;
@@ -88,6 +100,16 @@ export function createField(recipe: Recipe): WorldField {
         const r = Math.hypot(x, z) / (CORE_HALF * 0.9);
         return clamp(0.55 + 0.35 * n - r * r * 0.75, 0, 1);
       }
+      // No land at all: a sea bed 7-12 m down everywhere; pads are wooden decks standing on posts (render/decks).
+      case 'ocean': return seaLevel - (7 + 5 * n) / amplitude;
+      case 'archipelago': {
+        // Islets 40-150 m across scattered over open sea: a finer noise breaks the surface only at its crests, with
+        // a small island kept at the centre so the player always has somewhere to start. Measured from sea level,
+        // so about a fifth is land whatever seaLevel the AI picks (0.55 had left 38% land).
+        const isle = (fbm(nB, x / 150 + 3.7, z / 150 - 1.9, 4, 0.5) + 1) / 2;
+        const heart = Math.max(0, 1 - Math.hypot(x, z) / 75);
+        return clamp(terrain.seaLevel + 0.75 * (isle - 0.627) + 0.1 * (n - 0.5) + 0.3 * heart * heart, 0, 1);
+      }
     }
   };
   const baseHeight = (x: number, z: number) => shape01(x, z) * amplitude;
@@ -96,7 +118,7 @@ export function createField(recipe: Recipe): WorldField {
   const riverIndex = new SegmentIndex(32);
   let river: Vec2[] = [];
   const lakes: Lake[] = [];
-  if (recipe.water.river) {
+  if (recipe.water.river && !ocean) {
     if (terrain.shape === 'valley' || terrain.shape === 'canyon') {
       for (let z = -CORE_HALF + 16; z <= CORE_HALF - 16; z += 8) river.push({ x: meander(z), z });
     } else {
@@ -113,7 +135,7 @@ export function createField(recipe: Recipe): WorldField {
     }
     if (river.length > 1) riverIndex.addPolyline(river);
   }
-  if (recipe.water.lake && lakes.length === 0) {
+  if (recipe.water.lake && lakes.length === 0 && !ocean) {
     let best = Infinity, at: Vec2 = { x: 0, z: 0 };
     const lim = CORE_HALF * 0.7;
     for (let x = -lim; x <= lim; x += 32) for (let z = -lim; z <= lim; z += 32) {
@@ -149,9 +171,13 @@ export function createField(recipe: Recipe): WorldField {
     return k;
   };
 
+  const isDeck = (x: number, z: number): boolean => ocean && pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius);
+
   const heightAt = (x: number, z: number): number => {
     const c = carved(x, z);
     if (pads.length === 0) return c;
+    // A deck is a flat structure over the sea, not a mound of land blending into it: only logic stands on this height.
+    if (ocean) return isDeck(x, z) ? deckY! : c;
     let h = c;
     for (const p of pads) {
       const d = Math.hypot(x - p.x, z - p.z);
@@ -191,7 +217,7 @@ export function createField(recipe: Recipe): WorldField {
   };
 
   return {
-    recipe, amplitude, seaLevelY, hasSea, river, lakes, pads, roads, paved,
+    recipe, amplitude, seaLevelY, deckY, isDeck, meshHeightAt: (x, z) => (ocean ? carved(x, z) : heightAt(x, z)), hasSea, river, lakes, pads, roads, paved,
     meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt,
     detailNoise: (x, z) => nD(x, z),
     addPad: (p) => { pads.push({ ...p }); },

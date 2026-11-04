@@ -2,7 +2,7 @@ import { pyRound } from '../core/pyround';
 import { clampCore, type Recipe } from '../core/recipe';
 import type { EditContext } from './types';
 
-/** Mirrors backend MAX_CONTEXT_PLACEMENTS / MAX_CONTEXT_LABEL (schemas.py): more would be a 422, i.e. a silent offline fallback. */
+/** Mirrors backend MAX_CONTEXT_PLACEMENTS / MAX_CONTEXT_LABEL (schemas.py): more would be a 422. */
 export const MAX_CONTEXT_PLACEMENTS = 200;
 export const MAX_CONTEXT_LABEL = 60;
 
@@ -19,8 +19,7 @@ export interface EditContextInput {
 }
 
 /**
- * The /api/edit context. The backend model is strict (extra keys give a 422, which the client silently turns into
- * offline mode), so only player, lookAt, lookingAt and placements {id,label,x,z} are sent, and absent values are
+ * The /api/edit context. The backend model is strict (extra keys give a 422), so only player, lookAt, lookingAt and placements {id,label,x,z} are sent, and absent values are
  * omitted rather than sent as null. lookAt is clamped to the core map; y is present only for a real surface hit.
  * Placements and labels are clamped to the backend limits.
  */

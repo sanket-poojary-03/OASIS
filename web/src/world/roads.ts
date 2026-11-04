@@ -72,7 +72,41 @@ function samples(field: WorldField, cell: number): Samples {
 const STEEP = 0.4;
 const STEEP_COST = 80;
 
-export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Road | null {
+/** The longest run of bridge a road may have: a river or a strait, not open sea between islets. */
+export const MAX_BRIDGE = 60;
+
+/** Metres of the longest unbroken bridged run of `road`. */
+export function longestBridge(road: Road): number {
+  let run = 0, best = 0;
+  for (let i = 0; i < road.bridges.length; i++) {
+    run = road.bridges[i] ? run + Math.hypot(road.points[i + 1].x - road.points[i].x, road.points[i + 1].z - road.points[i].z) : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+/**
+ * A road from `from` to `to` that never bridges more than MAX_BRIDGE: the cheapest path first; if it crosses open
+ * water, the way round over dry land; if there is none (separate islets), no road, and the player swims or flies.
+ */
+export function findRoad(field: WorldField, from: Vec2, to: Vec2): Road | null {
+  if (field.deckY !== null) return boardwalk(field, from, to);
+  const road = findPath(field, from, to);
+  if (!road || longestBridge(road) <= MAX_BRIDGE) return road;
+  const dry = findPath(field, from, to, 8, false);
+  return dry && longestBridge(dry) <= MAX_BRIDGE ? dry : null;
+}
+
+/** In an ocean, decks are joined by straight boardwalks: a road that is a bridge wherever it is not on a deck. */
+function boardwalk(field: WorldField, from: Vec2, to: Vec2): Road {
+  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.z - from.z) / 8));
+  const points = Array.from({ length: steps + 1 }, (_, i) => ({ x: from.x + ((to.x - from.x) * i) / steps, z: from.z + ((to.z - from.z) * i) / steps }));
+  const bridges = points.slice(1).map((p, i) => field.isWater((p.x + points[i].x) / 2, (p.z + points[i].z) / 2));
+  return { points, width: 3, bridges };
+}
+
+/** `overWater`: false keeps the path on dry land (water cells cannot be entered). */
+export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8, overWater = true): Road | null {
   const pad = 160;
   const S = samples(field, cell);
   const snap = (v: number, up: boolean) => Math.max(0, Math.min(S.side - 1, (up ? Math.ceil : Math.floor)((v + CORE_HALF) / cell)));
@@ -121,7 +155,7 @@ export function findPath(field: WorldField, from: Vec2, to: Vec2, cell = 8): Roa
       if (closed[nb]) continue;
       const step = (dr && dc ? Math.SQRT2 : 1) * cell;
       // Steep ground costs far more past STEEP: a car cannot climb ~38 degrees, so roads take the longer, gentler way.
-      const cost = g[cur] + step * (1 + 12 * slope[nb] + STEEP_COST * Math.max(0, slope[nb] - STEEP)) + (water[nb] ? 60 : 0);
+      const cost = g[cur] + step * (1 + 12 * slope[nb] + STEEP_COST * Math.max(0, slope[nb] - STEEP)) + (water[nb] ? (overWater ? 60 : Infinity) : 0);
       if (cost < g[nb]) { g[nb] = cost; came[nb] = cur; heap.push(cost + h(nb), nb); }
     }
   }

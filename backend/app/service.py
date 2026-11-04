@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from typing import Callable, Protocol
 
 from pydantic import ValidationError
 
-from .cache import FileCache
 from .llm import LLMError, extract_json
-from .mock import TIME_WORDS, VEHICLE, mock_edit, mock_world, prompt_seed
 from .asset_match import cheap_llm
-from .prompts import PROMPT_VERSION, brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
+from .prompts import brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
 from .schemas import EditRequest, Recipe, dump, dump_ops, ops_adapter
+
+# Time-of-day words in a request (complete_time) and words naming a drivable vehicle (repair_*: a vehicle the AI left as scenery can still be driven).
+TIME_WORDS = [(r"\b(night|midnight)\b", "night"), (r"\b(dawn|sunrise|morning)\b", "dawn"), (r"\b(dusk|sunset|evening)\b", "dusk"), (r"\b(noon|midday|daytime|day)\b", "day")]
+VEHICLE = re.compile(r"\b(?:car|jeep|truck|buggy|rover|kart|van|tractor|motorbike)s?\b")
+
+
+def prompt_seed(prompt: str) -> int:
+    """The world's seed: the same prompt builds its terrain from the same seed."""
+    return int(hashlib.sha256(prompt.strip().lower().encode("utf-8")).hexdigest()[:8], 16) & 0x7FFFFFFF
 
 
 class Completer(Protocol):
@@ -24,9 +32,11 @@ log = logging.getLogger(__name__)
 
 
 class AIUnavailable(Exception):
-    """The AI could not give a usable answer (busy, down, or invalid twice). Never replaced by a fake keyword world."""
+    """No LLM is configured, or it could not give a usable answer (busy, down, or invalid twice). There is no stand-in:
+    the player is told, and no world is made up."""
 
-    MESSAGE = "The AI is busy right now. Please try again in a moment."
+    NO_LLM = "LLM not available."
+    MESSAGE ="The AI is busy right now. Please try again in a moment."
     BAD_ANSWER = "The AI's answer could not be used. Please try again, perhaps in different words."
 
 
@@ -215,24 +225,18 @@ def _notes(data: dict) -> list[str]:
 
 
 class WorldService:
-    def __init__(self, llm: Completer | None, cache: FileCache, world_llm: Completer | None = None):
+    def __init__(self, llm: Completer | None, world_llm: Completer | None = None):
+        """No answer is cached (the user's choice): every prompt gets a fresh brief and a fresh world from the AI.
+        Only 3D models are cached (assets.ModelCache and the model picker's answers)."""
         self.llm = llm
         self.world_llm = world_llm or llm  # whole worlds may use a stronger, slower model than briefs and edits
-        self.cache = cache
 
     def brief(self, prompt: str) -> dict:
         """The prompt enhancer: a short request grown into a detailed world brief (12-18 named places, details around
         them, roads), shown to the player while the world is built from it. Never an error: a failed brief is empty and
         the world is then built from the player's own words."""
         if self.llm is None:
-            return {"brief": "", "source": "mock"}
-        key = self.cache.key("brief", PROMPT_VERSION, self.llm.model, prompt.strip().lower())
-        try:
-            hit = self.cache.get(key)
-        except (OSError, ValueError):
-            hit = None
-        if hit:
-            return {**hit, "source": "cache"}
+            return {"brief": "", "source": "none"}
         try:
             data = extract_json(cheap_llm(self.llm, timeout=30, max_tokens=2500).complete(brief_system_prompt(), prompt))
             text = str(data.get("brief", "")).strip()[:3000]
@@ -244,19 +248,12 @@ class WorldService:
         out = {"brief": text, "title": str(data.get("title", "")).strip()[:80]}
         if not out["title"]:
             del out["title"]
-        self.cache.put(key, out)
         return {**out, "source": "live"}
 
     def generate(self, prompt: str, brief: str | None = None) -> dict:
         if self.llm is None:
-            return mock_world(prompt)
-        key = self.cache.key("world", PROMPT_VERSION, self.world_llm.model, prompt.strip().lower(), *([brief.strip()] if brief else []))
-        try:
-            hit = self.cache.get(key)
-        except (OSError, ValueError):
-            hit = None
-        if hit:
-            return {**hit, "source": "cache"}
+            raise AIUnavailable(AIUnavailable.NO_LLM)
+
         def validate(data: dict) -> dict:
             raw = data.get("recipe", data)
             # Models often put their notes inside the recipe; move them out instead of rejecting a good world.
@@ -270,14 +267,11 @@ class WorldService:
                 notes.insert(0, f"Left out {len(dropped)} place{'s' if len(dropped) > 1 else ''} the AI described unclearly: {', '.join(dropped)[:150]}.")
             return {"type": "recipe", "recipe": dump(recipe), "notes": notes[:5], "source": "live"}
 
-        out = self._ask(world_system_prompt(), world_user_message(prompt, brief), validate, challenge=True, llm=self.world_llm)
-        if out["type"] == "recipe":
-            self.cache.put(key, out)
-        return out
+        return self._ask(world_system_prompt(), world_user_message(prompt, brief), validate, challenge=True, llm=self.world_llm)
 
     def edit(self, req: EditRequest) -> dict:
         if self.llm is None:
-            return mock_edit(req)
+            raise AIUnavailable(AIUnavailable.NO_LLM)
 
         def validate(data: dict) -> dict:
             ops = ops_adapter.validate_python(repair_ops(data.get("ops")))

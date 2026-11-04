@@ -3,14 +3,14 @@ import { pyRound } from './pyround';
 
 export const CORE_HALF = 512;
 
-/** Clamp to the core map and round to 0.1 m (mirrors backend mock `_clamp`). */
+/** Clamp to the core map and round to 0.1 m. */
 export const clampCore = (v: number): number => Math.max(-CORE_HALF, Math.min(CORE_HALF, pyRound(v, 1)));
 
 export const idSchema = z.string().regex(/^[a-z][a-z0-9_-]{1,31}$/, 'id must be 2-32 chars [a-z0-9_-], starting with a letter');
 const unit = z.number().min(0).max(1);
 const coord = z.number().min(-CORE_HALF).max(CORE_HALF);
 
-export const SHAPES = ['plains', 'hills', 'valley', 'mountains', 'island', 'canyon'] as const;
+export const SHAPES = ['plains', 'hills', 'valley', 'mountains', 'island', 'canyon', 'archipelago', 'ocean'] as const;
 export const PLACE_KINDS = ['settlement', 'landmark', 'structure', 'prop'] as const;
 export const PLACE_SIZES = ['small', 'medium', 'large'] as const;
 export const INTERACTIONS = ['none', 'door', 'light', 'fire', 'sound', 'sit', 'push', 'drive'] as const;

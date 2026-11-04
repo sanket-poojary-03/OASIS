@@ -5,7 +5,6 @@ import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
 import type { Building } from '../world/settlement';
-import { INTERACT } from '../api/localMock';
 import { fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
 import { surfaceOf } from './meshCollider';
@@ -37,7 +36,7 @@ export interface ModelSource {
 
 /**
  * A place waiting for its model: loading, then ready, missing or cancelled. `shape`: on a miss, a simple stand-in shape
- * is shown instead (offline mode only); otherwise the place is left out.
+ * is shown instead (no server has answered yet); otherwise the place is left out.
  */
 export interface LoadingEvent { placeId: string; label: string; state: 'loading' | 'ready' | 'missing' | 'cancelled'; shape?: boolean }
 
@@ -121,6 +120,8 @@ const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large
 /** Street lamps at city crossings stand taller than a large prop. */
 const STREET_LAMP_HEIGHT = 4.6;
 
+const INTERACT: Array<[RegExp, Interaction]> = [[/\b(?:car|jeep|truck|buggy|rover|kart|van|tractor|motorbike)s?\b/, 'drive'], [/lamp|lantern|light|torch|candle/, 'light'], [/campfire|bonfire|fire/, 'fire'], [/bell|gong/, 'sound'], [/bench|chair|seat|stool/, 'sit'], [/barrel|crate|box/, 'push'], [/house|cabin|hut|cottage|lodge|barn|inn/, 'door']];
+
 /** What a scattered prop can do, from what it is (lantern → light, bench → sit, crate → push, car → drive). */
 function extraInteraction(asset: string): Interaction {
   const a = asset.toLowerCase();
@@ -169,7 +170,7 @@ export class WorldObjects {
   /** This rebuild's objects still loading per waiting place, whether any found no model, and whether it has a notice. */
   private pending = new Map<string, { left: number; missing: boolean; announced: boolean }>();
   /**
-   * Stand-in shapes allowed: only in offline mode (no server to find models). With a server, every object shows its
+   * Stand-in shapes allowed: only while no server has answered (nothing can find models). With a server, every object shows its
    * real model or nothing: the user never wants procedural placeholders.
    */
   standIns = true;

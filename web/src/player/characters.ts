@@ -4,7 +4,7 @@ import type { ModelTemplate } from '../render/animated';
 import type { Avatar } from './avatar';
 
 /**
- * The playable characters, bundled with the web app (web/public/models/characters) so they work offline too.
+ * The playable characters, bundled with the web app (web/public/models/characters).
  * All three are Quaternius CC0 models on one shared rig (Idle / Walk / Run clips), credited in docs/CREDITS.md.
  */
 export const CHARACTERS = [

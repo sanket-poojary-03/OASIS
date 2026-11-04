@@ -218,7 +218,7 @@ def test_asset_routes(tmp_path):
     (lib.root / "prefabs").mkdir()
     (lib.root / "prefabs" / "house_a.glb").write_bytes(b"glTFhouse")
     svc = AssetService(lib, ModelCache(tmp_path / "gen"), [])
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc))
+    client = TestClient(create_app(llm=None, assets=svc))
     body = client.post("/api/assets/resolve", json={"query": "wooden cottage"}).json()
     assert body["source"] == "library" and body["url"].startswith("/files/library/")
     assert client.get(body["url"]).content == b"glTFhouse"
@@ -228,16 +228,16 @@ def test_asset_routes(tmp_path):
 
 def test_library_resolves_are_free_and_do_not_drain_the_llm_budget(tmp_path):
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [])
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc))
+    client = TestClient(create_app(llm=None, assets=svc))
     for _ in range(30):
         assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).status_code == 200
-    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 200
+    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 503  # not 429: the LLM budget is untouched
 
 
 def test_external_path_is_gated_and_refusal_is_status_none(tmp_path):
     poly = FakeFinder("Poly Pizza", [cand("Giraffe"), cand("Zebra")])
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly])
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc, asset_limiter=RateLimiter(per_ip=1)))
+    client = TestClient(create_app(llm=None, assets=svc, asset_limiter=RateLimiter(per_ip=1)))
     assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["status"] == "ready"
     searched = []
     poly.search = lambda q, limit=8: searched.append(q) or []
@@ -280,10 +280,10 @@ def test_llm_picks_have_their_own_budget_and_never_spend_the_world_edit_one(tmp_
     picker = Picker()
     poly = FakeFinder("Poly Pizza", [cand("Giraffe"), cand("Zebra")])
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [poly], pick=picker)
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc, limiter=RateLimiter(per_ip=1), pick_limiter=RateLimiter(per_ip=1)))
+    client = TestClient(create_app(llm=None, assets=svc, limiter=RateLimiter(per_ip=1), pick_limiter=RateLimiter(per_ip=1)))
     assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["source"] == "online"
     assert picker.calls == 1
-    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 200  # world budget untouched (I4)
+    assert client.post("/api/world", json={"prompt": "a quiet fishing valley"}).status_code == 503  # not 429: world budget untouched (I4)
     assert client.post("/api/assets/resolve", json={"query": "zebra"}).json()["source"] == "online"
     assert picker.calls == 1  # pick budget spent: title matching chose instead
 
@@ -361,7 +361,7 @@ def test_generated_index_is_not_served_and_urls_are_encoded(tmp_path):
     lib = lib_from(tmp_path, [("odd", ["odd"])])
     lib.entries[0]["file"] = "my folder/odd #1.glb"
     svc = AssetService(lib, ModelCache(tmp_path / "gen"), [])
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path / "c", assets=svc))
+    client = TestClient(create_app(llm=None, assets=svc))
     assert client.post("/api/assets/resolve", json={"query": "odd"}).json()["url"] == "/files/library/my%20folder/odd%20%231.glb"
     svc.cache.add("k", "q", "k.glb", "online")
     assert client.get("/files/generated/index.json").status_code == 404

@@ -1,7 +1,8 @@
 import type { Op } from '../core/ops';
 import type { Recipe } from '../core/recipe';
 
-export type Source = 'live' | 'mock' | 'cache' | 'offline';
+/** 'live': the LLM answered. 'none': it did not (the answer is a message, or a dev preset). */
+export type Source = 'live' | 'none';
 /** `notice`: a one-off message for the player about how this answer was made (e.g. the AI was rate-limited). textContent only. */
 export interface Notice { notice?: string }
 export type WorldResult = ({ type: 'recipe'; recipe: Recipe; notes: string[]; source: Source } | { type: 'unsupported'; reason: string; source: Source }) & Notice;

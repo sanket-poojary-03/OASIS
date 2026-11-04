@@ -26,6 +26,7 @@ const RADIUS: Record<PlaceKind, Record<PlaceSize, number>> = {
 };
 const MAX_SLOPE: Record<PlaceKind, number> = { settlement: 0.22, landmark: 0.5, structure: 0.32, prop: 0.6 };
 const GAP = 4;
+const MIN_DECK = 4;
 const CANDIDATES = 1500;
 const DIR: Record<'north' | 'south' | 'east' | 'west', { x: number; z: number }> = {
   north: { x: 0, z: -1 }, south: { x: 0, z: 1 }, east: { x: 1, z: 0 }, west: { x: -1, z: 0 },
@@ -34,7 +35,15 @@ const DIR: Record<'north' | 'south' | 'east' | 'west', { x: number; z: number }>
 type Rel<K extends Relation['rel']> = Extract<Relation, { rel: K }>;
 interface Candidate { x: number; z: number; h: number; slope: number }
 
-export function placeRadius(place: Place): number {
+/** In an ocean a place's radius is the size of its deck, so it is just what its members need (a 190 m deck held a few houses). */
+const OCEAN_VILLAGE = 0.55;
+const MIN_GROUP_DECK = 16;
+
+export function placeRadius(place: Place, ocean = false): number {
+  if (ocean && place.kind === 'settlement') {
+    const needs = place.layout ? Math.min(MAX_GROUP_RADIUS, groupRadius(place.layout, place.size)) : 0;
+    return Math.max(needs, !place.layout || place.layout.pattern === 'village' ? RADIUS.settlement[place.size] * OCEAN_VILLAGE : MIN_GROUP_DECK);
+  }
   const base = RADIUS[place.kind][place.size];
   return place.kind === 'settlement' && place.layout ? Math.min(MAX_GROUP_RADIUS, Math.max(base, groupRadius(place.layout, place.size))) : base;
 }
@@ -59,7 +68,9 @@ export function orderPlaces(places: Place[]): Place[] {
   return out;
 }
 
-function padFor(p: Placement): Pad {
+function padFor(p: Placement, field: WorldField): Pad {
+  // A deck holds everything of its place (land pads may blend away at their edge); even a prop gets room to stand by it.
+  if (field.deckY !== null) return { x: p.x, z: p.z, radius: Math.max(p.radius, MIN_DECK), y: field.deckY };
   return { x: p.x, z: p.z, radius: p.kind === 'settlement' ? p.radius * 0.85 : p.radius, y: p.y };
 }
 
@@ -67,6 +78,7 @@ function siteProblem(field: WorldField, x: number, z: number, r: number, maxSlop
   if (Math.abs(x) > CORE_HALF - r || Math.abs(z) > CORE_HALF - r) return 'outside the world core';
   // The cheap test first: in a full world most candidates overlap a place, and terrain samples are the cost.
   for (const p of placed.values()) if (Math.hypot(p.x - x, p.z - z) < p.radius + r + (relax ? 0 : GAP)) return `overlapping ${p.id}`;
+  if (field.deckY !== null) return null; // an ocean: anywhere clear will float a deck
   let slope = 0;
   for (const [dx, dz] of [[0, 0], [r * 0.7, 0], [-r * 0.7, 0], [0, r * 0.7], [0, -r * 0.7]]) {
     if (field.isWater(x + dx, z + dz)) return 'in water';
@@ -125,10 +137,10 @@ function scoreRelation(rel: Relation, c: Candidate, ctx: ScoreCtx): { score: num
   }
 }
 
-function sampleCandidates(place: Place, placed: Map<string, Placement>, rng: () => number): Array<{ x: number; z: number }> {
+function sampleCandidates(place: Place, placed: Map<string, Placement>, rng: () => number, ocean: boolean): Array<{ x: number; z: number }> {
   const near = place.where.find((r): r is Rel<'near'> => r.rel === 'near' && placed.has(r.target));
   const out: Array<{ x: number; z: number }> = [];
-  const r = placeRadius(place);
+  const r = placeRadius(place, ocean);
   for (let i = 0; i < CANDIDATES; i++) {
     if (near) {
       const t = placed.get(near.target)!;
@@ -149,11 +161,12 @@ function finish(place: Place, field: WorldField, x: number, z: number, radius: n
   const targetId = targetsOf(place).find((id) => placed.has(id));
   const face = targetId ? placed.get(targetId)! : { x: 0, z: 0 };
   const rotation = Math.atan2(face.x - x, face.z - z);
-  return { id: place.id, kind: place.kind, x, z, y: yOverride ?? (place.kind === 'prop' ? field.heightAt(x, z) : avg), rotation, radius, reasons, warnings, padded: false };
+  return { id: place.id, kind: place.kind, x, z, y: yOverride ?? field.deckY ?? (place.kind === 'prop' ? field.heightAt(x, z) : avg), rotation, radius, reasons, warnings, padded: false };
 }
 
 function placeOne(place: Place, field: WorldField, placed: Map<string, Placement>, seed: number): Placement {
-  const radius = placeRadius(place);
+  const ocean = field.deckY !== null;
+  const radius = placeRadius(place, ocean);
   const warnings: string[] = [];
   for (const id of targetsOf(place)) if (!placed.has(id)) warnings.push(`${id} was not placed before ${place.id}`);
   const at = place.where.find((r): r is Rel<'at'> => r.rel === 'at');
@@ -165,7 +178,7 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   const rng = mulberry32(seed ^ hashString(place.id));
   for (const relax of [false, true]) {
     const cands: Candidate[] = [];
-    for (const p of sampleCandidates(place, placed, rng)) {
+    for (const p of sampleCandidates(place, placed, rng, ocean)) {
       if (siteProblem(field, p.x, p.z, radius, MAX_SLOPE[place.kind], placed, relax) === null) {
         cands.push({ ...p, h: field.heightAt(p.x, p.z), slope: field.slopeAt(p.x, p.z) });
       }
@@ -189,7 +202,7 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   }
   // Last resort: the least-bad candidate (never wet if any dry one exists), centre as a final tiebreak.
   let best = { x: 0, z: 0 }, bestCost = Infinity;
-  for (const c of [{ x: 0, z: 0 }, ...sampleCandidates(place, placed, rng)]) {
+  for (const c of [{ x: 0, z: 0 }, ...sampleCandidates(place, placed, rng, ocean)]) {
     const cost = fallbackCost(field, c.x, c.z, radius, MAX_SLOPE[place.kind], placed);
     if (cost < bestCost) { bestCost = cost; best = c; }
   }
@@ -223,10 +236,11 @@ export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placem
   // that keeps every placement (undo, a later edit) lays the same pads in the same order and reproduces the terrain.
   for (const place of orderPlaces(recipe.places)) {
     const k = kept.get(place.id);
-    if (k) { if (k.padded) field.addPad(padFor(k)); continue; }
+    if (k) { if (k.padded) field.addPad(padFor(k, field)); continue; }
     const pl = placeOne(place, field, placed, recipe.seed);
-    pl.padded = place.kind !== 'prop' && padAllowed(field, pl, placed);
-    if (pl.padded) field.addPad(padFor(pl));
+    // In an ocean every place gets a deck, except a loose scatter (kelp, rafts): its members float on their own.
+    pl.padded = field.deckY !== null ? place.layout?.pattern !== 'scatter' : place.kind !== 'prop' && padAllowed(field, pl, placed);
+    if (pl.padded) field.addPad(padFor(pl, field));
     placed.set(pl.id, pl);
   }
   return recipe.places.map((p) => placed.get(p.id)!).filter(Boolean);
@@ -234,6 +248,30 @@ export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placem
 
 /** Camera yaw (three.js, north is -z) that looks from (x, z) toward (tx, tz). */
 const yawToward = (x: number, z: number, tx: number, tz: number): number => Math.atan2(-(tx - x), -(tz - z));
+
+const LANDING_DECK = 7;
+
+/**
+ * Where the player starts in an ocean: a small landing deck overlapping the edge of the biggest deck, on the side
+ * toward the centre, facing it, so the first steps walk straight on. With no decks at all, one at the centre.
+ */
+export function oceanSpawn(field: WorldField, placements: Placement[]): { x: number; y: number; z: number; yaw?: number } {
+  const decks = placements.filter((p) => p.padded);
+  const s = decks.reduce<Placement | undefined>((best, p) => (!best || p.radius > best.radius ? p : best), undefined);
+  let x = 0, z = 0, yaw: number | undefined;
+  if (s) {
+    const inward = Math.hypot(s.x, s.z) > 1 ? Math.atan2(-s.z, -s.x) : 0;
+    const d = Math.max(s.radius, MIN_DECK) + LANDING_DECK - 2;
+    for (let k = 0; k < 16; k++) {
+      const a = inward + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.4;
+      x = s.x + Math.cos(a) * d; z = s.z + Math.sin(a) * d;
+      if (Math.abs(x) < CORE_HALF - LANDING_DECK && Math.abs(z) < CORE_HALF - LANDING_DECK && placements.every((p) => p === s || Math.hypot(p.x - x, p.z - z) > p.radius + LANDING_DECK + 2)) break;
+    }
+    yaw = yawToward(x, z, s.x, s.z);
+  }
+  field.addPad({ x, z, radius: LANDING_DECK, y: field.deckY! });
+  return { x, y: field.deckY! + 1.2, z, yaw };
+}
 
 /**
  * Where the player starts, and which way they face (`yaw`). Beside the biggest settlement (a city's downtown, not the

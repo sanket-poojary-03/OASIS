@@ -110,7 +110,7 @@ export class ScatterAssets {
   /** Every pack model a kind has (its variants); an item draws `variant % count`. */
   private readonly models = new Map<ScatterKind, Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>>();
   /**
-   * Stand-in shapes allowed: offline only. With a server a kind without its pack model yet is not drawn at all (it
+   * Stand-in shapes allowed: only while no server has answered. With a server a kind without its pack model yet is not drawn at all (it
    * appears when the model arrives, via ChunkManager.refreshScatter), so no placeholder trees ever show.
    */
   standIns = true;

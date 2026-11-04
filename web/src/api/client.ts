@@ -1,13 +1,11 @@
 import { opsSchema } from '../core/ops';
 import { parseRecipe, type PlaceKind, type Recipe } from '../core/recipe';
-import { localEdit, localWorld } from './localMock';
 import type { AssetResult, EditContext, EditResult, Source, WorldResult } from './types';
 
 export const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000').replace(/\/$/, '');
 
-const SOURCES: readonly Source[] = ['live', 'mock', 'cache', 'offline'];
-/** Unknown sources are labelled 'mock' (never claim 'live' for something unverified). */
-const asSource = (v: unknown): Source => (SOURCES.includes(v as Source) ? (v as Source) : 'mock');
+/** Anything but 'live' is 'none' (never claim 'live' for something unverified). */
+const asSource = (v: unknown): Source => (v === 'live' ? 'live' : 'none');
 /** Clamp to the backend request models (WorldRequest 3..600, EditRequest 2..400, AssetRequest query <=120) so oversized input is not a silent 422. */
 const clip = (s: string, max: number): string => s.slice(0, max);
 const asNotes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string') : []);
@@ -20,15 +18,15 @@ class HttpError extends Error {
 /** The backend answered 200 but with something that does not validate here. */
 class BadAnswer extends Error {}
 
-/** AI only: when the backend is reachable but the AI cannot answer, the player sees why and the world stays as it is. */
+/** AI only, no stand-in worlds or edits: when the AI cannot answer, the player sees why and the world stays as it is. */
+export const LLM_UNAVAILABLE = 'LLM not available.';
 export const AI_BUSY = 'The AI is busy right now. Please try again in a moment.';
 export const AI_BAD_ANSWER = 'The AI gave an answer that could not be used. Please try again.';
-/** Offline mode is only for a backend that cannot be reached at all (fetch itself failed); everything else is an AI error. */
-const unreachable = (e: unknown): boolean => e instanceof TypeError;
+/** fetch itself failed (TypeError): the backend cannot be reached, so there is no LLM. A backend without one says the same (503). */
 const aiError = (e: unknown): { type: 'unsupported'; reason: string; source: Source } => ({
   type: 'unsupported',
-  reason: e instanceof HttpError ? (e.detail ?? AI_BUSY).slice(0, 300) : e instanceof BadAnswer ? AI_BAD_ANSWER : AI_BUSY,
-  source: 'live',
+  reason: e instanceof TypeError ? LLM_UNAVAILABLE : e instanceof HttpError ? (e.detail ?? AI_BUSY).slice(0, 300) : e instanceof BadAnswer ? AI_BAD_ANSWER : AI_BUSY,
+  source: 'none',
 });
 
 /** Throws on network error, timeout, any non-2xx (incl. 429/5xx; an HttpError) or non-JSON body. */
@@ -60,7 +58,7 @@ export async function health(): Promise<{ ok: boolean; provider: string } | null
 }
 
 /** The prompt enhancer: the player's words grown into a detailed world brief (shown while the world is built from it).
- * Never fails: offline, busy or slow gives an empty brief, and the world is then built from the player's own words. */
+ * Never fails: unreachable, busy or slow gives an empty brief, and the world is then built from the player's own words. */
 export async function briefWorld(prompt: string): Promise<{ brief: string; title?: string }> {
   if (prompt.trim().length < 3) return { brief: '' };
   try {
@@ -78,7 +76,7 @@ export async function briefWorld(prompt: string): Promise<{ brief: string; title
 const WORLD_TIMEOUT_MS = 180000;
 
 export async function generateWorld(prompt: string, brief = ''): Promise<WorldResult> {
-  if (prompt.trim().length < 3) return { type: 'unsupported', reason: 'Describe your world in a few more words.', source: 'live' };
+  if (prompt.trim().length < 3) return { type: 'unsupported', reason: 'Describe your world in a few more words.', source: 'none' };
   try {
     const data = await post('/api/world', { prompt: clip(prompt, 600), ...(brief ? { brief: clip(brief, 3000) } : {}) }, WORLD_TIMEOUT_MS);
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
@@ -86,14 +84,13 @@ export async function generateWorld(prompt: string, brief = ''): Promise<WorldRe
     if (!parsed.ok) throw new BadAnswer(parsed.error);
     return { type: 'recipe', recipe: parsed.recipe, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
-    if (!unreachable(e)) { console.warn('generateWorld: AI unavailable:', e); return aiError(e); }
-    console.warn('generateWorld: backend unreachable, offline mode:', e);
-    return localWorld(prompt);
+    console.warn('generateWorld: AI unavailable:', e);
+    return aiError(e);
   }
 }
 
 export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext): Promise<EditResult> {
-  if (prompt.trim().length < 2) return { type: 'unsupported', reason: 'Type a change, like "make it night".', source: 'live' };
+  if (prompt.trim().length < 2) return { type: 'unsupported', reason: 'Type a change, like "make it night".', source: 'none' };
   try {
     const data = await post('/api/edit', { recipe, prompt: clip(prompt, 400), context: ctx }, 90000);
     if (data.type === 'unsupported') return { type: 'unsupported', reason: String(data.reason), source: asSource(data.source) };
@@ -101,9 +98,8 @@ export async function editWorld(recipe: Recipe, prompt: string, ctx: EditContext
     if (!ops.success) throw new BadAnswer(ops.error.message);
     return { type: 'ops', ops: ops.data, notes: asNotes(data.notes), source: asSource(data.source) };
   } catch (e) {
-    if (!unreachable(e)) { console.warn('editWorld: AI unavailable:', e); return aiError(e); }
-    console.warn('editWorld: backend unreachable, offline mode:', e);
-    return localEdit(recipe, prompt, ctx);
+    console.warn('editWorld: AI unavailable:', e);
+    return aiError(e);
   }
 }
 

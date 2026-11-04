@@ -32,21 +32,22 @@ def test_no_header_uses_the_socket_peer_and_garbage_is_bounded():
 
 
 def test_limits_follow_the_rightmost_hop_not_a_spoofed_leftmost_one(tmp_path):
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path, limiter=RateLimiter(per_ip=1)))
+    client = TestClient(create_app(llm=None, limiter=RateLimiter(per_ip=1)))
 
     def world(xff: str) -> int:
         return client.post("/api/world", json={"prompt": "a valley"}, headers={"x-forwarded-for": xff}).status_code
 
-    assert world("1.1.1.1, 81.2.69.160") == 200
+    # 503: no LLM here, but the request got past the limiter (429 is the limiter's answer).
+    assert world("1.1.1.1, 81.2.69.160") == 503
     assert world("2.2.2.2, 81.2.69.160") == 429  # a new fake leftmost entry does not buy a new budget
-    assert world("81.2.69.161") == 200  # a different visitor has their own
+    assert world("81.2.69.161") == 503  # a different visitor has their own
 
 
 def test_cors_origins_are_stripped_and_empties_dropped(tmp_path, monkeypatch):
     assert cors_origins(" https://a.example , ,https://b.example ,") == ["https://a.example", "https://b.example"]
     assert cors_origins(None) == ["*"] and cors_origins(" , ") == ["*"]
     monkeypatch.setenv("CORS_ORIGINS", "https://a.example, https://b.example")
-    client = TestClient(create_app(llm=None, cache_dir=tmp_path))
+    client = TestClient(create_app(llm=None))
     pre = {"access-control-request-method": "POST"}
     assert client.options("/api/world", headers={"origin": "https://b.example", **pre}).headers.get("access-control-allow-origin") == "https://b.example"
     assert "access-control-allow-origin" not in client.options("/api/world", headers={"origin": "https://evil.example", **pre}).headers

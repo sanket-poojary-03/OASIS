@@ -3,12 +3,16 @@ import type { Collider } from '@dimforge/rapier3d-compat';
 import type { Physics } from '../physics/physics';
 import type { Road, WorldField } from '../world/field';
 import type { Vec2 } from '../world/river';
+import { WOOD_COLOUR } from './decks';
 import { pieces } from './rangeCull';
 import { ribbonData, ribbonGeometry } from './ribbon';
 
 const roadMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5e, roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 /** City streets: dark asphalt. */
 const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x5c5f66, roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+
+/** Boardwalks and deck streets of an ocean world. */
+const woodMat = new THREE.MeshStandardMaterial({ color: WOOD_COLOUR, roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 
 /** Subdivide a polyline to at most maxStep; `bridge[j]` is the flag of sub-segment j (from the raw segment's flag). */
 export function densify(points: Vec2[], bridges: boolean[] = [], maxStep = 3): { points: Vec2[]; bridge: boolean[] } {
@@ -37,7 +41,7 @@ export function buildRoadMeshes(field: WorldField, roads: Road[]): THREE.Group {
   for (const road of roads) {
     // In ~45 m pieces, so the parts beyond the loaded terrain can be hidden (RangeCuller).
     for (const run of pieces(densify(road.points, road.bridges).points)) {
-      const mesh = new THREE.Mesh(ribbonGeometry(run, road.width / 2, (x, z) => roadY(field, x, z)), road.paved ? asphaltMat : roadMat);
+      const mesh = new THREE.Mesh(ribbonGeometry(run, road.width / 2, (x, z) => roadY(field, x, z)), road.paved ? asphaltMat : field.deckY != null ? woodMat : roadMat);
       mesh.receiveShadow = true;
       group.add(mesh);
     }
