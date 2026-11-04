@@ -232,23 +232,36 @@ export function solvePlacements(recipe: Recipe, field: WorldField, fixed: Placem
   return recipe.places.map((p) => placed.get(p.id)!).filter(Boolean);
 }
 
-export function findSpawn(field: WorldField, placements: Placement[]): { x: number; y: number; z: number } {
-  const s = placements.find((p) => p.kind === 'settlement');
-  // Spec 8.6: beside the first settlement, otherwise near the centre (searched outward from 0,0).
-  const cx = s?.x ?? 0, cz = s?.z ?? 0, r = s ? s.radius + 6 : 0;
+/** Camera yaw (three.js, north is -z) that looks from (x, z) toward (tx, tz). */
+const yawToward = (x: number, z: number, tx: number, tz: number): number => Math.atan2(-(tx - x), -(tz - z));
+
+/**
+ * Where the player starts, and which way they face (`yaw`). Beside the biggest settlement (a city's downtown, not the
+ * first group listed), on its side toward the middle of the world, looking at it: the player starts facing the place
+ * they asked for, with the rest of the world around them rather than the map's edge behind it. Without settlements:
+ * dry ground searched outward from the centre, facing the nearest place.
+ */
+export function findSpawn(field: WorldField, placements: Placement[]): { x: number; y: number; z: number; yaw?: number } {
   const ok = (x: number, z: number) => Math.abs(x) < CORE_HALF && Math.abs(z) < CORE_HALF && !field.isWater(x, z) && field.slopeAt(x, z) < 0.5;
-  for (let i = 0; i < 96; i++) {
-    const a = i * 0.7, d = r + i * 2;
-    const x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
-    if (ok(x, z)) return { x, y: field.heightAt(x, z) + 1.2, z };
-  }
-  if (s) { // settlement ring was all wet/steep: fall back to dry ground outward from the centre
-    for (let i = 0; i < 400; i++) {
-      const a = i * 0.7, d = i * 2;
-      if (d > CORE_HALF) break;
-      const x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (ok(x, z)) return { x, y: field.heightAt(x, z) + 1.2, z };
+  const settlements = placements.filter((p) => p.kind === 'settlement');
+  const s = settlements.reduce<Placement | undefined>((best, p) => (!best || p.radius > best.radius ? p : best), undefined);
+  if (s) {
+    // Around the ring, starting from the side that faces the world's centre and widening both ways from there.
+    const inward = Math.hypot(s.x, s.z) > 1 ? Math.atan2(-s.z, -s.x) : 0;
+    for (let i = 0; i < 144; i++) {
+      const k = i % 18, a = inward + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.35, d = s.radius + 6 + Math.floor(i / 18) * 4;
+      const x = s.x + Math.cos(a) * d, z = s.z + Math.sin(a) * d;
+      if (ok(x, z)) return { x, y: field.heightAt(x, z) + 1.2, z, yaw: yawToward(x, z, s.x, s.z) };
     }
+  }
+  // No settlement, or its ring was all wet or steep: dry ground outward from the centre.
+  for (let i = 0; i < 400; i++) {
+    const a = i * 0.7, d = i * 2;
+    if (d > CORE_HALF) break;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (!ok(x, z)) continue;
+    const near = placements.reduce<Placement | undefined>((best, p) => (!best || Math.hypot(p.x - x, p.z - z) < Math.hypot(best.x - x, best.z - z) ? p : best), undefined);
+    return { x, y: field.heightAt(x, z) + 1.2, z, yaw: near ? yawToward(x, z, near.x, near.z) : undefined };
   }
   return { x: 0, y: field.heightAt(0, 0) + 2, z: 0 };
 }

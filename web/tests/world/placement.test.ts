@@ -82,7 +82,23 @@ describe('findSpawn fallback', () => {
     expect(field.isWater(s.x, s.z)).toBe(false);
     expect(field.slopeAt(s.x, s.z)).toBeLessThan(0.5);
     expect(Math.hypot(s.x, s.z)).toBeLessThan(200);
-    expect(findSpawn(field, [])).toEqual(findSpawn(field, props));
+    const bare = findSpawn(field, []), withProps = findSpawn(field, props);
+    expect([bare.x, bare.y, bare.z]).toEqual([withProps.x, withProps.y, withProps.z]);
+  });
+
+  it('starts beside the biggest settlement, on its side toward the centre, facing it', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const field = createField(r);
+    const pls = solvePlacements(r, field);
+    const big = { id: 'downtown', kind: 'settlement', x: 300, y: field.heightAt(300, -300), z: -300, radius: 60, rotation: 0, reasons: [], warnings: [] } as unknown as (typeof pls)[number];
+    const s = findSpawn(field, [...pls, big]);
+    const d = Math.hypot(s.x - big.x, s.z - big.z);
+    expect(d).toBeGreaterThan(60);
+    expect(d).toBeLessThan(140);
+    expect(Math.hypot(s.x, s.z)).toBeLessThan(Math.hypot(big.x, big.z)); // on the inward side
+    // Camera forward for yaw θ is (-sin θ, -cos θ): it points at the settlement.
+    const fx = -Math.sin(s.yaw!), fz = -Math.cos(s.yaw!);
+    expect((fx * (big.x - s.x) + fz * (big.z - s.z)) / d).toBeGreaterThan(0.99);
   });
 });
 

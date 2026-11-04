@@ -17,7 +17,8 @@ export interface BuiltWorld {
   roads: Road[];
   /** Props scattered around places (place.props). */
   extras: Extra[];
-  spawn: { x: number; y: number; z: number };
+  /** Where the player starts and, when known, the camera yaw that faces the main place. */
+  spawn: { x: number; y: number; z: number; yaw?: number };
   checks: Check[];
   log: string[];
 }

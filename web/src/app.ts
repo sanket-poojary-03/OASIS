@@ -56,7 +56,7 @@ export class App {
   private roads: THREE.Group | null = null;
   private readonly culler = new RangeCuller(TERRAIN_RANGE);
   private bridgeColliders: Collider[] = [];
-  private spawnPending: { x: number; y: number; z: number } | null = null;
+  private spawnPending: { x: number; y: number; z: number; yaw?: number } | null = null;
   private history: Snapshot[] = [];
   private pending: { applied: ApplyResult; ops: Op[] } | null = null;
   private working = false;
@@ -423,6 +423,7 @@ export class App {
     if (this.spawnPending && this.chunks.isReady(this.spawnPending.x, this.spawnPending.z)) {
       const s = this.spawnPending;
       this.player.spawn(s.x, s.y, s.z);
+      if (s.yaw !== undefined) this.engine.camera.rotation.set(-0.06, s.yaw, 0, 'YXZ'); // facing the place asked for
       this.player.enabled = true;
       this.spawnPending = null;
       void this.vehicles.parkNear(s.x, s.z);
