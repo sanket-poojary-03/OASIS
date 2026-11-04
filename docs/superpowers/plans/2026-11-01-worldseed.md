@@ -3166,7 +3166,8 @@ engine.onUpdate((dt) => atmo.update(dt, engine.camera.position));
 engine.start();
 ```
 
-- [ ] **Step 4: Verify in the browser**
+- [x] **Step 4: Verify in the browser**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): rain and snow fall, night fog is dark blue, no console errors. The day now lasts 24 real minutes (a later, deliberate change), not 24 s.
 
 Run: `cd web && npm run dev`, then open `http://localhost:5173/` and `http://localhost:5173/?weather=snow`.
 Expected:
@@ -3517,7 +3518,8 @@ void (async () => {
 })();
 ```
 
-- [ ] **Step 5: Verify in the browser**
+- [x] **Step 5: Verify in the browser**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): chunks stream, biome colours, scatter, river channel 3 m deep; 53-59 fps at 1080p.
 
 Run `npm run dev` and open `/?w=fishing-valley`, `/?w=snowy-mountains`, `/?w=tropical-island`, `/?w=desert-canyon`.
 Expected:
@@ -3702,6 +3704,7 @@ void (async () => {
 ```
 
 - [ ] **Step 3: Verify in the browser**
+  > Partly Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): walk/run/jump, swimming and streaming work. Not checked: the 50° cliff limit and Esc (automation cannot take pointer lock).
 
 Open `/?w=fishing-valley` and click to lock the mouse.
 Expected:
@@ -3875,7 +3878,8 @@ Inside `engine.onUpdate`, after `atmo.update(dt, engine.camera.position);` add:
     water.update(engine.camera.position);
 ```
 
-- [ ] **Step 4: Verify in the browser**
+- [x] **Step 4: Verify in the browser**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): river ribbon, roads with a bridge, the island sea, the snowy lake, swimming.
 
 Expected:
 - `fishing-valley`: a blue river ribbon runs down the valley floor, and a dirt road runs through the village and up to the tower, raised as a bridge where it crosses water.
@@ -4376,7 +4380,8 @@ void (async () => {
 })();
 ```
 
-- [ ] **Step 6: Run the tests and verify in the browser**
+- [x] **Step 6: Run the tests and verify in the browser**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): tests pass; houses and the tower are solid (convex hulls for detailed group buildings).
 
 Run: `npx vitest run && npx tsc --noEmit`
 Expected: PASS, with no type errors.
@@ -6132,6 +6137,7 @@ void (async () => {
 ```
 
 - [ ] **Step 3: Verify in the browser**
+  > Partly Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): campfire, lantern (lit at night), bell and barrel work. Not met: library house models have no door part, so their doors do not open while the server is up (by design since 1bafbb6; offline stand-ins keep a door).
 
 - `fishing-valley`: walk up to a house and press E. The door swings open; press E again and it closes. The campfire burns and flickers; E puts it out.
 - `snowy-mountains` (night): the lantern is lit automatically; E switches it off.
@@ -7227,7 +7233,8 @@ void (async () => {
 })();
 ```
 
-- [ ] **Step 4: Verify end to end**
+- [x] **Step 4: Verify end to end**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"), live AI: why-here card, "make it night" preview then night, lighthouse 0.4 m from the crosshair, undo, 26 checks.
 
 Run the backend (`uvicorn app.main:app --port 8000`, mock or live) and `npm run dev`.
 1. The start screen shows. Click a chip, then **Create world**. The busy overlay lists the build log, then you're standing near the village.
@@ -7679,6 +7686,7 @@ import { PostFX } from './render/postfx';
 In `web/src/main.ts`, add `else if (e.code === 'KeyV') app.avatar.toggle();` to the keydown chain. In `web/src/ui/ui.ts`, change the help text to `'WASD move · Shift run · Space jump/swim · E use · T talk to the world · V camera · U undo · C checks'`.
 
 - [ ] **Step 9: Verify the look (the bar for this task)**
+  > Partly Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"): pack trees and rocks, varied houses, V third person, deer. Not checked by eye: grass sway, the walk/run animation, night bloom.
 
 Run: `npx vitest run && npx tsc --noEmit`. Expected: PASS.
 
@@ -7752,6 +7760,7 @@ export async function runDirector(app: App, ui: UI): Promise<void> {
 ```
 
 - [ ] **Step 2: Verify**
+  > Partly Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks"), live AI: orbit, night, lighthouse, snow, ends at day, control returns (73 s). Not checked: offline mode.
 
 Click **▶ Watch the demo** on the start screen.
 Expected:
@@ -7782,7 +7791,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: a public frontend URL (Vercel) and backend URL (Render) with `/api/health` green.
 
-- [ ] **Step 1: Performance check and the one tuning knob**
+- [x] **Step 1: Performance check and the one tuning knob**
+  > Verified 2026-11-04 in headless Chrome through the game API (see DECISIONS 2026-11-04 "Plan acceptance checks") at 1080p on an Intel Iris Xe, sprinting: valley 55, snowy 59, island 45, desert 58, city 53 fps, after convex-hull colliders, adaptive render resolution and thinner outer scatter (instead of the VIEW knob).
 
 With `npm run build && npm run preview`, open the built app and walk for 60 s in each fixture with DevTools' FPS meter.
 - Target: **45 fps or better at 1080p** on a mid-range laptop.

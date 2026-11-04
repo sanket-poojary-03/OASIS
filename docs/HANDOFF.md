@@ -1,18 +1,19 @@
 # OASIS: session handoff (2026-11-04)
 
-Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (the newest entries are under `## 2026-11-03`).
+Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (the newest entries are under `## 2026-11-04` and `## 2026-11-04 (later)`). The project was renamed **WorldSeed → OASIS** on 2026-11-04 (user-facing names only; the branch, spec and plan file names keep `worldseed`).
 
 **Deadline: 2026-11-11 16:30 CEST.**
 
 ## Where things stand
-- **Branch:** `feat/worldseed`, 80 commits ahead of `main`.
+- **Branch:** `feat/worldseed`, 104 commits ahead of `main`.
   - `main` holds only the docs base (26620a5).
   - There is **no git remote yet**, so nothing has been pushed.
 - **The plan is code-complete.** All 30 plan tasks from `docs/superpowers/plans/2026-11-01-worldseed.md` were implemented and reviewed using subagent-driven development, except Task 19b (art download).
   - A final whole-branch review found 1 Critical, 7 Important and 13 Minor issues. All were fixed (up to 2230904), and the re-review was clean.
-- **Tests at the last commit (cb9689e):**
-  - Web: vitest 278 passing, tsc clean, build OK.
-  - Backend: `pytest -q -W error` 107 passed, 10 skipped. The skipped tests wait for the real art library.
+- **Tests at the last commit:**
+  - Web: vitest 343 passing, tsc clean, build OK.
+  - Backend: `pytest -q` 152 passed.
+- **Browser checks:** a headless-Chrome loop (puppeteer-core driving the installed Chrome on the GPU) screenshots worlds and runs the plan's acceptance checks through `window.__ws` (dev builds). The scripts live in the session scratchpad, not the repo; DECISIONS 2026-11-04 (later) lists what was measured. Claude in Chrome also works for live checks (automation cannot take pointer lock; set `player.controls.isLocked = true`).
 - **Ledger and SDD workspace:** `.superpowers/sdd/2026-11-01-worldseed/` is git-ignored. It holds `progress.md` (the ledger), `rulings.md`, and the task briefs and reports, including the Task 19b manual steps.
 - **Extra worktrees** (all merged and safe to remove): `../VICTORIA-backend` (feat/backend), `../VICTORIA-render` (feat/web2), `../VICTORIA-web3` (feat/web3).
 - **Run locally:**
@@ -56,7 +57,13 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 | 0fb9b84 | **Roads everywhere.** A spanning tree of roads over every place and the spawn, plus the AI's paths. |
 | c51a727 | **Prompt enhancer.** `/api/brief`; up to 24 places with props; sturdier repairs; invalid places dropped one by one. |
 | 361b08c | **Props around places.** Deterministic, off roads and plots, real models with interactions. |
-| (next) | **GLM-5.3 Flash for worlds, great cities, brief on screen.** World model split; `layout.variants`; paved city blocks; street lamps at crossings; kerb props and parked cars; prompt p9; builds about 2× faster. |
+| 43b4f8f | **GLM-5.3 Flash for worlds, great cities, brief on screen.** World model split; `layout.variants`; paved city blocks; street lamps at crossings; kerb props and parked cars; prompt p9; builds about 2× faster. |
+| f7b2783 | **Mountains without needles.** Softer, weighted ridged noise; blended rock and snow edges; fog that ends at the loaded terrain; dev `?w=&t=&wx=` screenshot hook. |
+| 4e11a4f | **Nothing hangs in the sky.** `RangeCuller` hides roads, water and objects beyond the loaded terrain; gentler roads (slope cost); at most 4 loading notices. |
+| 93ab289 | **Play-tested live cities.** Coasts for seas off islands; compact cities (prompt p10); asphalt; a fountain for open-space centres; readable light; real dusk and dawn; warm haze; scatter detail rings. |
+| 1991225 | **OASIS.** Rename; city towers designed in code (`world/towerSpec.ts`, `render/towers.ts`: setbacks, glass/office/apartment façades, roofs, lit windows); a live city turning behind a new title screen (`ui/showcase.ts`, `App.showcase`); prompt p11. |
+| 044a02e | **Spawn facing the main place.** Beside the biggest settlement, on its inward side, camera turned toward it. |
+| ff5956c | **Playability from measurements.** Convex-hull colliders for detailed group buildings (controller 5 ms → 0.4 ms); adaptive render resolution; thinner outer scatter (1080p on an Iris Xe, sprinting: 45–59 fps); slim houses widened to person scale; a named time completes atmosphere edits (the demo ends at day). |
 | cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
 
 ## User preferences (also in memory)
@@ -85,9 +92,11 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
    - Render (Docker, `backend/Dockerfile`, context = repo root; set the Sarvam env vars, and **don't** set `MESHY_API_KEY` on free instances).
    - Vercel (root `web`, include files outside root, `VITE_API_URL`).
    - The Docker image has never been built (Docker Desktop wasn't running).
-5. **Manual checks:**
-   - FPS ≥ 45 at 1080p per fixture, with real art (Task 24b Step 9 / Task 26 Step 1).
-   - The MANUAL-PENDING browser checks listed in the ledger.
+5. **Manual checks still open** (the rest of the plan's browser checks were measured and ticked on 2026-11-04):
+   - By eye: grass sway, the walk/run animation, night bloom (Task 24b Step 9); the 50° cliff limit and Esc (Task 14); the demo in offline mode (Task 25).
+   - Doors on library houses do not open (no door part in the models); decide whether to add stand-in doors to loaded houses.
+   - The snowy valley floor reads teal under dawn light, and bright green grass grows in snowy valleys.
+   - From high up (jetpack) the edge of the loaded land is still faintly visible.
 6. **Submission:**
    - A video under 3 minutes.
    - `docs/SUBMISSION.md` now mentions Sarvam, group layouts, palettes and the AI-only behaviour. It still needs the demo, repo and video URLs.
