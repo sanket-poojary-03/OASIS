@@ -53,6 +53,7 @@ class Candidate:
     source: str
     tris: int | None = None
     uid: str | None = None
+    thumbnail: str | None = None
 
     @property
     def credit(self) -> str:
@@ -119,12 +120,20 @@ class PolyPizzaFinder:
                 download=str(_first(m, "Download", "download", default="")),
                 license=str(_first(m, "Licence", "License", "license", default="")),
                 author=author, source=self.name, tris=int(tris) if tris else None,
+                thumbnail=_first(m, "Thumbnail", "thumbnail"),
             ))
         return [c for c in out if c.download]
 
     def download(self, cand: Candidate, dest: Path) -> None:
         with httpx.Client(timeout=15, transport=self.transport, follow_redirects=True) as c:
             stream_to_file(c, cand.download, dest, cap=ONLINE_MAX_DOWNLOAD)
+
+
+def _sketchfab_thumbnail(m: dict) -> str | None:
+    """The smallest of its images that is still big enough to judge."""
+    images = [i for i in (m.get("thumbnails") or {}).get("images", []) if i.get("url")]
+    big = [i for i in images if int(i.get("width") or 0) >= 200]
+    return min(big, key=lambda i: int(i["width"]))["url"] if big else (images[0]["url"] if images else None)
 
 
 class SketchfabFinder:
@@ -148,6 +157,7 @@ class SketchfabFinder:
             out.append(Candidate(
                 title=str(m.get("name", "model")), download="", license=str(_first(lic, "label", default="") if isinstance(lic, dict) else lic or ""),
                 author=str((m.get("user") or {}).get("username", "")), source=self.name, tris=m.get("faceCount"), uid=m.get("uid"),
+                thumbnail=_sketchfab_thumbnail(m),
             ))
         return [c for c in out if c.uid]
 

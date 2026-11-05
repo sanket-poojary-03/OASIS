@@ -1,7 +1,7 @@
 """Smarter matching for the model finder (no placeholders: a place shows a real model or nothing).
 
 - `shape_ok`: a downloaded model must be shaped like what was asked for (a flat manhole cover is never a building).
-- `LLMAlternatives`: other search words to try when nothing is found ("metro station" -> "subway entrance").
+- `default_pick`, `scene_like`, `LLMPicker`: choosing among models by title, when no thumbnail can be judged.
 - `cheap_llm`: the shared set-up for these small, fast LLM calls.
 """
 from __future__ import annotations
@@ -10,9 +10,11 @@ import copy
 import json
 import logging
 import math
+import re
 import struct
 from pathlib import Path
 
+from .asset_sources import Candidate, tokens
 from .llm import extract_json
 
 log = logging.getLogger(__name__)
@@ -95,28 +97,68 @@ def cheap_llm(llm, timeout: float = 8.0, max_tokens: int = 1500):
     return c
 
 
-class LLMAlternatives:
-    """Other search words for a thing no library has under its own name: "metro station" -> "subway entrance"."""
+_TAIL = {"with", "on", "of", "in", "near", "by", "beside", "at", "from", "next"}
+# Title words that say nothing about what the object is.
+_GENERIC = {"building", "model", "low", "poly", "lowpoly", "game", "asset", "prop", "object", "stylized", "simple"}
+
+
+def head_noun(text: str) -> str | None:
+    """The noun the request is about: the last token before 'with/on/of/near...' ("campfire with stones" -> campfire)."""
+    words: list[str] = []
+    for w in re.findall(r"[a-z]+", text.lower()):
+        if w in _TAIL and words:
+            break
+        words.append(w)
+    toks = tokens(" ".join(words))
+    return toks[-1] if toks else None
+
+
+def default_pick(query: str, cands: list[Candidate]) -> int:
+    """By title, when nothing better can judge. The title must name the requested thing and nothing else: a "Light Cube"
+    is a lamp, not a "red cube". Closest title first, then the shorter one; no fit means -1."""
+    q = set(tokens(query))
+    head = head_noun(query)
+    best, best_key = -1, (0.0, 0)
+    for i, c in enumerate(cands):
+        t = set(tokens(c.title))
+        if head not in t or t - q - _GENERIC:
+            continue
+        key = (len(q & t) / len(q | t), -len(c.title))
+        if best < 0 or key > best_key:
+            best, best_key = i, key
+    return best
+
+
+_SCENE_WORDS = {"interior", "interiors", "inside", "room", "rooms", "scene", "diorama", "environment"}
+
+
+def scene_like(title: str, query: str) -> bool:
+    """A whole room or scene rather than one object, unless the player asked for exactly that."""
+    words = lambda t: set(re.findall(r"[a-z]+", t.lower()))  # noqa: E731
+    return bool((words(title) & _SCENE_WORDS) - words(query))
+
+
+class LLMPicker:
+    """One cheap LLM call to choose among models by title: library models that only partly match the request
+    ("statue of a knight" vs a stag statue), or online results when no vision check is set up."""
 
     uses_llm = True
 
-    def __init__(self, llm):
-        self.llm = cheap_llm(llm)
+    def __init__(self, llm, timeout: float = 8.0):
+        # The answer is {"index": n}, but reasoning models (Sarvam) think ~200 tokens first and count that against the cap.
+        self.llm = cheap_llm(llm, timeout, 1500)
 
-    def __call__(self, query: str) -> list[str]:
+    def __call__(self, query: str, cands: list[Candidate]) -> int:
+        lines = "\n".join(f"{i}: {c.title} ({c.tris or '?'} triangles)" for i, c in enumerate(cands))
         try:
-            raw = self.llm.complete(
-                'A free low-poly 3D model library found nothing for a request. Suggest 3 other short search phrases (1-3 words '
-                'each) for the same thing as one object seen from outside, the most likely to exist first: a more common name, '
-                'a close kind of thing, then the general category. Reply with JSON {"queries": ["...", "...", "..."]}.',
-                f"Request: {query}")
-            queries = extract_json(raw).get("queries", [])
-        except Exception as e:  # noqa: BLE001 - no alternatives is a normal outcome
-            log.warning("alternative search words failed for %r (%s: %s)", query, type(e).__name__, e)
-            return []
-        out: list[str] = []
-        for q in queries if isinstance(queries, list) else []:
-            q = str(q).strip().lower()[:60]
-            if len(q) >= 2 and q != query.strip().lower() and q not in out:
-                out.append(q)
-        return out[:3]
+            raw = self.llm.complete('Pick the 3D model that best matches the request. It will stand in an open-world game, so choose ONE whole '
+                                    'object seen from outside (for a building: its exterior, never an interior, a room or a scene). When two fit '
+                                    'equally, prefer the lower triangle count. It must BE the requested thing, not merely related to it (a manhole cover '
+                                    'is not a metro station, a stag statue is not a knight statue). Reply with JSON {"index": n}, '
+                                    'or {"index": -1} if none fits.',
+                                    f"Request: {query}\nCandidates:\n{lines}")
+            idx = int(extract_json(raw).get("index", -1))
+        except Exception as e:  # noqa: BLE001 - fall back to title matching
+            log.warning("LLM picker failed (%s: %s); using title matching", type(e).__name__, e)
+            return default_pick(query, cands)
+        return idx if -1 <= idx < len(cands) else -1

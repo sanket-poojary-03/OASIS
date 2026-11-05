@@ -134,3 +134,28 @@ describe('the world brief', () => {
     expect(bodies[1]).toEqual({ prompt: 'a city' });
   });
 });
+
+describe('asset answers from the finder', () => {
+  const box = { shape: 'box', at: [0, 0.5, 0], size: [1, 1, 1], color: '#cc2222' };
+
+  it('keeps valid parts and turns invalid ones into none, with the messages kept', async () => {
+    vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'procedural', parts: [box], notices: ['Building a cube manually'] }));
+    expect(await resolveAsset('cube', 'prop', true)).toEqual({ status: 'ready', source: 'procedural', parts: [box], notices: ['Building a cube manually'] });
+    vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'procedural', parts: [{ ...box, code: 'x' }], notices: ['Building a cube manually'] }));
+    expect(await resolveAsset('cube', 'prop', true)).toEqual({ status: 'none', notices: ['Building a cube manually'] });
+  });
+
+  it('passes a valid tint and drops anything else', async () => {
+    vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'online', url: '/x.glb', tint: '#cc2222' }));
+    expect((await resolveAsset('red lighthouse', 'landmark', true)).tint).toBe('#cc2222');
+    vi.stubGlobal('fetch', reply(200, { status: 'ready', source: 'online', url: '/x.glb', tint: 'red;' }));
+    expect((await resolveAsset('red lighthouse', 'landmark', true)).tint).toBeUndefined();
+  });
+
+  it('keeps only text messages, on pending and none too', async () => {
+    vi.stubGlobal('fetch', reply(200, { status: 'pending', jobId: 'j', notices: ['Meshy API key is missing', 5, null] }));
+    expect(await resolveAsset('robot', 'landmark', true)).toEqual({ status: 'pending', jobId: 'j', notices: ['Meshy API key is missing'] });
+    vi.stubGlobal('fetch', reply(200, { status: 'none', notices: ['Could not build a robot'] }));
+    expect(await resolveAsset('robot', 'landmark', true)).toEqual({ status: 'none', notices: ['Could not build a robot'] });
+  });
+});

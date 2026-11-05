@@ -29,6 +29,7 @@ import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './re
 import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
 import { WorldObjects, type ModelSource } from './render/worldObjects';
+import { NoticeQueue } from './ui/assetNotices';
 import type { UI } from './ui/ui';
 import { waitUntil } from './ui/wait';
 import { buildWorld, type BuiltWorld } from './world/build';
@@ -112,6 +113,10 @@ export class App {
     objects.onCleared.push(() => this.interactions.clear());
     objects.onCleared.push(() => this.vehicles.dropAdopted());
     objects.onLoading.push((e) => { if (!this.menuWorld) this.ui?.notices.loading(e); }); // the menu's world loads quietly
+    if (models instanceof AssetModelSource) {
+      const notices = new NoticeQueue((text) => this.ui?.toast(text));
+      models.onNotice = (text) => { if (!this.menuWorld) notices.add(text); };
+    }
     this.booster = new Booster(engine.scene);
     avatar.attach(this.booster.pack);
     this.dayScale = atmosphere.timeScale;

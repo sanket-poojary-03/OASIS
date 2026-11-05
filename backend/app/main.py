@@ -8,7 +8,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .asset_match import LLMAlternatives
+from .asset_analyse import RequestAnalyser
+from .asset_procedural import PartsDesigner
+from .asset_vision import VisionPicker
 from .assets import AssetLibrary, AssetService, LLMPicker, MeshyClient, ModelCache, PolyPizzaFinder, SketchfabFinder, default_pick
 from .clientip import client_ip as forwarded_client
 from .llm import LLMClient
@@ -26,6 +28,7 @@ def default_assets(llm=None) -> AssetService:
     if token := os.getenv("SKETCHFAB_TOKEN", "").strip():
         finders.append(SketchfabFinder(token))
     meshy_key = os.getenv("MESHY_API_KEY", "").strip()
+    smart = llm if llm and os.getenv("ASSET_LLM_PICK", "1") == "1" else None
     return AssetService(
         AssetLibrary(BACKEND_DIR / "assets" / "library"),
         ModelCache(BACKEND_DIR / "assets" / "generated"),
@@ -33,8 +36,10 @@ def default_assets(llm=None) -> AssetService:
         MeshyClient(meshy_key) if meshy_key else None,
         max_generations=int(os.getenv("MESHY_MAX_GENERATIONS", "5")),
         refine=os.getenv("MESHY_REFINE", "0") == "1",
-        pick=LLMPicker(llm) if llm and os.getenv("ASSET_LLM_PICK", "1") == "1" else default_pick,
-        alternatives=LLMAlternatives(llm) if llm and os.getenv("ASSET_LLM_PICK", "1") == "1" else None,
+        pick=LLMPicker(smart) if smart else default_pick,
+        analyse=RequestAnalyser(smart) if smart else None,
+        vision=VisionPicker(smart.for_vision()) if smart and hasattr(smart, "for_vision") else None,
+        designer=PartsDesigner(smart.for_world() if hasattr(smart, "for_world") else smart) if smart else None,
     )
 
 
@@ -52,8 +57,9 @@ def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetServic
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
     # Separate budget for the external asset path (library/cache hits are free and never counted).
     asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
-    # Its own small budget for LLM model picks (I4): a pick never spends the player's world/edit allowance.
-    pick_limiter = pick_limiter or RateLimiter(per_ip=20, window=600, daily_cap=int(os.getenv("ASSET_PICK_DAILY_CAP", "200")))
+    # Its own budget for the finder's LLM calls (I4): they never spend the player's world/edit allowance. A new object can take
+    # 3 to 6 of them (analysis, a vision check per search term, a design) and one world asks for 30 or more.
+    pick_limiter = pick_limiter or RateLimiter(per_ip=240, window=600, daily_cap=int(os.getenv("ASSET_PICK_DAILY_CAP", "2000")))
     assets = assets or default_assets(llm)
     assets.library.root.mkdir(parents=True, exist_ok=True)
     app.mount("/files/library", StaticFiles(directory=str(assets.library.root)), name="library")

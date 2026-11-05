@@ -137,7 +137,7 @@ def test_generate_with_meshy_then_budget(tmp_path):
     assert "low-poly" in meshy.created[0]
 
 
-# Generation for any kind (the user's choice, 2026-11-03): tests/test_asset_match.py::test_nothing_anywhere_then_generate_any_kind
+# Generation is for landmarks (the user's choice, 2026-11-05): tests/test_asset_match.py::test_only_a_landmark_is_generated
 
 
 def test_default_pick_prefers_title_match():

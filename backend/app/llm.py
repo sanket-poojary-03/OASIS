@@ -83,7 +83,18 @@ class LLMClient:
         c.timeout = max(self.timeout, float(os.getenv("LLM_WORLD_TIMEOUT", "120")))
         return c
 
-    def complete(self, system: str, user: str, prefer_backup: bool = False) -> str:
+    def for_vision(self) -> "LLMClient":
+        """The client that looks at thumbnails. Sarvam's own models read no images and its /v1 refuses them, so: an image
+        model on /v2 with the same key (measured 2026-11-05). One model, no backups: a failure falls back to titles."""
+        c = copy.copy(self)
+        c.model = os.getenv("VISION_MODEL", "glm5.3-flash").strip()
+        c.base_url = os.getenv("VISION_BASE_URL", "https://api.sarvam.ai/v2").strip().rstrip("/")
+        c.api_key = os.getenv("VISION_API_KEY", "").strip() or self.api_key
+        c.fallback_models = []
+        c.reasoning_effort = ""
+        return c
+
+    def complete(self, system: str, user: str | list[dict], prefer_backup: bool = False) -> str:
         """`prefer_backup`: start with the backup models (a last try after the main model's answers were unusable)."""
         last: Exception | None = None
         backups = [m for m in self.fallback_models if m != self.model]
@@ -106,7 +117,7 @@ class LLMClient:
                     self.sleep(1.5 * (attempt + 1))
         raise LLMError(f"all AI models busy: {last}")
 
-    def _call(self, model: str, system: str, user: str) -> str:
+    def _call(self, model: str, system: str, user: str | list[dict]) -> str:
         body: dict = {
             "model": model,
             "temperature": 0.4,

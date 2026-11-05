@@ -1,6 +1,7 @@
 import json
 
-from app.asset_match import LLMAlternatives, glb_size, shape_ok
+from app.asset_analyse import Analysis
+from app.asset_match import glb_size, shape_ok
 from app.assets import AssetService, ModelCache
 from app.schemas import AssetRequest
 
@@ -37,8 +38,8 @@ def test_glb_size_and_shape_check(tmp_path):
 
 
 def test_flat_download_is_rejected_for_a_building_and_the_next_one_is_used(tmp_path):
-    f = ShapedFinder("Poly Pizza", [cand("Metro Station Cover"), cand("Station Building")],
-                     {"Metro Station Cover": (1, 0.05, 1), "Station Building": (6, 5, 4)})
+    f = ShapedFinder("Poly Pizza", [cand("Metro Station"), cand("Station Building")],
+                     {"Metro Station": (1, 0.05, 1), "Station Building": (6, 5, 4)})
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [f])
     out = svc.resolve(AssetRequest(query="metro station", kind="structure"))
     assert out["status"] == "ready" and "Station Building" in out["credit"]
@@ -57,10 +58,10 @@ def test_alternative_search_words_are_tried_before_generating_and_the_answer_is_
 
     def alts(q):
         asked.append(q)
-        return ["subway entrance", "train station"]
+        return Analysis(search=q, alternatives=["subway entrance", "train station"])
 
     meshy = FakeMeshy()
-    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [f], meshy=meshy, alternatives=alts)
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [f], meshy=meshy, analyse=alts)
     out = svc.resolve(AssetRequest(query="metro station", kind="structure", allowGenerate=True))
     assert out["status"] == "ready" and "Subway Entrance" in out["credit"]
     assert meshy.created == []
@@ -69,18 +70,19 @@ def test_alternative_search_words_are_tried_before_generating_and_the_answer_is_
 
 
 def test_alternatives_can_land_in_the_library(tmp_path):
-    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], alternatives=lambda q: ["stone tower"])
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], analyse=lambda q: Analysis(search=q, alternatives=["stone tower"]))
     out = svc.resolve(AssetRequest(query="lighthouse", kind="landmark"))
     assert out["status"] == "ready" and out["source"] == "library" and "tower" in out["url"]
 
 
-def test_nothing_anywhere_then_generate_any_kind(tmp_path):
+def test_only_a_landmark_is_generated(tmp_path):
     meshy = FakeMeshy()
-    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], meshy=meshy, alternatives=lambda q: [], spawn=lambda f, *a: f(*a))
-    assert svc.resolve(AssetRequest(query="purple dragon", kind="prop", allowGenerate=False)) == {"status": "none"}
-    for kind in ("prop", "structure", "settlement", "landmark"):
-        assert svc.resolve(AssetRequest(query=f"purple {kind} thing", kind=kind, allowGenerate=True))["status"] in ("pending", "ready")
-    assert len(meshy.created) == 4
+    svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], meshy=meshy, spawn=lambda f, *a: f(*a))
+    assert svc.resolve(AssetRequest(query="purple dragon", kind="landmark", allowGenerate=False)) == {"status": "none"}
+    for kind in ("prop", "structure", "settlement"):
+        assert svc.resolve(AssetRequest(query=f"purple {kind} thing", kind=kind, allowGenerate=True)) == {"status": "none"}
+    assert svc.resolve(AssetRequest(query="purple landmark thing", kind="landmark", allowGenerate=True))["status"] in ("pending", "ready")
+    assert len(meshy.created) == 1
 
 
 class FakeLLMPick:
@@ -107,19 +109,3 @@ def test_partial_library_matches_are_confirmed_by_the_ai_exact_ones_are_not(tmp_
     (tmp_path / "c").mkdir()
     svc2 = AssetService(make_lib(tmp_path / "c"), ModelCache(tmp_path / "gen3"), [], pick=yes)
     assert svc2.resolve(AssetRequest(query="old tower", kind="landmark"))["source"] == "library"
-
-
-def test_llm_alternatives_parses_and_cleans():
-    class LLM:
-        timeout, retries, max_tokens = 30.0, 3, 8000
-
-        def complete(self, system, user, **kw):
-            return '{"queries": ["Subway Entrance", "metro station", "", "train station", "station building", "extra"]}'
-
-    assert LLMAlternatives(LLM())("metro station") == ["subway entrance", "train station", "station building"]
-
-    class Broken(LLM):
-        def complete(self, system, user, **kw):
-            raise RuntimeError("busy")
-
-    assert LLMAlternatives(Broken())("x y") == []

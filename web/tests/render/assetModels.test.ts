@@ -177,3 +177,54 @@ describe('AssetModelSource variants (every house its own library model)', () => 
     expect(resolve.mock.calls[1][4]).toBe(99);
   });
 });
+
+describe('AssetModelSource: built parts, tints and messages', () => {
+  const PARTS = [{ shape: 'box' as const, at: [0, 0.5, 0] as [number, number, number], size: [1, 1, 1] as [number, number, number], color: '#cc2222' }];
+
+  it('builds a model from parts without loading any file', async () => {
+    const { src, loadGltf } = rig(() => ({ status: 'ready', source: 'procedural', parts: PARTS }));
+    const out = await src.load('red cube', 'prop');
+    expect(out?.source).toBe('procedural');
+    expect(out?.object.children).toHaveLength(1);
+    expect(loadGltf).not.toHaveBeenCalled();
+  });
+
+  it('waits for a job, and only then builds', async () => {
+    const { src, job } = rig(() => ({ status: 'pending', jobId: 'j' }));
+    job.mockResolvedValueOnce({ status: 'pending', jobId: 'j' }).mockResolvedValueOnce({ status: 'ready', source: 'procedural', parts: PARTS });
+    expect((await src.load('robot', 'landmark'))?.source).toBe('procedural');
+    expect(job).toHaveBeenCalledTimes(2);
+  });
+
+  it('tints a copy, never the loaded file everyone shares', async () => {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: '#ffffff' })));
+    const { src, loadGltf } = rig(() => ({ status: 'ready', source: 'online', url: 'http://x/l.glb', tint: '#cc2222' }));
+    loadGltf.mockResolvedValue({ scene });
+    const out = await src.load('red lighthouse', 'landmark');
+    expect(out?.object).not.toBe(scene);
+    expect(((scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString()).toBe('ffffff');
+  });
+
+  it('tells the player in order, each message once per world', async () => {
+    const said: string[] = [];
+    const { src, job } = rig(() => ({ status: 'pending', jobId: 'j', notices: ['Meshy API key is missing', 'Building a robot manually'] }));
+    job.mockResolvedValue({ status: 'ready', source: 'procedural', parts: PARTS, notices: ['Meshy API key is missing', 'Building a robot manually'] });
+    src.onNotice = (t) => said.push(t);
+    await src.load('robot', 'landmark');
+    expect(said).toEqual(['Meshy API key is missing', 'Building a robot manually']);
+    await src.load('tower', 'landmark');
+    expect(said).toHaveLength(2);
+    src.reset();
+    await src.load('dragon', 'landmark');
+    expect(said).toHaveLength(4);
+  });
+
+  it('passes on why nothing could be built', async () => {
+    const said: string[] = [];
+    const { src } = rig(() => ({ status: 'none', notices: ['Could not build a robot'] }));
+    src.onNotice = (t) => said.push(t);
+    expect(await src.load('robot', 'prop')).toBeNull();
+    expect(said).toEqual(['Could not build a robot']);
+  });
+});

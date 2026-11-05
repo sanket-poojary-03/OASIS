@@ -1,5 +1,6 @@
 import { opsSchema } from '../core/ops';
 import { parseRecipe, type PlaceKind, type Recipe } from '../core/recipe';
+import { partsSchema } from './parts';
 import type { AssetResult, EditContext, EditResult, Source, WorldResult } from './types';
 
 export const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000').replace(/\/$/, '');
@@ -112,17 +113,25 @@ const isTimeout = (e: unknown): boolean => e instanceof Error && (e.name === 'Ti
 /** Only a definitive client error (a 4xx other than 429) is a real "no model"; every other failure is transient. */
 const failed = (e: unknown): AssetResult => (isTimeout(e) ? SLOW : e instanceof HttpError && e.status < 500 && e.status !== 429 ? NONE : DOWN);
 const absolute = (url: string): string => (url.startsWith('/') ? `${API_BASE}${url}` : url);
+const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /** Validate an asset response; anything malformed becomes `none` (placeholder). Credit is third-party text: render with textContent only. */
 function toAsset(data: unknown): AssetResult {
   if (typeof data !== 'object' || data === null) return NONE;
   const d = data as Record<string, unknown>;
+  const notices = Array.isArray(d.notices) ? d.notices.filter((n): n is string => typeof n === 'string').map((n) => n.slice(0, 200)) : [];
+  const told = notices.length ? { notices } : {};
+  if (d.status === 'ready' && d.source === 'procedural') {
+    const parts = partsSchema.safeParse(d.parts);
+    return parts.success ? { status: 'ready', source: 'procedural', parts: parts.data, ...told } : { ...NONE, ...told };
+  }
   if (d.status === 'ready' && typeof d.url === 'string' && d.url) {
     const source = d.source === 'library' || d.source === 'online' || d.source === 'generated' ? d.source : undefined;
-    return { status: 'ready', source, url: absolute(d.url), credit: typeof d.credit === 'string' ? d.credit.slice(0, 300) : undefined };
+    const tint = typeof d.tint === 'string' && HEX.test(d.tint) ? { tint: d.tint } : {};
+    return { status: 'ready', source, url: absolute(d.url), credit: typeof d.credit === 'string' ? d.credit.slice(0, 300) : undefined, ...tint, ...told };
   }
-  if (d.status === 'pending' && typeof d.jobId === 'string' && d.jobId) return { status: 'pending', jobId: d.jobId };
-  return NONE;
+  if (d.status === 'pending' && typeof d.jobId === 'string' && d.jobId) return { status: 'pending', jobId: d.jobId, ...told };
+  return { ...NONE, ...told };
 }
 
 /** The backend AssetRequest accepts variant 0..99. */
@@ -136,7 +145,8 @@ export const clampVariant = (v: number): number => Math.max(0, Math.min(MAX_VARI
 export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean, allowOnline = true, variant = 0): Promise<AssetResult> {
   try {
     const body = { query: clip(query, 120), kind, allowGenerate, allowOnline, variant: clampVariant(variant) };
-    return toAsset(await post('/api/assets/resolve', body, 20000));
+    // Up to 4 searches, each with a vision check, on a new object: the backend limits itself to about 30 s.
+    return toAsset(await post('/api/assets/resolve', body, 45000));
   } catch (e) {
     return failed(e);
   }

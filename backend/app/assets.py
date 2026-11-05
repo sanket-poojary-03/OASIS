@@ -1,183 +1,48 @@
-"""Model finder: library -> cache -> online (Poly Pizza, Sketchfab) -> Meshy (landmarks only) -> placeholder."""
+"""Model finder: exact library -> cache -> analysis -> library -> online + vision over several search terms -> Meshy (landmarks) -> manual."""
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
-import re
 import threading
 import time
 import uuid
+from itertools import zip_longest
 from pathlib import Path
 from typing import Callable
 from urllib.parse import quote
 
+import httpx
+
 from .asset_sources import (  # noqa: F401 - re-exported for callers and tests
     Candidate, Finder, MeshyClient, PolyPizzaFinder, SketchfabFinder, license_ok, tokens,
 )
-from .asset_match import cheap_llm, shape_ok
-from .llm import extract_json
+from .asset_analyse import Analysis
+from .asset_match import LLMPicker, default_pick, scene_like, shape_ok  # noqa: F401 - re-exported for callers and tests
+from .asset_store import AssetLibrary, ModelCache, _atomic_write_json
+from .asset_vision import Verdict
 from .schemas import AssetRequest
 
 log = logging.getLogger(__name__)
 
-_TAIL = {"with", "on", "of", "in", "near", "by", "beside", "at", "from", "next"}
+# How long one request may spend on search terms, so the browser's wait still has room for what comes after.
+SEARCH_SECONDS = 20.0
+MAX_POOL = 8
+NO_MESHY_KEY = "Meshy API key is missing"
+NO_MESHY_CREDITS = "Meshy has no credits left"
 
 
-def head_noun(text: str) -> str | None:
-    """The noun the request is about: the last token before 'with/on/of/near...' ("campfire with stones" -> campfire)."""
-    words: list[str] = []
-    for w in re.findall(r"[a-z]+", text.lower()):
-        if w in _TAIL and words:
-            break
-        words.append(w)
-    toks = tokens(" ".join(words))
-    return toks[-1] if toks else None
+def _building(query: str) -> str:
+    return f"Building {query} manually"
 
 
-def _atomic_write_json(path: Path, data) -> None:
-    tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex[:8]}.tmp")
-    tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    os.replace(tmp, path)
-
-
-def _read_json(path: Path, default):
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, type(default)) else default
-    except FileNotFoundError:
-        return default
-    except (OSError, ValueError) as e:
-        log.warning("ignoring unreadable %s: %s", path.name, e)
-        return default
-
-
-class AssetLibrary:
-    def __init__(self, root: Path):
-        self.root = root
-        self.entries: list[dict] = _read_json(root / "manifest.json", [])
-        self._tags = [set(tokens(" ".join(e.get("tags", [])))) for e in self.entries]
-
-    def search(self, query: str, variant: int = 0) -> tuple[dict | None, float]:
-        """Best entry by (coverage of the query, Jaccard); the query's head noun must be among its tags.
-
-        TAGGING CONTRACT: a kind-specific model also carries its category noun, e.g. pine -> ["pine", "tree"],
-        dead -> ["dead", "tree"], plain tree -> ["tree"]. Then "tree" -> the plain tree (highest Jaccard),
-        "pine"/"pine tree" -> the pine. Equally good entries rotate with `variant`. Returns (entry, coverage).
-        """
-        scored = self.ranked(query)
-        if not scored:
-            return None, 0.0
-        best = scored[0][0]
-        if best[0] < 0.5:
-            return None, best[0]
-        ties = [e for k, e in scored if k == best]
-        return ties[variant % len(ties)], best[0]
-
-    def ranked(self, query: str) -> list[tuple[tuple[float, float], dict]]:
-        """Entries carrying the query's head noun, best first by (coverage of the query, Jaccard); manifest order on ties."""
-        q = set(tokens(query))
-        if not q:
-            return []
-        head = head_noun(query)
-        scored = []
-        for i, (e, tags) in enumerate(zip(self.entries, self._tags)):
-            if head and head not in tags:
-                continue
-            scored.append(((len(q & tags) / len(q), len(q & tags) / len(q | tags)), i, e))
-        scored.sort(key=lambda s: (-s[0][0], -s[0][1], s[1]))
-        return [(k, e) for k, _, e in scored]
-
-
-class ModelCache:
-    """Every model fetched online or generated, stored once and reused by its normalized description.
-
-    The index and the paid-attempts counter live next to the served folder, never inside it.
-    """
-
-    def __init__(self, root: Path):
-        self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
-        self.index_path = root.parent / f".{root.name}-index.json"
-        self.attempts_path = root.parent / f".{root.name}-attempts.json"
-        self.index: dict[str, dict] = _read_json(self.index_path, {})
-        self.attempts: int = int(_read_json(self.attempts_path, {}).get("meshy", 0) or 0)
-        self.lock = threading.Lock()
-
-    @staticmethod
-    def key(query: str) -> str:
-        return hashlib.sha1(" ".join(sorted(set(tokens(query)))).encode("utf-8")).hexdigest()[:16]
-
-    def get(self, query: str) -> dict | None:
-        e = self.index.get(self.key(query))
-        return e if e and (self.root / e["file"]).exists() else None
-
-    def add(self, key: str, query: str, file: str, source: str, credit: str | None = None) -> None:
-        with self.lock:
-            self.index[key] = {"file": file, "query": query, "source": source, "credit": credit, "created": time.time()}
-            _atomic_write_json(self.index_path, self.index)
-
-    def count(self, source: str | None = None) -> int:
-        return sum(1 for e in self.index.values() if source is None or e["source"] == source)
-
-    def reserve_attempt(self, limit: int) -> bool:
-        """Count one paid generation BEFORE it starts; False when the budget is spent. Persisted atomically."""
-        with self.lock:
-            if self.attempts >= limit:
-                return False
-            self.attempts += 1
-            _atomic_write_json(self.attempts_path, {"meshy": self.attempts})
-            return True
-
-
-def default_pick(query: str, cands: list[Candidate]) -> int:
-    """Closest title wins: Jaccard of tokens, then the shorter title. No overlap at all means -1."""
-    q = set(tokens(query))
-    best, best_key = -1, (0.0, 0)
-    for i, c in enumerate(cands):
-        t = set(tokens(c.title))
-        if not (q & t):
-            continue
-        key = (len(q & t) / len(q | t), -len(c.title))
-        if best < 0 or key > best_key:
-            best, best_key = i, key
-    return best
-
-
-_SCENE_WORDS = {"interior", "interiors", "inside", "room", "rooms", "scene", "diorama", "environment"}
-
-
-def scene_like(title: str, query: str) -> bool:
-    """A whole room or scene rather than one object, unless the player asked for exactly that."""
-    words = lambda t: set(re.findall(r"[a-z]+", t.lower()))  # noqa: E731
-    return bool((words(title) & _SCENE_WORDS) - words(query))
-
-
-class LLMPicker:
-    """One cheap LLM call to choose among models by title: online search results, or library models that only partly
-    match the request ("statue of a knight" vs a stag statue)."""
-
-    uses_llm = True
-
-    def __init__(self, llm, timeout: float = 8.0):
-        # The answer is {"index": n}, but reasoning models (Sarvam) think ~200 tokens first and count that against the cap.
-        self.llm = cheap_llm(llm, timeout, 1500)
-
-    def __call__(self, query: str, cands: list[Candidate]) -> int:
-        lines = "\n".join(f"{i}: {c.title} ({c.tris or '?'} triangles)" for i, c in enumerate(cands))
-        try:
-            raw = self.llm.complete('Pick the 3D model that best matches the request. It will stand in an open-world game, so choose ONE whole '
-                                    'object seen from outside (for a building: its exterior, never an interior, a room or a scene). When two fit '
-                                    'equally, prefer the lower triangle count. It must BE the requested thing, not merely related to it (a manhole cover '
-                                    'is not a metro station, a stag statue is not a knight statue). Reply with JSON {"index": n}, '
-                                    'or {"index": -1} if none fits.',
-                                    f"Request: {query}\nCandidates:\n{lines}")
-            idx = int(extract_json(raw).get("index", -1))
-        except Exception as e:  # noqa: BLE001 - fall back to title matching
-            log.warning("LLM picker failed (%s: %s); using title matching", type(e).__name__, e)
-            return default_pick(query, cands)
-        return idx if -1 <= idx < len(cands) else -1
+def _meshy_problem(e: Exception, query: str) -> str:
+    status = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else 0
+    if status == 402:
+        return NO_MESHY_CREDITS
+    if status in (401, 403):
+        return "Meshy API key was rejected"
+    return f"Meshy could not make {query}"
 
 
 def _thread(fn: Callable, *args) -> None:
@@ -190,77 +55,143 @@ _NONE = {"status": "none"}
 class AssetService:
     def __init__(self, library: AssetLibrary, cache: ModelCache, finders: list, meshy=None, max_generations: int = 5,
                  refine: bool = False, pick: Callable[[str, list[Candidate]], int] = default_pick, spawn: Callable = _thread,
-                 alternatives: Callable[[str], list[str]] | None = None):
+                 analyse: Callable[[str], Analysis] | None = None, vision: Callable[[str, list[Candidate]], Verdict | None] | None = None,
+                 designer: Callable[[str, str | None], list[dict]] | None = None, clock: Callable[[], float] = time.monotonic):
         self.library, self.cache, self.finders, self.meshy = library, cache, finders, meshy
         self.max_generations, self.refine, self.pick, self.spawn = max_generations, refine, pick, spawn
-        self.alternatives = alternatives
+        self.analyse, self.vision, self.designer, self.clock = analyse, vision, designer, clock
         self.jobs: dict[str, dict] = {}
         self.lock = threading.Lock()
         self._inflight: dict[str, threading.Lock] = {}
-        # Remembered AI verdicts: a partial library match (query tokens -> chosen file, or None) and other search words.
+        # Remembered AI verdicts: a partial library match (query tokens -> chosen file, or None) and each request's analysis.
         self._lib_verdicts: dict[str, str | None] = {}
-        self._alts: dict[str, list[str]] = {}
+        self._analyses: dict[str, Analysis] = {}
 
-    @staticmethod
-    def _ready(e: dict) -> dict:
-        out = {"status": "ready", "source": e["source"], "url": f"/files/generated/{quote(e['file'])}"}
+    def _ready(self, e: dict) -> dict:
+        out: dict = {"status": "ready", "source": e["source"]}
+        if e["source"] == "procedural":
+            out["parts"] = json.loads((self.cache.root / e["file"]).read_text(encoding="utf-8"))
+        else:
+            out["url"] = f"/files/generated/{quote(e['file'])}"
         if e.get("credit"):
             out["credit"] = e["credit"]
+        if e.get("tint"):
+            out["tint"] = e["tint"]
         return out
 
-    def resolve(self, req: AssetRequest, gate: Callable[[], bool] | None = None, pick_gate: Callable[[], bool] | None = None) -> dict:
-        """Library, then cache, then online, then other search words (library and online again), then Meshy for any kind.
+    def _trusted(self, entry: dict) -> bool:
+        """An online model found before the vision check has no verdict yet: it is looked at again on its next request."""
+        return not self.vision or entry["source"] != "online" or bool(entry.get("verified"))
 
-        Library and cache hits are free. `gate` is asked before each external path (online search, Meshy); `pick_gate`
-        before an LLM call (a pick, a library check, other search words). A refusal returns status none, and the browser
-        then shows nothing for that place (never a stand-in shape).
+    def resolve(self, req: AssetRequest, gate: Callable[[], bool] | None = None, pick_gate: Callable[[], bool] | None = None) -> dict:
+        """An exact library match or an approved cached model, free. Then the request is analysed: a plain shape is built in
+        code; anything else tries the library and online search with vision, under each of its search terms, against the
+        original request. After that a landmark may wait for Meshy, and whatever is left is built manually.
+
+        `gate` is asked before each external path (online search, Meshy); `pick_gate` before an LLM call. A refusal
+        returns status none, or the unchecked model when there is one.
         """
         if not tokens(req.query):
             return dict(_NONE)
-        entry = self._library(req.query, req.variant, pick_gate)
+        entry = self._exact_library(req.query, req.variant)
         if entry:
             return self._library_ready(entry)
         hit = self.cache.get(req.query)
-        if hit:
+        if hit and self._trusted(hit):
             return self._ready(hit)
         key = self.cache.key(req.query)
         if key in self.jobs:
             return self.job(key)
-        if req.allowOnline and self.finders:
+        if not req.allowOnline and not req.allowGenerate:  # the base art: the library or its own built-in fallback, at no cost
+            return self._library_ready(entry) if (entry := self._library(req.query, req.variant, pick_gate)) else dict(_NONE)
+        if hit and pick_gate is not None and not pick_gate():
+            return self._ready(hit)  # no budget to check it: better than nothing
+        analysis = self._analysis(req.query, pick_gate)
+        if analysis.plain_shape and self.designer and req.allowGenerate:
+            return self._start_manual(key, req.query, analysis.color, [])
+        entry = self._library(req.query, req.variant, pick_gate)
+        if entry:
+            return self._library_ready(entry)
+        online = req.allowOnline and bool(self.finders)
+        if online and gate is not None and not gate():
+            return self._ready(hit) if hit else dict(_NONE)
+        deadline = self.clock() + SEARCH_SECONDS
+        asked = set(tokens(req.query))
+        terms = list(dict.fromkeys([analysis.search, *analysis.alternatives]))
+        for term in terms:
+            if set(tokens(term)) != asked:
+                entry = self._library(term, req.variant, pick_gate)
+                if entry:
+                    return self._library_ready(entry)
+            if not online or self.clock() > deadline:
+                continue
             with self._key_lock(key):  # concurrent identical lookups share one search and download
-                hit = self.cache.get(req.query)
-                if hit:
-                    return self._ready(hit)
-                if gate is not None and not gate():
-                    return dict(_NONE)
-                found = self._find_online(key, req.query, req.kind, pick_gate)
+                again = self.cache.get(req.query)
+                if again and self._trusted(again):
+                    return self._ready(again)
+                found = self._find_online(key, term, req.query, analysis, req.kind, pick_gate)
                 if found:
                     return found
-        for alt in self._other_words(req.query, pick_gate):
-            entry = self._library(alt, req.variant, pick_gate)
-            if entry:
-                return self._library_ready(entry)
-            if req.allowOnline and self.finders:
-                with self._key_lock(key):
-                    found = self._find_online(key, alt, req.kind, pick_gate)  # cached under the original request
-                    if found:
-                        return found
-        if not (req.allowGenerate and self.meshy):
+        return self._last_resort(key, req, analysis, gate, pick_gate)
+
+    def _last_resort(self, key: str, req: AssetRequest, analysis: Analysis, gate, pick_gate) -> dict:
+        """Nothing found: only a landmark may wait for Meshy (5 credits go fast: a village would spend them all). Without Meshy
+        the player is told why, and it is built manually."""
+        notices: list[str] = []
+        if req.kind == "landmark" and req.allowGenerate:
+            if not self.meshy:
+                notices.append(NO_MESHY_KEY)
+            elif gate is not None and not gate():
+                return dict(_NONE)
+            else:
+                with self.lock:  # cap check, paid-attempt reservation and job insert are one step
+                    if key in self.jobs:
+                        return self.job(key)
+                    started = self.cache.reserve_attempt(self.max_generations)
+                    if started:
+                        self.jobs[key] = {"status": "pending"}
+                if started:
+                    self.spawn(self._generate, key, req.query, analysis.color)
+                    return {"status": "pending", "jobId": key}
+                notices.append(NO_MESHY_CREDITS)
+        if not req.allowGenerate or not self.designer or (pick_gate is not None and not pick_gate()):
             return dict(_NONE)
-        if gate is not None and not gate():
-            return dict(_NONE)
-        with self.lock:  # cap check, paid-attempt reservation and job insert are one step
+        return self._start_manual(key, req.query, analysis.color, [*notices, _building(req.query)])
+
+    def _start_manual(self, key: str, query: str, color: str | None, notices: list[str]) -> dict:
+        with self.lock:
             if key in self.jobs:
                 return self.job(key)
-            if not self.cache.reserve_attempt(self.max_generations):
-                return dict(_NONE)
-            self.jobs[key] = {"status": "pending"}
-        self.spawn(self._generate, key, req.query)
-        return {"status": "pending", "jobId": key}
+            self.jobs[key] = {"status": "pending", "notices": notices}
+        self.spawn(self._design, key, query, color, notices)
+        out: dict = {"status": "pending", "jobId": key}
+        if notices:
+            out["notices"] = notices
+        return out
+
+    def _design(self, key: str, query: str, color: str | None, notices: list[str]) -> None:
+        try:
+            parts = self.designer(query, color)
+            file = f"{key}.parts.json"
+            _atomic_write_json(self.cache.root / file, parts)
+            self.cache.add(key, query, file, "procedural", verified=True)
+            done = self._ready(self.cache.index[key])
+        except Exception as e:  # noqa: BLE001 - no design: nothing to show, and the player is told
+            log.warning("could not build %r manually: %s: %s", query, type(e).__name__, e)
+            done = {"status": "none"}
+            notices = [*notices, f"Could not build {query}"]
+        if notices:
+            done["notices"] = notices
+        self.jobs[key] = done
 
     @staticmethod
     def _library_ready(entry: dict) -> dict:
         return {"status": "ready", "source": "library", "url": f"/files/library/{quote(entry['file'])}"}
+
+    def _exact_library(self, query: str, variant: int) -> dict | None:
+        """A library model carrying every word of the request: taken without asking anyone."""
+        ranked = self.library.ranked(query)
+        return self.library.search(query, variant)[0] if ranked and ranked[0][0][0] >= 1 else None
 
     def _library(self, query: str, variant: int, pick_gate: Callable[[], bool] | None) -> dict | None:
         """The library model for `query`. A full match is taken as is; a partial one ("statue of a knight" vs a stag
@@ -287,16 +218,16 @@ class AssetService:
         same = [e for _, e in ranked if e.get("title") == chosen.get("title") and e["file"].rsplit("/", 1)[0] == folder]
         return same[variant % len(same)]  # house 0, 1, 2… of a village still differ
 
-    def _other_words(self, query: str, pick_gate: Callable[[], bool] | None) -> list[str]:
-        """Other search words for a request nothing matched, asked once per request."""
-        if not self.alternatives:
-            return []
+    def _analysis(self, query: str, pick_gate: Callable[[], bool] | None) -> Analysis:
+        """What the request means, asked once per request."""
+        if not self.analyse:
+            return Analysis(search=query)
         q = " ".join(tokens(query))
-        if q not in self._alts:
-            if getattr(self.alternatives, "uses_llm", False) and pick_gate is not None and not pick_gate():
-                return []
-            self._alts[q] = self.alternatives(query)
-        return self._alts[q]
+        if q not in self._analyses:
+            if getattr(self.analyse, "uses_llm", False) and pick_gate is not None and not pick_gate():
+                return Analysis(search=query)
+            self._analyses[q] = self.analyse(query)
+        return self._analyses[q]
 
     def _key_lock(self, key: str) -> threading.Lock:
         with self.lock:
@@ -316,37 +247,60 @@ class AssetService:
             tmp.unlink(missing_ok=True)
         return file
 
-    def _find_online(self, key: str, query: str, kind: str = "prop", pick_gate: Callable[[], bool] | None = None) -> dict | None:
+    def _pool(self, term: str, original: str) -> list[tuple[object, Candidate]]:
+        """Every source's usable results for one search, taken in turns, so they are compared rather than first come first served."""
+        lists: list[list[tuple[object, Candidate]]] = []
         for finder in self.finders:
-            name = getattr(finder, "name", type(finder).__name__)
             try:
-                cands = [c for c in finder.search(query)
-                         if license_ok(c.license) and (c.tris is None or c.tris <= 30000) and not scene_like(c.title, query)][:5]
-                pick = self.pick
-                if getattr(pick, "uses_llm", False) and pick_gate is not None and not pick_gate():
-                    pick = default_pick
-                for _ in range(3):  # a pick that fails (too large, broken, wrongly shaped) gives way to the next best
-                    if not cands:
-                        break
-                    i = pick(query, cands)
-                    if i < 0:
-                        break
-                    try:
-                        file = self._fetch(key, lambda dest, f=finder, c=cands[i]: f.download(c, dest))
-                    except Exception as e:  # noqa: BLE001
-                        log.warning("asset %r: %s download failed (%s), trying the next one", query, cands[i].title, e)
-                        cands = cands[:i] + cands[i + 1:]
-                        continue
-                    if not shape_ok(self.cache.root / file, kind):  # e.g. a flat cover picked for a building
-                        log.warning("asset %r: %s is the wrong shape for a %s, trying the next one", query, cands[i].title, kind)
-                        (self.cache.root / file).unlink(missing_ok=True)
-                        cands = cands[:i] + cands[i + 1:]
-                        continue
-                    self.cache.add(key, query, file, "online", cands[i].credit)
-                    return self._ready(self.cache.index[key])
-            except Exception as e:  # noqa: BLE001 - a failing source just means "try the next one"
-                log.warning("asset finder %s failed for %r: %s: %s", name, query, type(e).__name__, e)
+                found = [c for c in finder.search(term)
+                         if license_ok(c.license) and (c.tris is None or c.tris <= 30000) and not scene_like(c.title, f"{term} {original}")][:5]
+            except Exception as e:  # noqa: BLE001 - a failing source just means fewer results
+                log.warning("asset finder %s failed for %r: %s: %s", getattr(finder, "name", type(finder).__name__), term, type(e).__name__, e)
                 continue
+            lists.append([(finder, c) for c in found])
+        return [p for group in zip_longest(*lists) for p in group if p][:MAX_POOL]
+
+    def _take(self, key: str, finder, c: Candidate, query: str, kind: str) -> str | None:
+        """Download one candidate; None when it fails or has the wrong shape (a flat cover picked for a building)."""
+        try:
+            file = self._fetch(key, lambda dest: finder.download(c, dest))
+        except Exception as e:  # noqa: BLE001
+            log.warning("asset %r: %s download failed (%s), trying the next one", query, c.title, e)
+            return None
+        if not shape_ok(self.cache.root / file, kind):
+            log.warning("asset %r: %s is the wrong shape for a %s, trying the next one", query, c.title, kind)
+            (self.cache.root / file).unlink(missing_ok=True)
+            return None
+        return file
+
+    def _find_online(self, key: str, term: str, original: str, analysis: Analysis, kind: str, pick_gate: Callable[[], bool] | None) -> dict | None:
+        pool = self._pool(term, original)
+        if not pool:
+            return None
+        if self.vision and (pick_gate is None or pick_gate()):
+            verdict = self.vision(original, [c for _, c in pool])  # always the original: "lighthouse building" must not approve any building
+            if verdict is not None:
+                for i, differs in verdict.order:
+                    finder, c = pool[i]
+                    file = self._take(key, finder, c, original, kind)
+                    if file:
+                        self.cache.add(key, original, file, "online", c.credit, verified=True, tint=analysis.color if differs else None)
+                        return self._ready(self.cache.index[key])
+                return None
+        pick = default_pick if self.vision else self.pick
+        if getattr(pick, "uses_llm", False) and pick_gate is not None and not pick_gate():
+            pick = default_pick
+        for _ in range(3):  # a pick that fails (too large, broken, wrongly shaped) gives way to the next best
+            if not pool:
+                break
+            i = pick(term, [c for _, c in pool])
+            if i < 0:
+                break
+            finder, c = pool.pop(i)
+            file = self._take(key, finder, c, original, kind)
+            if file:
+                self.cache.add(key, original, file, "online", c.credit)
+                return self._ready(self.cache.index[key])
         return None
 
     def job(self, job_id: str) -> dict:
@@ -354,10 +308,13 @@ class AssetService:
         if not j:
             return dict(_NONE)
         if j["status"] == "pending":
-            return {"status": "pending", "jobId": job_id}
-        return {k: v for k, v in j.items() if k in {"status", "source", "url", "credit"}}
+            out = {"status": "pending", "jobId": job_id}
+            if j.get("notices"):
+                out["notices"] = j["notices"]
+            return out
+        return {k: v for k, v in j.items() if k in {"status", "source", "url", "credit", "parts", "tint", "notices"}}
 
-    def _generate(self, key: str, query: str) -> None:
+    def _generate(self, key: str, query: str, color: str | None = None) -> None:
         try:
             task_id = self.meshy.create_preview(f"{query}, low-poly game asset, single object, centered, no ground plane")
             task = self.meshy.wait(task_id)
@@ -365,8 +322,11 @@ class AssetService:
                 task = self.meshy.wait(self.meshy.create_refine(task_id))
             url = task["model_urls"]["glb"]
             file = self._fetch(key, lambda dest: self.meshy.download(url, dest))
-            self.cache.add(key, query, file, "generated", "Generated with Meshy")
+            self.cache.add(key, query, file, "generated", "Generated with Meshy", verified=True)
             self.jobs[key] = self._ready(self.cache.index[key])
-        except Exception as e:  # noqa: BLE001 - no model means the placeholder stays
+        except Exception as e:  # noqa: BLE001 - no model from Meshy: it is built manually if it can be
             log.warning("Meshy generation failed for %r: %s: %s", query, type(e).__name__, e)
-            self.jobs[key] = {"status": "none", "error": str(e)[:200]}
+            if self.designer:
+                self._design(key, query, color, [_meshy_problem(e, query), _building(query)])
+            else:
+                self.jobs[key] = {"status": "none", "error": str(e)[:200]}

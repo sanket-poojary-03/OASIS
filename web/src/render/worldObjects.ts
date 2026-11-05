@@ -29,7 +29,7 @@ export interface ObjectInfo {
 
 export interface ModelSource {
   /** `variant` picks between equally good library models (house 0, 1, 2… of a village); 0 is the default model. */
-  load(asset: string, kind: PlaceKind, variant?: number): Promise<{ object: THREE.Object3D; source: 'library' | 'online' | 'generated'; credit?: string } | null>;
+  load(asset: string, kind: PlaceKind, variant?: number): Promise<{ object: THREE.Object3D; source: 'library' | 'online' | 'generated' | 'procedural'; credit?: string } | null>;
   /** Optional: forget remembered misses (new world, or the backend is reachable again). */
   reset?(): void;
 }

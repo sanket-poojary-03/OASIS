@@ -3,9 +3,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { assetJob, clampVariant, resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
 import type { PlaceKind } from '../core/recipe';
+import { buildProcedural } from './proceduralModel';
+import { tintedCopy } from './tint';
 import type { ModelSource } from './worldObjects';
 
-type Loaded = { object: THREE.Object3D; source: 'library' | 'online' | 'generated'; credit?: string } | null;
+type Loaded = { object: THREE.Object3D; source: 'library' | 'online' | 'generated' | 'procedural'; credit?: string } | null;
 
 /** A definitive "no model" (HTTP-200 none, incl. limiter refusals) is not asked again for this long: the limiter window. */
 export const MISS_TTL_MS = 10 * 60_000;
@@ -16,6 +18,10 @@ export const TRANSIENT_TTL_MS = 45_000;
  * whether to resume. A timeout does not: it is only a transient miss for its own asset (m7).
  */
 export const BREAKER_MS = 30_000;
+/** A manual build takes seconds and Meshy minutes, so a job is asked about quickly at first. */
+const FAST_POLLS = 10;
+const FAST_POLL_MS = 1500;
+const POLL_MS = 5000;
 
 export interface AssetDeps {
   resolve?: (query: string, kind: PlaceKind, allowGenerate: boolean, allowOnline?: boolean, variant?: number) => Promise<AssetResult>;
@@ -26,8 +32,8 @@ export interface AssetDeps {
 }
 
 /**
- * Asks the backend model finder (library, cache, Poly Pizza, Sketchfab, Meshy job for landmarks); polls jobs every 5 s
- * for up to 5 min. `none` or any failure resolves null so the caller keeps the placeholder. World rebuilds call load()
+ * Asks the backend model finder (library, cache, online search with a vision check, Meshy job for landmarks, a manual build);
+ * polls jobs for up to 5 min. `none` or any failure resolves null so the caller shows nothing. World rebuilds call load()
  * for every object, so: successes and in-flight requests are shared per asset; misses are remembered with an expiry;
  * and a transport failure opens a source-wide breaker so an unreachable backend costs no requests at all.
  * Variants (house 0, 1, 2…) ride on the base lookup: a variant is asked for only when the base model came from the
@@ -40,6 +46,9 @@ export class AssetModelSource implements ModelSource {
   private offlineUntil = 0;
   private tripped = false;
   private probing = false;
+  private readonly told = new Set<string>();
+  /** Messages for the player about how a model is being made (Meshy unavailable, built manually). textContent only. */
+  onNotice?: (text: string) => void;
   private readonly resolve: NonNullable<AssetDeps['resolve']>;
   private readonly job: NonNullable<AssetDeps['job']>;
   private readonly loadGltf: NonNullable<AssetDeps['loadGltf']>;
@@ -59,6 +68,7 @@ export class AssetModelSource implements ModelSource {
   /** Forget every miss and close the breaker: a new world is being generated, or the backend answered health. */
   reset(): void {
     this.misses.clear();
+    this.told.clear();
     this.offlineUntil = 0;
     this.tripped = false;
     this.probing = false;
@@ -102,6 +112,15 @@ export class AssetModelSource implements ModelSource {
     this.probing = false;
   }
 
+  /** Each message once per world: every rejected landmark would say the Meshy key is missing. */
+  private tell(res: AssetResult): void {
+    for (const text of res.notices ?? []) {
+      if (this.told.has(text)) continue;
+      this.told.add(text);
+      this.onNotice?.(text);
+    }
+  }
+
   /** One GLB per URL: variants that resolve to the same library file share the parsed scene (callers clone it). */
   private gltf(url: string): Promise<{ scene: THREE.Object3D }> {
     let p = this.gltfs.get(url);
@@ -117,19 +136,23 @@ export class AssetModelSource implements ModelSource {
     const miss = (r: AssetResult) => ({ value: null, retryAfter: r.status === 'none' && !r.transient ? MISS_TTL_MS : TRANSIENT_TTL_MS });
     let res = await this.resolve(asset, kind, this.allowGenerate(kind), true, variant);
     this.noteTransport(res);
+    this.tell(res);
     let flaky = 0;
     for (let i = 0; res.status === 'pending' && res.jobId && i < 60; i++) {
-      await this.sleep(5000);
+      await this.sleep(i < FAST_POLLS ? FAST_POLL_MS : POLL_MS);
       const next = await this.job(res.jobId);
       // Tolerate a few unreachable polls before giving up; a definitive answer (ready / none) ends the wait.
       if (next.status === 'none' && next.transient && ++flaky < 4) continue;
       this.noteTransport(next);
+      this.tell(next);
       res = next;
     }
+    if (res.status === 'ready' && res.parts) return { value: { object: buildProcedural(res.parts), source: 'procedural' }, retryAfter: 0 };
     if (res.status !== 'ready' || !res.url) return miss(res);
     try {
       const gltf = await this.gltf(res.url);
-      return { value: { object: gltf.scene, source: res.source ?? 'generated', credit: res.credit }, retryAfter: 0 };
+      const object = res.tint ? tintedCopy(gltf.scene, res.tint) : gltf.scene;
+      return { value: { object, source: res.source ?? 'generated', credit: res.credit }, retryAfter: 0 };
     } catch {
       return { value: null, retryAfter: TRANSIENT_TTL_MS };
     }
