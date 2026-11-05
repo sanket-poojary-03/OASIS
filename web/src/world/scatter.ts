@@ -13,6 +13,7 @@ export interface ScatterItem { kind: ScatterKind; x: number; y: number; z: numbe
 
 export const SCATTER_CELL = 4;
 export const VARIANTS = 8;
+const REED_DEPTH = 2.5;
 
 type Rule = [ScatterKind, number];
 
@@ -43,6 +44,11 @@ export function scatterRules(biome: Biome, grove: number, temperature: number): 
 
 const ON_SLOPES: ReadonlySet<ScatterKind> = new Set(['rock', 'pebble']);
 
+/** What lies on a bed: stones anywhere, reeds only where they can reach the surface. */
+export function bedRules(depth: number): Rule[] {
+  return depth < REED_DEPTH ? [['reed', 0.14], ['rock', 0.025], ['pebble', 0.05]] : [['rock', 0.025], ['pebble', 0.05]];
+}
+
 export function scatterChunk(field: WorldField, cx: number, cz: number, size = 64): ScatterItem[] {
   const out: ScatterItem[] = [];
   const n = size / SCATTER_CELL;
@@ -53,13 +59,14 @@ export function scatterChunk(field: WorldField, cx: number, cz: number, size = 6
     const z = gz * SCATTER_CELL + rng() * SCATTER_CELL;
     const roll = rng();
     let acc = 0, kind: ScatterKind | null = null;
+    const surface = field.isWater(x, z) ? field.waterSurfaceAt(x, z) : null;
     const grove = field.detailNoise(x * 0.004 + 31.7, z * 0.004 - 12.3);
-    for (const [k, p] of scatterRules(biomeAt(field, x, z), grove, field.recipe.climate.temperature)) {
+    const rules = surface !== null ? bedRules(surface - field.heightAt(x, z)) : scatterRules(biomeAt(field, x, z), grove, field.recipe.climate.temperature);
+    for (const [k, p] of rules) {
       acc += p;
       if (roll < acc) { kind = k; break; }
     }
     if (!kind) continue;
-    if (field.isWater(x, z)) continue;
     if (!ON_SLOPES.has(kind) && field.slopeAt(x, z) > 0.6) continue;
     if (field.isReserved(x, z, 2) || field.pavedAt(x, z) > 0) continue;
     out.push({ kind, x, y: field.heightAt(x, z), z, rotation: rng() * Math.PI * 2, scale: 0.75 + rng() * 0.6, variant: Math.floor(rng() * VARIANTS) });

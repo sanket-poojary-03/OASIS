@@ -2467,6 +2467,14 @@
    "scifi",
    "space"
   ],
+  "needs": [
+   "base",
+   "futuristic",
+   "headquarters",
+   "outpost",
+   "scifi",
+   "space"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "Base Large",
@@ -2486,6 +2494,12 @@
    "lab",
    "laboratory",
    "modern",
+   "scifi"
+  ],
+  "needs": [
+   "futuristic",
+   "lab",
+   "laboratory",
    "scifi"
   ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
@@ -2531,6 +2545,14 @@
    "scifi",
    "space"
   ],
+  "needs": [
+   "colony",
+   "futuristic",
+   "habitat",
+   "pod",
+   "scifi",
+   "space"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "House Pod",
@@ -2550,6 +2572,13 @@
    "futuristic",
    "habitat",
    "house",
+   "scifi"
+  ],
+  "needs": [
+   "colony",
+   "cylinder",
+   "futuristic",
+   "habitat",
    "scifi"
   ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
@@ -2573,6 +2602,13 @@
    "long",
    "scifi"
   ],
+  "needs": [
+   "colony",
+   "futuristic",
+   "habitat",
+   "long",
+   "scifi"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "House Long",
@@ -2591,6 +2627,13 @@
    "futuristic",
    "habitat",
    "house",
+   "module",
+   "scifi"
+  ],
+  "needs": [
+   "colony",
+   "futuristic",
+   "habitat",
    "module",
    "scifi"
   ],
@@ -2837,6 +2880,13 @@
    "platform",
    "scifi"
   ],
+  "needs": [
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "Cyberpunk Platform",
@@ -2852,6 +2902,13 @@
   "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-2.glb",
   "tags": [
    "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "needs": [
    "cyberpunk",
    "futuristic",
    "neon",
@@ -2879,6 +2936,13 @@
    "platform",
    "scifi"
   ],
+  "needs": [
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "Cyberpunk Platform",
@@ -2894,6 +2958,13 @@
   "file": "quaternius/buildings/cyberpunk/platform/cyberpunk-platform-4.glb",
   "tags": [
    "building",
+   "cyberpunk",
+   "futuristic",
+   "neon",
+   "platform",
+   "scifi"
+  ],
+  "needs": [
    "cyberpunk",
    "futuristic",
    "neon",
@@ -3117,6 +3188,10 @@
    "shack",
    "wooden"
   ],
+  "needs": [
+   "fishing",
+   "pirate"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "House",
@@ -3138,6 +3213,10 @@
    "shack",
    "wooden"
   ],
+  "needs": [
+   "fishing",
+   "pirate"
+  ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",
   "title": "House",
@@ -3158,6 +3237,10 @@
    "pirate",
    "shack",
    "wooden"
+  ],
+  "needs": [
+   "fishing",
+   "pirate"
   ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",

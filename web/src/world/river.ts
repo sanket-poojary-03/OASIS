@@ -76,14 +76,25 @@ export class SegmentIndex {
   }
 
   distance(x: number, z: number, maxRange = 96): number {
+    return this.nearest(x, z, maxRange)?.distance ?? Infinity;
+  }
+
+  /** The closest segment within range: its end points, and how far along it the closest point lies (0..1). */
+  nearest(x: number, z: number, maxRange = 96): { distance: number; a: Vec2; b: Vec2; t: number } | null {
     const r = Math.ceil(maxRange / this.cell);
     const cx = Math.floor(x / this.cell), cz = Math.floor(z / this.cell);
-    let best = Infinity;
+    let best = Infinity, seg: [Vec2, Vec2] | null = null;
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
       const list = this.cells.get(`${cx + dx},${cz + dz}`);
       if (!list) continue;
-      for (const [a, b] of list) best = Math.min(best, segmentDistance(x, z, a, b));
+      for (const s of list) {
+        const d = segmentDistance(x, z, s[0], s[1]);
+        if (d < best) { best = d; seg = s; }
+      }
     }
-    return best <= maxRange ? best : Infinity;
+    if (!seg || best > maxRange) return null;
+    const [a, b] = seg;
+    const dx = b.x - a.x, dz = b.z - a.z, len2 = dx * dx + dz * dz;
+    return { distance: best, a, b, t: len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len2)) };
   }
 }

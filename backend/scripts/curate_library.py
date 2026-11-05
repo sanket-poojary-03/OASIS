@@ -28,6 +28,19 @@ ROOT = Path(__file__).resolve().parents[1] / "assets" / "library"
 OUT = ROOT / "quaternius"
 LICENSE = "CC0 1.0 (Quaternius, via poly.pizza)"
 
+# Themed families: their houses and buildings are only for a request that names the theme ("wooden cabin" found a pirate
+# house shaped like an upturned hull). A generic word on a themed model does not count as asking for it.
+THEMED = ("quaternius/buildings/pirate/", "quaternius/buildings/scifi/", "quaternius/buildings/cyberpunk/")
+GENERIC = {"house", "building", "hut", "shack", "wooden", "modern", "small", "big", "home"}
+
+
+def needs_for(rel: str, tags: list[str]) -> dict:
+    """`needs` for a manifest entry: the words of which a request must name one, when it is a themed house or building."""
+    if not rel.startswith(THEMED) or not set(tags) & {"house", "building"}:
+        return {}
+    return {"needs": sorted(set(tags) - GENERIC)}
+
+
 # (pack day, title, folder, tags, max variants)
 SPEC: list[tuple[str, str, str, list[str], int]] = [
     # --- nature: Stylized Nature MegaKit (2024-08-02) + Ultimate Nature (2021-08-26) + pirate palms ---
@@ -215,7 +228,7 @@ def main() -> None:
                     r.raise_for_status()
                     path.write_bytes(r.content)
                 size = glb_size(path.read_bytes())
-                entries.append({"id": slug(rel), "file": rel, "tags": sorted(set(tags)), "license": LICENSE, "source": "quaternius",
+                entries.append({"id": slug(rel), "file": rel, "tags": sorted(set(tags)), **needs_for(rel, sorted(set(tags))), "license": LICENSE, "source": "quaternius",
                                 "title": title, "poly": m["ID"], "size": [round(v, 3) for v in size] if size else None})
                 report.append(f"{rel}  {size}  {path.stat().st_size // 1024} KB")
     manifest = ROOT / "manifest.json"

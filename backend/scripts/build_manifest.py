@@ -33,6 +33,7 @@ def main() -> None:
             "id": re.sub(r"[^a-z0-9]+", "-", rel.lower()).strip("-"),
             "file": rel,
             "tags": old.get(rel, {}).get("tags", tags),
+            **({"needs": old[rel]["needs"]} if "needs" in old.get(rel, {}) else {}),
             "license": LICENSES.get(parts[0].lower(), "check the source"),
             "source": parts[0],
         })

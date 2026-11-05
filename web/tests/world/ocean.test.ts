@@ -1,3 +1,4 @@
+import { BED_KINDS } from '../../src/world/waterDepth';
 import { describe, expect, it } from 'vitest';
 import { recipeSchema } from '../../src/core/recipe';
 import { buildWorld } from '../../src/world/build';
@@ -78,12 +79,12 @@ describe('ocean world', () => {
     expect(w.placements.find((p) => p.id === 'light')!.y).toBe(f.deckY);
   });
 
-  it('grows nothing, and no terrain ever rises above the sea, not even under a deck', () => {
+  it('grows nothing but what lies on a sea bed, and no terrain ever rises above the sea, not even under a deck', () => {
     const w = buildWorld(recipe());
     const s = w.spawn, market = w.placements.find((p) => p.id === 'market')!;
     for (const [x, z] of [[s.x, s.z], [market.x, market.z], [448, 448]]) {
       const c = computeChunk(w.field, Math.floor(x / 64), Math.floor(z / 64));
-      expect(c.scatter.length).toBe(0);
+      for (const it of c.scatter) expect(BED_KINDS).toContain(it.kind);
       expect(c.grass.length).toBe(0);
       for (let i = 1; i < c.positions.length; i += 3) expect(c.positions[i]).toBeLessThan(w.field.seaLevelY - 5);
     }

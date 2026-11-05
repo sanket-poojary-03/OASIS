@@ -444,3 +444,32 @@ def test_llm_picker_keeps_reasoning_low():
             return '{"index": 0}'
 
     assert LLMPicker(Rec()).llm.reasoning_effort == "low"
+
+
+def test_a_themed_model_needs_its_theme_asked_for(tmp_path):
+    # Three pirate houses shaped like upturned hulls were a perfect match for "wooden cabin" in a snowy world.
+    root = tmp_path / "themed"
+    root.mkdir()
+    (root / "manifest.json").write_text(json.dumps([
+        {"id": "hull", "file": "hull.glb", "tags": ["fishing", "house", "hut", "pirate", "wooden"], "needs": ["fishing", "pirate"], "license": "CC0", "source": "q"},
+        {"id": "plain", "file": "plain.glb", "tags": ["house", "home"], "license": "CC0", "source": "q"},
+    ]))
+    lib = AssetLibrary(root)
+    assert lib.search("wooden cabin")[1] < 1.0 or lib.search("wooden cabin")[0]["id"] != "hull"
+    assert all(e["id"] != "hull" for _, e in lib.ranked("wooden cabin"))
+    assert lib.search("cabin")[0]["id"] == "plain"
+    assert lib.search("fishing hut")[0]["id"] == "hull"
+    assert lib.search("pirate house")[0]["id"] == "hull"
+
+
+def test_the_real_library_keeps_its_themed_houses_to_their_theme():
+    from pathlib import Path
+    lib = AssetLibrary(Path(__file__).resolve().parents[1] / "assets" / "library")
+    hulls = "quaternius/buildings/pirate/"
+    for q in ("wooden cabin", "wooden hut", "wooden house", "cabin", "shack", "house", "building"):
+        assert all(not e["file"].startswith(hulls) for _, e in lib.ranked(q)), q
+    assert lib.search("fishing hut")[0]["file"].startswith(hulls)
+    assert lib.search("pirate house")[0]["file"].startswith(hulls)
+    for q in ("house", "building", "modern building"):
+        assert all("scifi" not in e["file"] and "cyberpunk" not in e["file"] for _, e in lib.ranked(q)), q
+    assert "scifi" in lib.search("space house")[0]["file"]

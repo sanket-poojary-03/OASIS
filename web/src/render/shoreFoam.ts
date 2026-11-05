@@ -25,8 +25,10 @@ if (uFoamOn > 0.5) {
   float above = vFoamPos.y - uFoamSea;
   float lap = 0.14 * sin(uFoamTime * 0.8 + (vFoamPos.x + vFoamPos.z) * 0.07);
   float broken = 0.5 + 0.25 * sin(vFoamPos.x * 1.3 + uFoamTime * 0.5) + 0.25 * sin(vFoamPos.z * 1.7 - uFoamTime * 0.4);
-  diffuseColor.rgb *= 1.0 - 0.3 * (1.0 - smoothstep(0.0, 0.9, above - lap));
-  float foam = (1.0 - smoothstep(0.08, 0.32, above - lap)) * smoothstep(0.2, 0.55, broken);
+  // Only at the waterline. Deep under the sea this painted the sine grid over the whole bed, unseen until you could dive.
+  float atLine = smoothstep(-0.3, 0.0, above);
+  diffuseColor.rgb *= 1.0 - 0.3 * atLine * (1.0 - smoothstep(0.0, 0.9, above - lap));
+  float foam = atLine * (1.0 - smoothstep(0.08, 0.32, above - lap)) * smoothstep(0.2, 0.55, broken);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.96, 0.97), foam);
 }`);
   };

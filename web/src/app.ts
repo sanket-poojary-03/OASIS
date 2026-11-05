@@ -29,6 +29,7 @@ import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './re
 import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
 import { WorldObjects, type ModelSource } from './render/worldObjects';
+import { Underwater } from './render/underwater';
 import { NoticeQueue } from './ui/assetNotices';
 import type { UI } from './ui/ui';
 import { waitUntil } from './ui/wait';
@@ -61,6 +62,7 @@ export class App {
   private readonly culler = new RangeCuller(TERRAIN_RANGE);
   private bridgeColliders: Collider[] = [];
   private readonly decks: DeckSystem;
+  private readonly underwater: Underwater;
   private spawnPending: { x: number; y: number; z: number; yaw?: number } | null = null;
   private history: Snapshot[] = [];
   private pending: { applied: ApplyResult; ops: Op[] } | null = null;
@@ -121,6 +123,7 @@ export class App {
     avatar.attach(this.booster.pack);
     this.dayScale = atmosphere.timeScale;
     this.decks = new DeckSystem(engine.scene, physics);
+    this.underwater = new Underwater(engine.scene);
     this.characters = new CharacterRoster(avatar);
     void this.characters.start();
   }
@@ -461,6 +464,9 @@ export class App {
     if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
     this.physics.step(dt);
     this.atmosphere.update(dt, this.engine.camera.position);
+    const under = this.underwater.update(dt, this.built?.field, this.engine.camera.position, this.engine.scene.fog as THREE.Fog, this.atmosphere.night);
+    this.water.setUnderwater(under, this.engine.camera.position);
+    this.atmosphere.setPrecipVisible(!under);
     this.water.update(this.engine.camera.position, t, this.atmosphere);
     this.culler.update(dt, this.engine.camera.position);
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);

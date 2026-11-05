@@ -7,6 +7,7 @@ import { fallbackStep } from './fallbackStep';
 import { JET, Jetpack } from './jetpack';
 
 const EYE = 0.75; // capsule centre → eye height offset
+const DIVE_SPEED = 3;
 
 export class Player {
   readonly controls: PointerLockControls;
@@ -104,6 +105,7 @@ export class Player {
       const target = (surface! - 0.5 - t.y) * 3;
       this.vy += (target - this.vy) * Math.min(1, dt * 4);
       if (active && this.keys.has('Space')) this.vy = 2.5;
+      else if (running) this.vy = -DIVE_SPEED; // Shift in water dives; letting go floats back up
     } else if (grounded && this.vy <= 0) {
       this.vy = active && this.keys.has('Space') ? 7 : -1;
     } else {

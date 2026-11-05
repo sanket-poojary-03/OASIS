@@ -1,6 +1,7 @@
 import { hashString, mulberry32 } from '../core/rng';
-import { biomeAt, biomeSample, blendedGroundColor, hexToRgb, type Biome } from './biome';
+import { biomeAt, biomeSample, blendedGroundColor, groundColor, hexToRgb, type Biome } from './biome';
 import type { WorldField } from './field';
+import { smoothstep } from './noise';
 import { scatterChunk, type ScatterItem } from './scatter';
 
 export const CHUNK_SIZE = 64;
@@ -22,6 +23,9 @@ const GRASS_BIOMES: ReadonlySet<Biome> = new Set(['grass', 'forest', 'marsh', 'p
 const GRASS_CELL = 2;
 /** City paving: light concrete, a touch warm. */
 export const PAVED_COLOUR: readonly [number, number, number] = [0.5, 0.49, 0.47];
+/** A bed is the land's sand gone dark, whatever is on the land above it: a frozen world's lake has no snow on its floor. */
+const BED_SHADE = 0.45;
+const BED_FULL_DEPTH = 3;
 
 /** Grass tufts every ~2 m on dry, gentle, grassy ground. Packed as x, y, z, rotation, scale. */
 export function grassChunk(field: WorldField, cx: number, cz: number): Float32Array {
@@ -58,6 +62,11 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     let [r, g, b] = blendedGroundColor(biomeSample(field, x, z), tint);
     const pave = field.pavedAt(x, z);
     if (pave > 0) { r += (PAVED_COLOUR[0] - r) * pave; g += (PAVED_COLOUR[1] - g) * pave; b += (PAVED_COLOUR[2] - b) * pave; }
+    const surface = field.waterSurfaceAt(x, z) ?? (field.hasSea && h < field.seaLevelY ? field.seaLevelY : null);
+    if (surface !== null && h < surface) {
+      const under = smoothstep(0.2, BED_FULL_DEPTH, surface - h), bed = groundColor('sand', tint);
+      r += (bed[0] * BED_SHADE - r) * under; g += (bed[1] * BED_SHADE - g) * under; b += (bed[2] * BED_SHADE - b) * under;
+    }
     const shade = 1 + field.detailNoise(x * 0.05, z * 0.05) * 0.06;
     colors[k] = r * shade; colors[k + 1] = g * shade; colors[k + 2] = b * shade;
   }

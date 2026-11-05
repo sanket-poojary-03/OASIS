@@ -132,6 +132,11 @@ export class AtmosphereSystem {
     this.scene.add(this.precip);
   }
 
+  /** Rain and snow fall in the air only: hidden while the viewer is under water. */
+  setPrecipVisible(visible: boolean): void {
+    if (this.precip) this.precip.visible = visible;
+  }
+
   update(dt: number, viewer: THREE.Vector3): void {
     this.hours = (this.hours + dt * this.timeScale * clockPace(this.hours, TIME_HOURS[this.spec.time])) % 24;
     const angle = ((this.hours - 6) / 24) * Math.PI * 2;

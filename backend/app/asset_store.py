@@ -38,6 +38,8 @@ class AssetLibrary:
         self.root = root
         self.entries: list[dict] = _read_json(root / "manifest.json", [])
         self._tags = [set(tokens(" ".join(e.get("tags", [])))) for e in self.entries]
+        # A themed model (a pirate house) only answers a request naming its theme, whatever generic words it also carries.
+        self._needs = [set(tokens(" ".join(e.get("needs", [])))) for e in self.entries]
 
     def search(self, query: str, variant: int = 0) -> tuple[dict | None, float]:
         """Best entry by (coverage of the query, Jaccard); the query's head noun must be among its tags.
@@ -62,8 +64,8 @@ class AssetLibrary:
             return []
         head = head_noun(query)
         scored = []
-        for i, (e, tags) in enumerate(zip(self.entries, self._tags)):
-            if head and head not in tags:
+        for i, (e, tags, needs) in enumerate(zip(self.entries, self._tags, self._needs)):
+            if (head and head not in tags) or (needs and not q & needs):
                 continue
             scored.append(((len(q & tags) / len(q), len(q & tags) / len(q | tags)), i, e))
         scored.sort(key=lambda s: (-s[0][0], -s[0][1], s[1]))

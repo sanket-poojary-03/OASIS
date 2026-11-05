@@ -168,3 +168,16 @@
 - **Library-only callers are never upgraded:** the base art sends `allowOnline=false, allowGenerate=false` and gets the library or nothing, with no LLM call. Found live: a rabbit was being designed for wildlife that could not use it.
 - **Found by looking, not by tests:** a "cube" came out 1 x 2 x 1 because the design prompt's own example said "a part 2 m tall". With the example gone, all 18 test runs of cubes and balls had even sides.
 - **Not done:** per-part colour (a red roof), and "wrong model" feedback from the player. Library models are trusted as curated, not vision-checked. Sketchfab and Meshy paths are tested with fakes only: `backend/.env` has neither key.
+
+## 2026-11-05: Water has a body, and themed models stay in their theme
+The user saw a sheet of water with nothing under it, and a request for a building in a snowy world gave a boat.
+- **The sheet really did hang in the air.** Measured: river meshes up to 14.8 m above dry ground, and a lake was deepest right at its shore, so its edge hung over a pit. `isWater` said dry there, so swimming never started and the player walked underneath. A surface is flat and land is not, so the ground is now set from the surface: bed, a bank just above the water, then back to the land (`carved`). Every world tested now has no mesh over dry ground.
+- **This reshapes the land along every river and lake,** so roads and scenery near water land differently than before for the same recipe. Still deterministic.
+- **A river's level is smoothed and changes at most 2.5 m per 8 m,** which cuts or fills the land to match. Steep mountain rivers read as rapids with visible steps: better than floating, not yet pretty.
+- **A river takes its lake's level where they meet; a lake only forms above the sea.** A lake below sea level was a disc on the sea bed.
+- **Underwater (`render/underwater.ts`):** tinted fog closing in with depth and night, a veil, bubbles, the world's own water colour. Rain and snow stop. Shift dives in water, as nothing else could get there. A plain layer, not a post pass, so it costs nothing above water.
+- **The bed:** dark sand whatever is on the land (a frozen lake had a snow floor), with stones, and reeds where they can reach the surface. Land scatter is unchanged: the same random numbers are drawn. Ocean worlds now have stones on their bed too.
+- **Found by looking:** a grid of dark ovals over the bed was the shore foam shader, which painted its sine pattern on all ground below the sea, unseen until you could dive. It was not shadows, the first guess, ruled out by turning them off. It now stops at the waterline.
+- **The boat was a perfect library match.** "Wooden cabin" became tokens wooden + house, and only the pirate houses (hull-shaped) carry both, so it skipped every check. Themed families (pirate, sci-fi, cyberpunk) now have `needs`: a request must name their theme. "Fishing hut" still gets them. Marked in the manifest and in `curate_library.py`.
+- **A plain "cabin" gets a silo house,** because the library has no real cabin and full tag matches are trusted. Not a boat, not ideal.
+- **Not done:** caustics on the bed, fish, and models placed under water. Live diving and floating were checked with the tab at about 1 frame per second, so their feel at full speed is not checked.

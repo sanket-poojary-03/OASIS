@@ -11,6 +11,8 @@ import { rippleTexture } from './waterNormals';
 export { disposeGroup };
 
 const WATER = 0x2b6f8f;
+/** A river mesh ends just past where its banks rise above its water (RIVER_WET), hidden in them. */
+export const RIVER_MESH_HALF_WIDTH = 16.5;
 /** The sun's full intensity (AtmosphereSystem), which is a sun glint of full strength on the water. */
 const FULL_LIGHT = 2.6;
 /** How much of its colour the sea keeps with no sun: Water.js does not light it, so it would glow at night. */
@@ -29,6 +31,8 @@ export class WaterSystem {
   readonly group = new THREE.Group();
   /** Reused across worlds: Water.js owns a reflection target it has no way to release. */
   private sea: Water | null = null;
+  private seaFromBelow: THREE.Mesh | null = null;
+  private field: WorldField | null = null;
   private readonly normals = rippleTexture();
   private readonly time = { value: 0 };
   private readonly sky = { value: new THREE.Color(0xbfd6ea) };
@@ -57,7 +61,9 @@ export class WaterSystem {
   }
 
   rebuild(field: WorldField): void {
+    this.field = field;
     if (this.sea) this.group.remove(this.sea);
+    this.seaFromBelow = null;
     disposeGroup(this.group);
     this.group.clear();
     const colour = field.recipe.palette?.water ?? WATER; // a palette water colour: "a purple sea"
@@ -71,12 +77,30 @@ export class WaterSystem {
       this.group.add(this.sea);
     }
     if (field.river.length > 1) {
-      for (const run of pieces(field.river, 8)) this.group.add(new THREE.Mesh(ribbonGeometry(run, 18, (x, z) => field.baseHeight(x, z) - 1.5), this.material));
+      for (const run of pieces(field.river, 8)) this.group.add(new THREE.Mesh(ribbonGeometry(run, RIVER_MESH_HALF_WIDTH, field.riverLevelAt, true), this.material));
     }
     for (const l of field.lakes) {
       const lake = new THREE.Mesh(new THREE.CircleGeometry(l.radius, 48).rotateX(-Math.PI / 2), this.material);
       lake.position.set(l.x, l.levelY, l.z);
       this.group.add(lake);
+    }
+  }
+
+  /** `under`: the viewer is below a water surface. Skips the sea's reflection pass too, which sees nothing from there. */
+  setUnderwater(under: boolean, viewer: THREE.Vector3): void {
+    if (!this.sea?.parent) return;
+    this.sea.visible = !under;
+    // A lake above sea level has a bed lower than the sea: the sea's plane must not show inside it.
+    const inSea = under && viewer.y < this.sea.position.y && this.field?.waterSurfaceAt(viewer.x, viewer.z) === this.field?.seaLevelY;
+    if (inSea && !this.seaFromBelow) {
+      // Water.js reflects the sky from above only; from below the surface is drawn by the lit ripples.
+      this.seaFromBelow = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.material);
+      this.seaFromBelow.userData.alwaysVisible = true;
+      this.group.add(this.seaFromBelow);
+    }
+    if (this.seaFromBelow) {
+      this.seaFromBelow.visible = inSea;
+      this.seaFromBelow.position.set(viewer.x, this.sea.position.y, viewer.z);
     }
   }
 

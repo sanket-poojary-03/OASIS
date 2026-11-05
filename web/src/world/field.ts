@@ -35,6 +35,8 @@ export interface WorldField {
   isWater(x: number, z: number): boolean;
   waterDistance(x: number, z: number): number;
   waterSurfaceAt(x: number, z: number): number | null;
+  /** The river's surface height at its closest point: what its mesh is drawn at. */
+  riverLevelAt(x: number, z: number): number;
   detailNoise(x: number, z: number): number;
   addPad(p: Pad): void;
   addRoad(r: Road): void;
@@ -49,8 +51,22 @@ export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[]; paved?
 const RIVER_WET = 16;
 /** Decks stand this far above the sea: the height of a bridge deck, so boardwalks meet them level. */
 const DECK_ABOVE_SEA = 1.2;
-const RIVER_CARVE_WIDTH = 26;
-const RIVER_DEPTH = 5;
+/** The river's bed spans this far either side of its line, then rises to its banks at RIVER_WET. */
+const RIVER_BED_HALF = 6;
+const RIVER_DEPTH = 4;
+/** Banks and shores stand this far above their water, so a surface always ends against ground. */
+const BANK_ABOVE = 0.4;
+/** Past the bank the ground blends back to the land by this distance from the river. */
+const RIVER_BLEND_TO = 34;
+/** Points either side averaged into a river's level: a surface follows the land's trend, not its every bump. */
+const RIVER_SMOOTH = 5;
+/** How far below its surface a lake's middle lies. */
+const RIVER_MAX_STEP = 2.5;
+const LAKE_ABOVE_SEA = 2;
+const LAKE_DEPTH = 6;
+const LAKE_WET_TO = 0.995;
+/** A river takes its lake's level from this many lake radii out. */
+const RIVER_JOINS_LAKE = 1.2;
 
 export function createField(recipe: Recipe): WorldField {
   const { terrain, seed } = recipe;
@@ -118,6 +134,8 @@ export function createField(recipe: Recipe): WorldField {
   const riverIndex = new SegmentIndex(32);
   let river: Vec2[] = [];
   const lakes: Lake[] = [];
+  /** A lake lies on land: lower than the sea, it would be a disc of water on the sea bed. */
+  const aboveSea = (y: number) => !hasSea || y > seaLevelY + LAKE_ABOVE_SEA;
   if (recipe.water.river && !ocean) {
     if (terrain.shape === 'valley' || terrain.shape === 'canyon') {
       for (let z = -CORE_HALF + 16; z <= CORE_HALF - 16; z += 8) river.push({ x: meander(z), z });
@@ -131,7 +149,7 @@ export function createField(recipe: Recipe): WorldField {
       }
       const res = traceRiver(baseHeight, start, { seaLevelY: hasSea ? seaLevelY : -Infinity, bound: CORE_HALF });
       river = res.path;
-      if (res.lake) lakes.push(res.lake);
+      if (res.lake && aboveSea(res.lake.levelY)) lakes.push(res.lake);
     }
     if (river.length > 1) riverIndex.addPolyline(river);
   }
@@ -140,20 +158,72 @@ export function createField(recipe: Recipe): WorldField {
     const lim = CORE_HALF * 0.7;
     for (let x = -lim; x <= lim; x += 32) for (let z = -lim; z <= lim; z += 32) {
       const h = baseHeight(x, z);
-      if (h < best) { best = h; at = { x, z }; }
+      if (h < best && aboveSea(h + 0.5)) { best = h; at = { x, z }; }
     }
-    lakes.push({ x: at.x, z: at.z, radius: 45, levelY: best + 0.5 });
+    if (best < Infinity) lakes.push({ x: at.x, z: at.z, radius: 45, levelY: best + 0.5 });
   }
 
   const riverDist = (x: number, z: number, range = 48) => (river.length > 1 ? riverIndex.distance(x, z, range) : Infinity);
 
-  const carved = (x: number, z: number): number => {
-    let h = baseHeight(x, z);
-    const d = riverDist(x, z);
-    if (d < RIVER_CARVE_WIDTH) h -= RIVER_DEPTH * (1 - smoothstep(5, RIVER_CARVE_WIDTH, d));
+  // Each river point's surface height. One height per point across the whole width: measuring the land to either side
+  // cannot work for a sheet, so the land is shaped to it instead (carved). A river arrives at its lake's level, so their
+  // shores join; inside the lake it stays just below, out of sight, and the lake's bowl shapes the ground.
+  const riverLevels = new Map<Vec2, number>();
+  const levels = river.map((p, i) => {
+    let sum = 0, n = 0;
+    for (let k = Math.max(0, i - RIVER_SMOOTH); k <= Math.min(river.length - 1, i + RIVER_SMOOTH); k++) { sum += baseHeight(river[k].x, river[k].z) - 1.5; n++; }
+    let level = sum / n;
+    if (hasSea) level = Math.max(level, seaLevelY);
+    for (const l of lakes) {
+      const dl = Math.hypot(p.x - l.x, p.z - l.z);
+      if (dl < l.radius) level = l.levelY - 1;
+      else if (dl < l.radius * RIVER_JOINS_LAKE) level = l.levelY;
+    }
+    return level;
+  });
+  // A rise or fall steeper than this between neighbouring points is drawn as a slope, the land cut or filled to match.
+  // A lake's level is fixed: the river adapts to it.
+  const fixed = river.map((p) => lakes.some((l) => Math.hypot(p.x - l.x, p.z - l.z) < l.radius * RIVER_JOINS_LAKE));
+  for (let i = 1; i < levels.length; i++) if (!fixed[i]) levels[i] = clamp(levels[i], levels[i - 1] - RIVER_MAX_STEP, levels[i - 1] + RIVER_MAX_STEP);
+  for (let i = levels.length - 2; i >= 0; i--) if (!fixed[i]) levels[i] = clamp(levels[i], levels[i + 1] - RIVER_MAX_STEP, levels[i + 1] + RIVER_MAX_STEP);
+  river.forEach((p, i) => riverLevels.set(p, levels[i]));
+  /** Just outside a lake, the nearest stretch may be the hidden one inside it: there the river is at the lake's level. */
+  const levelOf = (n: { a: Vec2; b: Vec2; t: number }, x: number, z: number): number => {
+    let level = lerp(riverLevels.get(n.a)!, riverLevels.get(n.b)!, n.t);
     for (const l of lakes) {
       const dl = Math.hypot(x - l.x, z - l.z);
-      if (dl < l.radius * 1.4) h = Math.min(h, lerp(l.levelY - 5, h, smoothstep(l.radius, l.radius * 1.4, dl)));
+      if (dl >= l.radius && dl < l.radius * 1.4) level = Math.max(level, l.levelY);
+    }
+    return level;
+  };
+  const riverLevelAt = (x: number, z: number): number => {
+    const n = river.length > 1 ? riverIndex.nearest(x, z, 64) : null;
+    return n ? levelOf(n, x, z) : baseHeight(x, z) - 1.5;
+  };
+
+  /**
+   * The land with its water's shape cut in. A surface is flat and the land is not, so the ground is set from the surface:
+   * bed, then a bank just above the water, then back to the land. Before, the river's bed was the land minus a few metres
+   * and a lake was deepest right at its shore, so their sheets hung over dry ground, up to 15 m in the air, and the
+   * player walked about under them.
+   */
+  const carved = (x: number, z: number): number => {
+    let h = baseHeight(x, z);
+    let inLake = false;
+    for (const l of lakes) {
+      const dl = Math.hypot(x - l.x, z - l.z);
+      if (dl >= l.radius * 1.4) continue;
+      inLake ||= dl < l.radius;
+      const shore = l.levelY + BANK_ABOVE, edge = l.radius * LAKE_WET_TO;
+      // Wet right up to the edge of the disc, then a short rise to the shore that hides it.
+      if (dl < edge) h = lerp(l.levelY - LAKE_DEPTH, l.levelY - 0.1, smoothstep(l.radius * 0.5, edge, dl));
+      else if (dl < l.radius) h = lerp(l.levelY - 0.1, shore, (dl - edge) / (l.radius - edge));
+      else h = lerp(shore, h, smoothstep(l.radius, l.radius * 1.4, dl));
+    }
+    const n = river.length > 1 && !inLake ? riverIndex.nearest(x, z, RIVER_BLEND_TO) : null;
+    if (n) {
+      const level = levelOf(n, x, z), bank = level + BANK_ABOVE;
+      h = n.distance < RIVER_WET ? lerp(level - RIVER_DEPTH, bank, smoothstep(RIVER_BED_HALF, RIVER_WET, n.distance)) : lerp(bank, h, smoothstep(RIVER_WET, RIVER_BLEND_TO, n.distance));
     }
     return h;
   };
@@ -200,7 +270,7 @@ export function createField(recipe: Recipe): WorldField {
 
   const waterSurfaceAt = (x: number, z: number): number | null => {
     for (const l of lakes) if (Math.hypot(x - l.x, z - l.z) < l.radius) return l.levelY;
-    if (riverDist(x, z) < RIVER_WET) return baseHeight(x, z) - 1.5;
+    if (riverDist(x, z) < RIVER_WET) return riverLevelAt(x, z);
     if (hasSea && heightAt(x, z) < seaLevelY) return seaLevelY;
     return null;
   };
@@ -218,7 +288,7 @@ export function createField(recipe: Recipe): WorldField {
 
   return {
     recipe, amplitude, seaLevelY, deckY, isDeck, meshHeightAt: (x, z) => (ocean ? carved(x, z) : heightAt(x, z)), hasSea, river, lakes, pads, roads, paved,
-    meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt,
+    meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt, riverLevelAt,
     detailNoise: (x, z) => nD(x, z),
     addPad: (p) => { pads.push({ ...p }); },
     addRoad: (r) => { roads.push(r); roadIndex.addPolyline(r.points); },

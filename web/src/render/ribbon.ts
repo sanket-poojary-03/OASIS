@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import type { Vec2 } from '../world/river';
 
-/** Pure vertex math: two vertices per point (left, right of travel), two triangles per segment. */
-export function ribbonData(points: Vec2[], halfWidth: number, yAt: (x: number, z: number) => number): { positions: number[]; indices: number[] } {
+/**
+ * Pure vertex math: two vertices per point (left, right of travel), two triangles per segment. Each pair shares the height
+ * at its point, or with `edgesOwnHeight` each vertex takes the height where it lands: at a bend a river's edge is beside
+ * a different stretch of the river.
+ */
+export function ribbonData(points: Vec2[], halfWidth: number, yAt: (x: number, z: number) => number, edgesOwnHeight = false): { positions: number[]; indices: number[] } {
   const positions: number[] = [];
   const indices: number[] = [];
   for (let i = 0; i < points.length; i++) {
@@ -11,8 +15,9 @@ export function ribbonData(points: Vec2[], halfWidth: number, yAt: (x: number, z
     const len = Math.hypot(tx, tz) || 1;
     const nx = -tz / len, nz = tx / len;
     const p = points[i];
-    const y = yAt(p.x, p.z);
-    positions.push(p.x + nx * halfWidth, y, p.z + nz * halfWidth, p.x - nx * halfWidth, y, p.z - nz * halfWidth);
+    const lx = p.x + nx * halfWidth, lz = p.z + nz * halfWidth, rx = p.x - nx * halfWidth, rz = p.z - nz * halfWidth;
+    const y = edgesOwnHeight ? 0 : yAt(p.x, p.z);
+    positions.push(lx, edgesOwnHeight ? yAt(lx, lz) : y, lz, rx, edgesOwnHeight ? yAt(rx, rz) : y, rz);
     if (i > 0) {
       const k = i * 2;
       indices.push(k - 2, k, k - 1, k - 1, k, k + 1); // counter-clockwise from above: normals face +y
@@ -21,8 +26,8 @@ export function ribbonData(points: Vec2[], halfWidth: number, yAt: (x: number, z
   return { positions, indices };
 }
 
-export function ribbonGeometry(points: Vec2[], halfWidth: number, yAt: (x: number, z: number) => number): THREE.BufferGeometry {
-  const { positions, indices } = ribbonData(points, halfWidth, yAt);
+export function ribbonGeometry(points: Vec2[], halfWidth: number, yAt: (x: number, z: number) => number, edgesOwnHeight = false): THREE.BufferGeometry {
+  const { positions, indices } = ribbonData(points, halfWidth, yAt, edgesOwnHeight);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setIndex(indices);
