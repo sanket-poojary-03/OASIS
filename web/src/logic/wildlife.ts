@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/rng';
 import { animatedClone, type AnimatedModel, type ModelTemplate } from '../render/animated';
+import { fitToHeight } from '../render/fit';
+import { cloneModel, type ModelSource } from '../render/worldObjects';
 import type { BuiltWorld } from '../world/build';
 import type { WorldField } from '../world/field';
 
@@ -23,6 +25,11 @@ export function speedOf(s: AnimalState, tuning: AnimalTuning): number {
 
 const DEER: AnimalTuning = { fleeRadius: 15, walkSpeed: 1.4, fleeSpeed: 9 };
 const RABBIT: AnimalTuning = { fleeRadius: 9, walkSpeed: 1.2, fleeSpeed: 7 };
+/** Any other animal: it wanders and does not run from the player who just asked for it. */
+const ANY_ANIMAL: AnimalTuning = { fleeRadius: 0, walkSpeed: 1.2, fleeSpeed: 0 };
+const ANY_ANIMAL_HEIGHT = 1.5;
+/** A model has no walk to play, so a walking animal bobs by this share of its height. */
+const STRIDE = 0.015;
 
 /** Materials are shared per colour for the app's lifetime; only geometries are disposed on rebuild. */
 const MATERIALS = new Map<number, THREE.MeshStandardMaterial>();
@@ -70,8 +77,11 @@ function birdMesh(): THREE.Group {
 }
 
 export type AnimalKind = 'deer' | 'rabbit';
-/** `anim` is set when the pack model is in use; otherwise `mesh` is the procedural figure. */
-interface Animal { kind: AnimalKind; mesh: THREE.Group; anim?: AnimatedModel; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean }
+/**
+ * `anim` is set when the pack model is in use; otherwise `mesh` is the procedural figure. `any`: the found model of any
+ * other animal, whose geometry is shared with the finder's copy. `bob`: metres it rises while walking.
+ */
+interface Animal { kind: AnimalKind | 'any'; mesh: THREE.Group; anim?: AnimatedModel; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean; bob: number }
 
 /** Procedural figures own their geometries (materials are the shared per-colour cache). */
 function disposeGeometries(g: THREE.Object3D): void {
@@ -87,6 +97,10 @@ export class Wildlife {
   private scatter = 0;
   private rng = mulberry32(1);
   private readonly templates = new Map<AnimalKind, ModelTemplate>();
+  /** Finds any other animal, like any other object. */
+  models?: Pick<ModelSource, 'load'>;
+  /** A model arriving for an older world is dropped. */
+  private version = 0;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -121,7 +135,7 @@ export class Wildlife {
 
   private release(a: Animal): void {
     if (a.anim) a.anim.dispose(); // geometry and materials are shared with the template
-    else disposeGeometries(a.mesh);
+    else if (a.kind !== 'any') disposeGeometries(a.mesh);
   }
 
   private clear(): void {
@@ -138,6 +152,8 @@ export class Wildlife {
     this.rng = mulberry32(world.recipe.seed ^ 0x5eed);
     const f = world.field;
     const anchor = world.spawn;
+    const version = ++this.version;
+    const wanted = new Map<string, { asset: string; height: number; bodies: THREE.Group[] }>();
     for (const life of world.recipe.life) {
       if (life.kind === 'birds') {
         const c = world.placements[0] ?? anchor;
@@ -149,24 +165,46 @@ export class Wildlife {
         }
         continue;
       }
+      const centre = life.at ?? anchor;
       for (let i = 0; i < life.count; i++) {
-        let x = anchor.x, z = anchor.z, found = false;
+        let x = centre.x, z = centre.z, found = false;
         for (let tries = 0; tries < 30; tries++) {
-          const a = this.rng() * Math.PI * 2, d = 30 + this.rng() * 150;
-          x = anchor.x + Math.cos(a) * d;
-          z = anchor.z + Math.sin(a) * d;
+          const a = this.rng() * Math.PI * 2, r = this.rng(), d = life.at ? 2 + r * 6 : 30 + r * 150;
+          x = centre.x + Math.cos(a) * d;
+          z = centre.z + Math.sin(a) * d;
           if (!f.isWater(x, z) && f.slopeAt(x, z) < 0.45 && !f.isReserved(x, z, 4)) { found = true; break; }
         }
         const state: AnimalState = { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 };
         if (!found) continue; // no valid spot: skip the animal (rng draws above stay stable)
+        if (life.kind === 'animal') {
+          const height = life.height ?? ANY_ANIMAL_HEIGHT, key = `${life.asset}:${height}`;
+          const body = new THREE.Group();
+          this.group.add(body);
+          this.animals.push({ kind: 'any', mesh: body, x, z, hop: false, bob: height * STRIDE, tuning: ANY_ANIMAL, state });
+          const group = wanted.get(key) ?? { asset: life.asset!, height, bodies: [] };
+          group.bodies.push(body);
+          wanted.set(key, group);
+          continue;
+        }
         const deer = life.kind === 'deer';
         const kind: AnimalKind = deer ? 'deer' : 'rabbit';
         const template = this.templates.get(kind);
         const anim = template ? animatedClone(template) : undefined;
         const mesh = anim?.root ?? (deer ? deerMesh() : rabbitMesh());
         this.group.add(mesh);
-        this.animals.push({ kind, mesh, anim, x, z, hop: !deer, tuning: deer ? DEER : RABBIT, state });
+        this.animals.push({ kind, mesh, anim, x, z, hop: !deer, bob: 0, tuning: deer ? DEER : RABBIT, state });
       }
+    }
+    for (const { asset, height, bodies } of wanted.values()) {
+      void this.models?.load(asset, 'prop', 0).catch(() => null).then((found) => {
+        if (!found || version !== this.version) return;
+        for (const body of bodies) {
+          const model = cloneModel(found.object);
+          fitToHeight(model, height);
+          model.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true; });
+          body.add(model);
+        }
+      });
     }
   }
 
@@ -181,7 +219,7 @@ export class Wildlife {
         if (isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7) { a.x = nx; a.z = nz; }
         else if (a.state.mode === 'walk') a.state = { ...a.state, heading: a.state.heading + Math.PI };
       }
-      a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0), a.z);
+      a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0) + (sp > 0 ? Math.abs(Math.sin(t * 5)) * a.bob : 0), a.z);
       a.mesh.rotation.y = a.state.heading;
       a.mesh.visible = isReady(a.x, a.z);
       if (a.anim && a.mesh.visible) {

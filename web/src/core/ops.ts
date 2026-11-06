@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import {
-  DIRECTIONS, hexSchema, idSchema, INTERACTIONS, LIFE_KINDS, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
+  DIRECTIONS, hexSchema, idSchema, INTERACTIONS, lifeFields, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
   type Recipe,
 } from './recipe';
 
 const unit = z.number().min(0).max(1);
+const amount = z.number().min(0).max(2);
 
 export const opSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('addPlace'), place: placeSchema }),
@@ -21,7 +22,8 @@ export const opSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('setWater'), river: z.boolean().optional(), lake: z.boolean().optional() }),
   z.strictObject({ op: z.literal('setPalette'), ground: hexSchema.optional(), water: hexSchema.optional(), sky: hexSchema.optional() }),
   z.strictObject({ op: z.literal('addPath'), from: idSchema, to: idSchema }),
-  z.strictObject({ op: z.literal('addLife'), kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) }),
+  z.strictObject({ op: z.literal('setNature'), trees: amount.optional(), plants: amount.optional(), rocks: amount.optional() }),
+  z.strictObject({ op: z.literal('addLife'), ...lifeFields }),
 ]);
 export const opsSchema = z.array(opSchema).min(1).max(20);
 export type Op = z.infer<typeof opSchema>;
@@ -109,10 +111,18 @@ export function applyOps(recipe: Recipe, ops: Op[]): ApplyResult {
         find(op.to);
         next.paths.push({ from: op.from, to: op.to });
         break;
-      case 'addLife':
-        next.life.push({ kind: op.kind, count: op.count });
+      case 'setNature': {
+        // Which things grow changes, and nothing moves: the placements are kept and the chunks rebuilt.
+        const { op: _op, ...rest } = op;
+        next.nature = { trees: 1, plants: 1, rocks: 1, ...next.nature, ...defined(rest) };
+        break;
+      }
+      case 'addLife': {
+        const { op: _op, ...life } = op;
+        next.life.push(structuredClone(life));
         res.lifeChanged = true;
         break;
+      }
     }
   }
   if (next.places.length > MAX_PLACES) throw new OpError(`This world already has ${MAX_PLACES} places — remove one first.`);
@@ -148,7 +158,8 @@ export function describeOps(ops: Op[]): string[] {
       case 'setWater': return `Change water (${op.river === undefined ? '' : `river ${op.river ? 'on' : 'off'}`}${op.lake === undefined ? '' : ` lake ${op.lake ? 'on' : 'off'}`}) — rebuilds terrain`;
       case 'setPalette': return `Recolour ${Object.entries(defined({ ground: op.ground, water: op.water, sky: op.sky })).map(([k, v]) => `${k} ${v}`).join(', ')}`;
       case 'addPath': return `Build a road from ${op.from} to ${op.to}`;
-      case 'addLife': return `Add ${op.count} ${op.kind}`;
+      case 'setNature': return `Change what grows (${Object.entries(defined({ trees: op.trees, plants: op.plants, rocks: op.rocks })).map(([k, v]) => `${k} ${v}`).join(', ')})`;
+      case 'addLife': return `Add ${op.count} ${op.asset ?? op.kind}${op.at ? ' where you pointed' : ''}`;
     }
   });
 }

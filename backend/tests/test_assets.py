@@ -242,7 +242,7 @@ def test_external_path_is_gated_and_refusal_is_status_none(tmp_path):
     searched = []
     poly.search = lambda q, limit=8: searched.append(q) or []
     r = client.post("/api/assets/resolve", json={"query": "zebra"})
-    assert r.status_code == 200 and r.json() == {"status": "none"} and searched == []
+    assert r.status_code == 200 and r.json()["status"] == "none" and "Too many" in r.json()["notices"][0] and searched == []
     assert client.post("/api/assets/resolve", json={"query": "wooden cottage"}).json()["source"] == "library"
     assert client.post("/api/assets/resolve", json={"query": "giraffe"}).json()["source"] == "online"  # cache hit is free
 
@@ -251,7 +251,7 @@ def test_meshy_is_gated_too(tmp_path):
     meshy = FakeMeshy()
     svc = AssetService(make_lib(tmp_path), ModelCache(tmp_path / "gen"), [], meshy=meshy, spawn=lambda f, *a: f(*a))
     out = svc.resolve(AssetRequest(query="giant robot", kind="landmark", allowGenerate=True), gate=lambda: False)
-    assert out == {"status": "none"} and meshy.created == []
+    assert out["status"] == "none" and meshy.created == []
 
 
 def test_refused_llm_pick_falls_back_to_title_match(tmp_path):

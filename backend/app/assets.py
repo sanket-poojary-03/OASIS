@@ -30,6 +30,7 @@ SEARCH_SECONDS = 20.0
 MAX_POOL = 8
 NO_MESHY_KEY = "Meshy API key is missing"
 NO_MESHY_CREDITS = "Meshy has no credits left"
+TOO_MANY = {"status": "none", "notices": ["Too many new 3D models at once. Try this one again in a few minutes"]}
 
 
 def _building(query: str) -> str:
@@ -114,7 +115,7 @@ class AssetService:
             return self._library_ready(entry)
         online = req.allowOnline and bool(self.finders)
         if online and gate is not None and not gate():
-            return self._ready(hit) if hit else dict(_NONE)
+            return self._ready(hit) if hit else dict(TOO_MANY)  # say so: this looked like a world with objects missing
         deadline = self.clock() + SEARCH_SECONDS
         asked = set(tokens(req.query))
         terms = list(dict.fromkeys([analysis.search, *analysis.alternatives]))
@@ -142,7 +143,7 @@ class AssetService:
             if not self.meshy:
                 notices.append(NO_MESHY_KEY)
             elif gate is not None and not gate():
-                return dict(_NONE)
+                return dict(TOO_MANY)
             else:
                 with self.lock:  # cap check, paid-attempt reservation and job insert are one step
                     if key in self.jobs:

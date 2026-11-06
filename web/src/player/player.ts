@@ -4,6 +4,7 @@ import type { Collider, KinematicCharacterController, RigidBody } from '@dimforg
 import type { Physics } from '../physics/physics';
 import type { WorldField } from '../world/field';
 import { fallbackStep } from './fallbackStep';
+import { clampToMap } from '../world/mapBounds';
 import { JET, Jetpack } from './jetpack';
 
 const EYE = 0.75; // capsule centre → eye height offset
@@ -18,6 +19,8 @@ export class Player {
   moving = false;
   /** Moving with Shift held. */
   running = false;
+  /** Walked into the edge of the map this frame. */
+  atEdge = false;
   /** The rocket booster: hold Space in the air to fly while it has fuel. */
   readonly jetpack = new Jetpack();
   private readonly body: RigidBody;
@@ -90,6 +93,8 @@ export class Player {
     this.running = running && this.moving;
     if (ready && !ready(t.x, t.z)) {
       const n = fallbackStep(t, this.move, running ? 10 : 5, dt, (x, z) => field.heightAt(x, z));
+      n.x = clampToMap(n.x);
+      n.z = clampToMap(n.z);
       this.vy = 0;
       this.body.setNextKinematicTranslation(n);
       this.position.set(n.x, n.y, n.z);
@@ -114,7 +119,8 @@ export class Player {
     this.vy = this.jetpack.update(dt, this.vy, active && this.keys.has('Space'), !swimming && !grounded);
     this.controller.computeColliderMovement(this.collider, { x: this.move.x * speed * dt, y: this.vy * dt, z: this.move.z * speed * dt });
     const m = this.controller.computedMovement();
-    const nx = t.x + m.x, nz = t.z + m.z;
+    const nx = clampToMap(t.x + m.x), nz = clampToMap(t.z + m.z);
+    this.atEdge = nx !== t.x + m.x || nz !== t.z + m.z;
     let ny = t.y + m.y;
     const ground = field.heightAt(nx, nz);
     if (ny < ground - 3) { ny = ground + 2; this.vy = 0; } // fell through a missing chunk

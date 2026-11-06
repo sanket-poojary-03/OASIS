@@ -55,8 +55,9 @@ def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetServic
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(os.getenv("CORS_ORIGINS")), allow_methods=["*"], allow_headers=["*"])
     world = WorldService(llm, world_llm)
     limiter = limiter or RateLimiter(daily_cap=int(os.getenv("LLM_DAILY_CAP", "300")))
-    # Separate budget for the external asset path (library/cache hits are free and never counted).
-    asset_limiter = asset_limiter or RateLimiter(per_ip=60, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "500")))
+    # Separate budget for the external asset path (library/cache hits are free and never counted). One world asks for 30 or
+    # more new models, so 60 refused every model after two worlds. Meshy's paid generations have their own cap.
+    asset_limiter = asset_limiter or RateLimiter(per_ip=400, window=600, daily_cap=int(os.getenv("ASSET_DAILY_CAP", "5000")))
     # Its own budget for the finder's LLM calls (I4): they never spend the player's world/edit allowance. A new object can take
     # 3 to 6 of them (analysis, a vision check per search term, a design) and one world asks for 30 or more.
     pick_limiter = pick_limiter or RateLimiter(per_ip=240, window=600, daily_cap=int(os.getenv("ASSET_PICK_DAILY_CAP", "2000")))

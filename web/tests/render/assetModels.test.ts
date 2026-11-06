@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import type { AssetResult } from '../../src/api/types';
-import { AssetModelSource, BREAKER_MS, MISS_TTL_MS, TRANSIENT_TTL_MS } from '../../src/render/assetModels';
+import { AssetModelSource, BREAKER_MS, MAX_AT_ONCE, MISS_TTL_MS, TRANSIENT_TTL_MS } from '../../src/render/assetModels';
 
 const READY: AssetResult = { status: 'ready', source: 'library', url: 'http://x/a.glb' };
 const NONE: AssetResult = { status: 'none' };
@@ -73,10 +73,10 @@ describe('AssetModelSource caching', () => {
     expect(await src.load('giraffe', 'prop')).toBeNull();
     expect(await src.load('house', 'structure')).not.toBeNull(); // other assets still load
     expect(await src.load('giraffe', 'prop')).toBeNull(); // remembered for the short TTL
-    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenCalledTimes(4); // three tries for the giraffe, one for the house
     clock.t += TRANSIENT_TTL_MS + 1;
     await src.load('giraffe', 'prop');
-    expect(resolve).toHaveBeenCalledTimes(3);
+    expect(resolve).toHaveBeenCalledTimes(7);
   });
 
   it('(c) a timeout during the probe keeps the breaker as it was', async () => {
@@ -88,7 +88,7 @@ describe('AssetModelSource caching', () => {
     expect(await src.load('tower', 'landmark')).toBeNull(); // the probe timed out: no verdict
     mode = 'up';
     expect(await src.load('bench', 'prop')).not.toBeNull(); // the next request probes again and succeeds
-    expect(resolve).toHaveBeenCalledTimes(3);
+    expect(resolve).toHaveBeenCalledTimes(5); // one, three tries of the probe, one
   });
 
   it('(c) after the breaker window only one probe goes out; when it succeeds the rest load again', async () => {
@@ -226,5 +226,26 @@ describe('AssetModelSource: built parts, tints and messages', () => {
     src.onNotice = (t) => said.push(t);
     expect(await src.load('robot', 'prop')).toBeNull();
     expect(said).toEqual(['Could not build a robot']);
+  });
+});
+
+describe('AssetModelSource: a new world asks for many models at once', () => {
+  it('asks a few at a time, so the rest do not time out waiting for a browser connection', async () => {
+    let now = 0, most = 0;
+    const src = new AssetModelSource(() => false, {
+      resolve: async () => { now++; most = Math.max(most, now); await new Promise((r) => setTimeout(r, 1)); now--; return READY; },
+      loadGltf: async () => ({ scene: new THREE.Group() }), sleep: async () => {},
+    });
+    const all = await Promise.all(Array.from({ length: 30 }, (_, i) => src.load(`thing ${i}`, 'prop')));
+    expect(all.every((m) => m !== null)).toBe(true);
+    expect(most).toBeGreaterThan(1);
+    expect(most).toBeLessThanOrEqual(MAX_AT_ONCE);
+  });
+
+  it('a request that timed out is asked again: the server finished it and has it ready', async () => {
+    const answers = [SLOW, READY];
+    const { src, resolve } = rig(() => answers.shift()!);
+    expect(await src.load('giraffe', 'prop')).not.toBeNull();
+    expect(resolve).toHaveBeenCalledTimes(2);
   });
 });

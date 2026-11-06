@@ -111,7 +111,8 @@ describe('mountain terrain', () => {
   it('has ridges, not needles: little cliff, almost no 2 m saw-tooth creases', () => {
     const f = createField(loadRecipeFixture('snowy-mountains'));
     let n = 0, cliff = 0, crease = 0, lo = Infinity, hi = -Infinity;
-    for (let x = -500; x <= 500; x += 4) for (let z = -500; z <= 500; z += 12) {
+    // Inside the mountains at the map's edge (mapBounds), which are steep on purpose.
+    for (let x = -420; x <= 420; x += 4) for (let z = -420; z <= 420; z += 12) {
       const h = f.baseHeight(x, z);
       lo = Math.min(lo, h); hi = Math.max(hi, h); n++;
       if (f.slopeAt(x, z) > 2) cliff++;

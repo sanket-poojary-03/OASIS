@@ -16,7 +16,8 @@ export const PLACE_SIZES = ['small', 'medium', 'large'] as const;
 export const INTERACTIONS = ['none', 'door', 'light', 'fire', 'sound', 'sit', 'push', 'drive'] as const;
 export const TIMES = ['dawn', 'day', 'dusk', 'night'] as const;
 export const WEATHERS = ['clear', 'rain', 'snow', 'mist', 'storm'] as const;
-export const LIFE_KINDS = ['deer', 'birds', 'rabbits'] as const;
+/** `animal`: any other animal, named by its `asset` and found by the model finder. */
+export const LIFE_KINDS = ['deer', 'birds', 'rabbits', 'animal'] as const;
 export const DIRECTIONS = ['north', 'south', 'east', 'west'] as const;
 
 export const relationSchema = z.discriminatedUnion('rel', [
@@ -80,6 +81,23 @@ export const hexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'colour must be #
  */
 export const paletteSchema = z.strictObject({ ground: hexSchema.optional(), water: hexSchema.optional(), sky: hexSchema.optional() });
 
+/**
+ * How much of what grows and lies on the land: 0 none, 1 normal, 2 dense ("no trees", "a barren plain", "a thick forest").
+ * The biome still decides which kinds; this decides how many. Unset = normal.
+ */
+const natureAmount = z.number().min(0).max(2).default(1);
+export const natureSchema = z.strictObject({ trees: natureAmount, plants: natureAmount, rocks: natureAmount });
+
+/** An animal: `at` is where it was asked for (otherwise around the start), `height` its size in metres. */
+export const lifeFields = {
+  kind: z.enum(LIFE_KINDS),
+  count: z.number().int().min(1).max(20),
+  asset: z.string().min(2).max(80).optional(),
+  height: z.number().min(0.1).max(12).optional(),
+  at: z.strictObject({ x: coord, z: coord }).optional(),
+};
+export const lifeSchema = z.strictObject(lifeFields).refine((l) => l.kind !== 'animal' || !!l.asset, 'an animal must name its asset');
+
 export const atmosphereSchema = z.strictObject({
   time: z.enum(TIMES),
   weather: z.enum(WEATHERS),
@@ -100,9 +118,10 @@ export const recipeSchema = z
     water: z.strictObject({ river: z.boolean(), lake: z.boolean() }),
     atmosphere: atmosphereSchema,
     palette: paletteSchema.optional(),
+    nature: natureSchema.optional(),
     places: z.array(placeSchema).max(MAX_PLACES),
     paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(MAX_PLACES).default([]),
-    life: z.array(z.strictObject({ kind: z.enum(LIFE_KINDS), count: z.number().int().min(1).max(20) })).max(4).default([]),
+    life: z.array(lifeSchema).max(8).default([]),
   })
   .superRefine((r, ctx) => {
     const ids = new Set<string>();

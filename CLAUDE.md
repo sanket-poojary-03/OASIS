@@ -7,7 +7,7 @@ Victoria VR **AI Builder Hackathon 2026** entry, focus category **Prompt-to-Worl
 Describe a world in plain language, walk into it right away, and change it by typing while you play.
 
 - An LLM (Python FastAPI backend) turns text into a validated JSON **recipe**, or into **edit ops** while you play. It never writes code, and never writes coordinates unless the user gives them.
-- Deterministic TypeScript in the browser builds an endless world from the recipe: noise terrain, rivers and lakes, biomes, a relation-based **placement solver** that shows "why here" reasons, villages, A* roads, and instanced scatter.
+- Deterministic TypeScript in the browser builds a fixed map (1 km across, with mountains at its edge) from the recipe: noise terrain, rivers and lakes, biomes, a relation-based **placement solver** that shows "why here" reasons, villages, A* roads, and instanced scatter.
 - three.js renders it in chunks from a Web Worker, and Rapier handles physics and the first-person controller.
 - The environment has working logic: day/night, weather, doors, lights, fire, bells, seats, pushable props, and wildlife.
 - There are **no quests, keys or puzzles**, by the user's explicit choice.
@@ -61,4 +61,4 @@ Without `LLM_API_KEY`, or without the backend, the app says "LLM not available" 
 - **prompt-to-playable:** flat 60×60 with 24 objects.
 - **Anima:** one fixed splat scene.
 - LevelProof's props are all built in code from three.js primitives; its only loaded file is one CC0 character. Its look comes from polish (rounded edges, colour variants, bloom) on a small, close-framed board.
-- **Our edge:** endless walkable terrain, relation-based placement that explains itself, real CC0 pack models, a model finder that fetches anything you ask for, and live edits with undo.
+- **Our edge:** a large walkable map, relation-based placement that explains itself, real CC0 pack models, a model finder that fetches anything you ask for, and live edits with undo.

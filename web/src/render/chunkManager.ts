@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Collider } from '@dimforge/rapier3d-compat';
 import type { Physics } from '../physics/physics';
 import { CHUNK_SIZE, type ChunkData } from '../world/chunkData';
+import { chunkInMap } from '../world/mapBounds';
 import type { FieldSnapshot } from '../world/field';
 import type { ScatterItem } from '../world/scatter';
 import { ChunkQueue } from './chunkQueue';
@@ -69,7 +70,7 @@ export class ChunkManager {
     const ccx = Math.floor(px / CHUNK_SIZE), ccz = Math.floor(pz / CHUNK_SIZE);
     this.ccx = ccx; this.ccz = ccz;
     const wanted: Array<[number, number, number]> = [];
-    for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) wanted.push([ccx + dx, ccz + dz, dx * dx + dz * dz]);
+    for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) if (chunkInMap(ccx + dx, ccz + dz)) wanted.push([ccx + dx, ccz + dz, dx * dx + dz * dz]);
     wanted.sort((a, b) => a[2] - b[2]);
     const inView = new Set(wanted.map(([cx, cz]) => key(cx, cz)));
     this.queue.forgetExcept(inView);

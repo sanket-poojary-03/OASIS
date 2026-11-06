@@ -30,6 +30,7 @@ import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
 import { WorldObjects, type ModelSource } from './render/worldObjects';
 import { Underwater } from './render/underwater';
+import { insideMap } from './world/mapBounds';
 import { NoticeQueue } from './ui/assetNotices';
 import type { UI } from './ui/ui';
 import { waitUntil } from './ui/wait';
@@ -52,6 +53,9 @@ const OCEAN_VIEW = 700;
 const REACH_FIRST = 4, REACH_THIRD = 9;
 const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', none: 'Dev preset' };
 
+/** Seconds between reminders, for a player walking along the edge. */
+const EDGE_NOTICE_EVERY = 15;
+
 export class App {
   built: BuiltWorld | null = null;
   ui: UI | null = null;
@@ -70,6 +74,8 @@ export class App {
   private readonly raycaster = new THREE.Raycaster();
   private readonly isReady = (x: number, z: number): boolean => this.chunks.isReady(x, z);
   private lookTimer = 0;
+  /** When the player was last told they reached the edge of the map. */
+  private edgeToldAt = -EDGE_NOTICE_EVERY;
   private cineAngle = 0;
   /** The start screen's world is turning behind it (showcase); a world the player enters ends it. */
   private menuWorld = false;
@@ -108,7 +114,7 @@ export class App {
     });
     this.vehicles = new Vehicles(engine.scene, physics, player, {
       heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
-      isWater: (x, z) => this.built?.field.isWater(x, z) ?? false,
+      isWater: (x, z) => !insideMap(x, z) || (this.built?.field.isWater(x, z) ?? false), // a car stops at the edge of the map as at a shore
     }, () => loadCarTemplate());
     objects.onReady.push((root, info) => this.interactions.register(root, info));
     objects.onReady.push((root, info) => { if (info.interaction === 'drive') this.vehicles.adopt(root, info); });
@@ -124,6 +130,7 @@ export class App {
     this.dayScale = atmosphere.timeScale;
     this.decks = new DeckSystem(engine.scene, physics);
     this.underwater = new Underwater(engine.scene);
+    wildlife.models = models;
     this.characters = new CharacterRoster(avatar);
     void this.characters.start();
   }
@@ -383,7 +390,7 @@ export class App {
     try {
       const keep = a.terrainChanged ? [] : b.placements.filter((pl) => !a.changedPlaces.has(pl.id) && !a.removedPlaces.has(pl.id));
       const built = this.load(a.recipe, keep, false, a.changedPlaces);
-      const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}`);
+      const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}, ${Math.round(Math.hypot(pl.x - this.player.position.x, pl.z - this.player.position.z))} m away`);
       this.ui?.toast(placed.length ? `Placed ${placed.join(' · ')}` : 'Done');
     } catch (e) {
       console.error('edit failed to build', e);
@@ -475,6 +482,10 @@ export class App {
     setNightGlow(this.atmosphere.isNight ? 1.4 : 0); // placeholder windows and the windows/lamps of loaded models
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
+    if (this.player.atEdge && !this.menuWorld && t - this.edgeToldAt > EDGE_NOTICE_EVERY) {
+      this.edgeToldAt = t;
+      this.ui?.toast('This is the edge of the map');
+    }
     this.lookTimer -= dt;
     if (this.lookTimer <= 0 && this.ui && this.built) {
       this.lookTimer = 0.2;

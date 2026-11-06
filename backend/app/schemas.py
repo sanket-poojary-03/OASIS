@@ -19,7 +19,7 @@ Size = Literal["small", "medium", "large"]
 Interaction = Literal["none", "door", "light", "fire", "sound", "sit", "push", "drive"]
 Time = Literal["dawn", "day", "dusk", "night"]
 Weather = Literal["clear", "rain", "snow", "mist", "storm"]
-LifeKind = Literal["deer", "birds", "rabbits"]
+LifeKind = Literal["deer", "birds", "rabbits", "animal"]
 LayoutPattern = Literal["village", "grid", "ring", "line", "scatter"]
 LayoutHeight = Literal["low", "mixed", "tall"]
 
@@ -151,9 +151,34 @@ class Path_(Strict):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+NatureAmount = Annotated[float, Field(ge=0, le=2)]
+
+
+class Nature(Strict):
+    """How much grows and lies on the land: 0 none, 1 normal, 2 dense. The biome still decides which kinds."""
+    trees: NatureAmount = 1
+    plants: NatureAmount = 1
+    rocks: NatureAmount = 1
+
+
+class LifeAt(Strict):
+    x: Annotated[float, Field(ge=-CORE_HALF, le=CORE_HALF)]
+    z: Annotated[float, Field(ge=-CORE_HALF, le=CORE_HALF)]
+
+
 class Life(Strict):
+    """`animal`: any other animal, named by its asset. `at`: where it was asked for. `height`: its size in metres."""
     kind: LifeKind
     count: Annotated[int, Field(ge=1, le=20)]
+    asset: Annotated[str, Field(min_length=2, max_length=80)] | None = None
+    height: Annotated[float, Field(ge=0.1, le=12)] | None = None
+    at: LifeAt | None = None
+
+    @model_validator(mode="after")
+    def _names_its_animal(self):
+        if self.kind == "animal" and not self.asset:
+            raise ValueError("an animal must name its asset")
+        return self
 
 
 class Recipe(Strict):
@@ -165,9 +190,10 @@ class Recipe(Strict):
     water: Water
     atmosphere: Atmosphere
     palette: Palette | None = None
+    nature: Nature | None = None
     places: Annotated[list[Place], Field(max_length=MAX_PLACES)]
     paths: Annotated[list[Path_], Field(max_length=MAX_PLACES)] = []
-    life: Annotated[list[Life], Field(max_length=4)] = []
+    life: Annotated[list[Life], Field(max_length=8)] = []
 
     @model_validator(mode="after")
     def _references(self) -> "Recipe":
@@ -255,14 +281,19 @@ class AddPath(Strict):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
-class AddLife(Strict):
+class AddLife(Life):
     op: Literal["addLife"]
-    kind: LifeKind
-    count: Annotated[int, Field(ge=1, le=20)]
+
+
+class SetNature(Strict):
+    op: Literal["setNature"]
+    trees: NatureAmount | None = None
+    plants: NatureAmount | None = None
+    rocks: NatureAmount | None = None
 
 
 Op = Annotated[
-    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, SetPalette, AddPath, AddLife],
+    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, SetPalette, SetNature, AddPath, AddLife],
     Field(discriminator="op"),
 ]
 OpsList = Annotated[list[Op], Field(min_length=1, max_length=20)]

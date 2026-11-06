@@ -70,6 +70,7 @@ _KIND_WORDS = {"building": "structure", "house": "structure", "shop": "structure
                "town": "settlement", "city": "settlement", "district": "settlement", "camp": "settlement", "monument": "landmark",
                "tower": "landmark", "object": "prop", "item": "prop", "decoration": "prop", "furniture": "prop"}
 _ROAD_KINDS = {"path", "road", "street", "route", "trail"}
+_LIFE_KINDS = {"deer", "birds", "rabbits", "animal"}
 # Relations that take no arguments: models often add an "of" anyway.
 _BARE_RELATIONS = {"highest", "lowest", "flat", "by_water"}
 
@@ -130,6 +131,8 @@ def repair_ops(raw):
                 raw[i] = {"op": "setPalette", **_repair_palette({k: v for k, v in op.items() if k != "op"})}
             elif isinstance(op, dict) and op.get("op") == "addPlace":
                 _drivable(op.get("place"))
+            elif isinstance(op, dict) and op.get("op") == "addLife":
+                _repair_at(op)
     return raw
 
 
@@ -161,7 +164,27 @@ def repair_recipe(raw):
             place["where"] = [r for r in (_repair_relation(r, ids) for r in place["where"]) if r is not None]
     if isinstance(raw.get("paths"), list):
         raw["paths"] = [p for p in raw["paths"] if not isinstance(p, dict) or (p.get("from") in ids and p.get("to") in ids)]
+    if isinstance(raw.get("life"), list):
+        raw["life"] = _repair_life(raw["life"])
     return raw
+
+
+def _repair_at(item: dict) -> None:
+    """An animal's `at` is just x and z; models write it like a place's relation ({"rel":"at",...}), and that cost a retry."""
+    if isinstance(item.get("at"), dict):
+        item["at"] = {k: v for k, v in item["at"].items() if k in ("x", "z")}
+
+
+def _repair_life(raw: list) -> list[dict]:
+    """An animal written as its own kind ("lizard") is kept as that animal; what names no animal is dropped."""
+    out: list[dict] = []
+    for item in raw:
+        kind = item.get("kind") if isinstance(item, dict) else None
+        if not isinstance(kind, str) or len(kind.strip()) < 2:
+            continue
+        _repair_at(item)
+        out.append(item if kind in _LIFE_KINDS else {**item, "kind": "animal", "asset": str(item.get("asset") or kind).strip()[:80]})
+    return out
 
 
 def _repair_variants(layout) -> None:
@@ -256,13 +279,19 @@ class WorldService:
 
         def validate(data: dict) -> dict:
             raw = data.get("recipe", data)
-            # Models often put their notes inside the recipe; move them out instead of rejecting a good world.
-            inner = raw.pop("notes", None) if isinstance(raw, dict) and raw is not data else None
             if not isinstance(raw, dict):
                 raise ValueError("the recipe is not an object")
+            # Models often put their notes among the recipe's own keys, inside it or writing the recipe flat. They are moved
+            # out, not rejected: rejecting them cost a second full LLM call on nearly every world.
+            notes = _notes(data)
+            flat = raw is data
+            inner = raw.pop("notes", None)
+            if flat:
+                raw.pop("type", None)
+                inner = None
             recipe, dropped = keep_valid_places(repair_recipe(raw))
             recipe = recipe.model_copy(update={"seed": prompt_seed(prompt)})
-            notes = _notes(data) + _notes({"notes": inner})
+            notes = notes + _notes({"notes": inner})
             if dropped:
                 notes.insert(0, f"Left out {len(dropped)} place{'s' if len(dropped) > 1 else ''} the AI described unclearly: {', '.join(dropped)[:150]}.")
             return {"type": "recipe", "recipe": dump(recipe), "notes": notes[:5], "source": "live"}

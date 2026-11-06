@@ -35,7 +35,7 @@ export function grassChunk(field: WorldField, cx: number, cz: number): Float32Ar
     const gx = cx * n + i, gz = cz * n + j;
     const rng = mulberry32(hashString(`g:${field.recipe.seed}:${gx}:${gz}`));
     const x = gx * GRASS_CELL + rng() * GRASS_CELL, z = gz * GRASS_CELL + rng() * GRASS_CELL;
-    if (rng() > 0.7) continue;
+    if (rng() > Math.min(1, 0.7 * (field.recipe.nature?.plants ?? 1))) continue;
     if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5) || field.pavedAt(x, z) > 0.2) continue;
     if (!GRASS_BIOMES.has(biomeAt(field, x, z))) continue;
     out.push(x, field.heightAt(x, z), z, rng() * Math.PI * 2, 0.7 + rng() * 0.6);

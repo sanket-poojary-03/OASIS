@@ -47,7 +47,12 @@ Rules:
 - palette (optional): colours as "#rrggbb" for worlds that are not Earth-like or when the user names colours:
   ground tints the land, water the sea/rivers/lakes, sky the sky and haze. E.g. a red planet -> {"ground":"#a8442a","sky":"#d9a07a"};
   a purple alien sea -> {"water":"#6c3483"}; black volcanic sand -> {"ground":"#2a2626"}. Leave palette out for ordinary worlds.
-- life: deer/birds/rabbits that fit the place (max 4 entries).
+- nature (optional): how much grows and lies on the land, each 0 (none) .. 1 (normal) .. 2 (dense): {"trees":0,"plants":1,"rocks":1}.
+  trees: trees, stumps, fallen logs. plants: grass, bushes, flowers, ferns, reeds, cacti. rocks: rocks and pebbles. The climate decides which kinds;
+  this decides how many, and without it land fills with what its climate grows. "no trees" -> trees 0; "bare", "barren", "empty land" -> trees 0, plants 0;
+  "a thick forest" -> trees 2. What the player rules out stays out: with trees 0, name no trees in places, props or scenery either.
+- life (max 8 entries): what lives here. deer, birds and rabbits are built in: {"kind":"deer","count":4}. ANY other animal:
+  {"kind":"animal","asset":"giraffe","height":5,"count":2}, height in metres. Never put a different animal in its place.
 - paths: roads between the main places people would walk between.
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
@@ -125,11 +130,14 @@ Rules:
 - "here", "there", "where I'm looking", "in front of me" -> {"rel":"at","x":<lookAt.x>,"z":<lookAt.z>} using the lookAt numbers exactly. If lookAt is null, use relations instead.
 - "on this", "on that", "on top of it" (small props only, e.g. a candle on a table) -> the same "at" plus "y":<lookAt.y>, so the prop sits on the surface being looked at.
 - "near this", "next to that", "beside it" -> {"rel":"near","target":<lookingAt id>,"maxDist":30} plus {"rel":"flat"}; if lookingAt is null, use the "at" of lookAt.
-- Any object the user names is fine, even unusual ones ("a giraffe", "a hot-air balloon"): put a short visual description in "asset"; the model finder searches free libraries for it.
+- Any object the user names is fine, even unusual ones ("a hot-air balloon", "a red telephone box"): put a short visual description in "asset"; the model finder searches free libraries for it.
 - "that", "this", "it" (the thing being looked at) -> the lookingAt id.
 - New place ids must not already exist. Never resend the whole recipe; only operations.
 - setClimate, setTerrain and setWater rebuild the whole world. Use them only when asked (e.g. "make it winter" -> setClimate temperature 0.1 + setAtmosphere weather snow).
 - Time and weather words -> setAtmosphere.
+- Any animal ("add a giraffe here", "three horses by the lake") -> addLife. deer, birds and rabbits are built in; any other is
+  {"op":"addLife","kind":"animal","asset":"giraffe","height":5,"count":1}, height in metres. "here" adds "at":{"x":<lookAt.x>,"z":<lookAt.z>}. Never put a different animal in its place.
+- What grows ("remove the trees", "no grass", "more rocks", "make it a thick forest") -> {"op":"setNature","trees":0} with trees, plants or rocks, each 0 (none) .. 1 (normal) .. 2 (dense). Nothing else moves.
 - Colour changes ("make the sea purple", "turn the ground black", "an orange sky") -> setPalette with "#rrggbb" colours
   (ground, water, sky). It recolours without rebuilding.
 - Keep place rules from the world prompt: kind, asset, interaction, relations. interaction: door (buildings), light (lamps),

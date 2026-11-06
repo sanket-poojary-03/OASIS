@@ -1,5 +1,6 @@
 import { createNoise2D } from 'simplex-noise';
 import { CORE_HALF, type Recipe } from '../core/recipe';
+import { RIM_WIDTH } from './mapBounds';
 import { mulberry32 } from '../core/rng';
 import { clamp, fbm, lerp, ridged, smoothstep } from './noise';
 import { SegmentIndex, traceRiver, type Lake, type Vec2 } from './river';
@@ -64,6 +65,10 @@ const RIVER_SMOOTH = 5;
 const RIVER_MAX_STEP = 2.5;
 const LAKE_ABOVE_SEA = 2;
 const LAKE_DEPTH = 6;
+/** The mountains at the map's edge: their height, how much it varies, and how much their foot wanders. */
+const RIM_HEIGHT = 45;
+const RIM_VARY = 12;
+const RIM_WANDER = 14;
 const LAKE_WET_TO = 0.995;
 /** A river takes its lake's level from this many lake radii out. */
 const RIVER_JOINS_LAKE = 1.2;
@@ -201,6 +206,15 @@ export function createField(recipe: Recipe): WorldField {
     return n ? levelOf(n, x, z) : baseHeight(x, z) - 1.5;
   };
 
+  /** Land rises to mountains at the edge of the map; a sea stays open, with no wall standing in the water. */
+  const rimAt = (x: number, z: number, h: number): number => {
+    const edge = Math.max(Math.abs(x), Math.abs(z));
+    if (edge < CORE_HALF - RIM_WIDTH - RIM_WANDER) return 0;
+    const k = smoothstep(CORE_HALF - RIM_WIDTH, CORE_HALF, edge + nD(x * 0.012, z * 0.012) * RIM_WANDER);
+    const land = hasSea ? smoothstep(seaLevelY, seaLevelY + 6, h) : 1;
+    return k * k * land * (RIM_HEIGHT + nA(x * 0.01, z * 0.01) * RIM_VARY);
+  };
+
   /**
    * The land with its water's shape cut in. A surface is flat and the land is not, so the ground is set from the surface:
    * bed, then a bank just above the water, then back to the land. Before, the river's bed was the land minus a few metres
@@ -225,7 +239,7 @@ export function createField(recipe: Recipe): WorldField {
       const level = levelOf(n, x, z), bank = level + BANK_ABOVE;
       h = n.distance < RIVER_WET ? lerp(level - RIVER_DEPTH, bank, smoothstep(RIVER_BED_HALF, RIVER_WET, n.distance)) : lerp(bank, h, smoothstep(RIVER_WET, RIVER_BLEND_TO, n.distance));
     }
-    return h;
+    return h + rimAt(x, z, h);
   };
 
   // ---- pads & roads ----

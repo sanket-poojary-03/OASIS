@@ -44,6 +44,13 @@ export function scatterRules(biome: Biome, grove: number, temperature: number): 
 
 const ON_SLOPES: ReadonlySet<ScatterKind> = new Set(['rock', 'pebble']);
 
+/** Which of the recipe's `nature` amounts governs each kind. */
+const NATURE: Record<ScatterKind, 'trees' | 'plants' | 'rocks'> = {
+  tree: 'trees', birch: 'trees', autumn_tree: 'trees', pine: 'trees', snowy_pine: 'trees', palm: 'trees', dead_tree: 'trees', log: 'trees', stump: 'trees',
+  bush: 'plants', cactus: 'plants', reed: 'plants', flowers: 'plants', fern: 'plants', mushroom: 'plants',
+  rock: 'rocks', pebble: 'rocks',
+};
+
 /** What lies on a bed: stones anywhere, reeds only where they can reach the surface. */
 export function bedRules(depth: number): Rule[] {
   return depth < REED_DEPTH ? [['reed', 0.14], ['rock', 0.025], ['pebble', 0.05]] : [['rock', 0.025], ['pebble', 0.05]];
@@ -52,6 +59,7 @@ export function bedRules(depth: number): Rule[] {
 export function scatterChunk(field: WorldField, cx: number, cz: number, size = 64): ScatterItem[] {
   const out: ScatterItem[] = [];
   const n = size / SCATTER_CELL;
+  const nature = field.recipe.nature;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gx = cx * n + i, gz = cz * n + j;
     const rng = mulberry32(hashString(`${field.recipe.seed}:${gx}:${gz}`));
@@ -63,7 +71,7 @@ export function scatterChunk(field: WorldField, cx: number, cz: number, size = 6
     const grove = field.detailNoise(x * 0.004 + 31.7, z * 0.004 - 12.3);
     const rules = surface !== null ? bedRules(surface - field.heightAt(x, z)) : scatterRules(biomeAt(field, x, z), grove, field.recipe.climate.temperature);
     for (const [k, p] of rules) {
-      acc += p;
+      acc += p * (nature?.[NATURE[k]] ?? 1);
       if (roll < acc) { kind = k; break; }
     }
     if (!kind) continue;

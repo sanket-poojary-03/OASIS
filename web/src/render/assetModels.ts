@@ -19,6 +19,13 @@ export const TRANSIENT_TTL_MS = 45_000;
  */
 export const BREAKER_MS = 30_000;
 /** A manual build takes seconds and Meshy minutes, so a job is asked about quickly at first. */
+/**
+ * Requests in flight at once. A browser opens about 6 connections to a server and the rest queue, with their timeout already
+ * running: a world asking for 30 new models timed out most of them, and each was then left out though the server had built it.
+ */
+export const MAX_AT_ONCE = 5;
+/** Tries for one request that keeps timing out. The server carries on and caches, so the next try is usually instant. */
+const TIMEOUT_TRIES = 3;
 const FAST_POLLS = 10;
 const FAST_POLL_MS = 1500;
 const POLL_MS = 5000;
@@ -47,6 +54,8 @@ export class AssetModelSource implements ModelSource {
   private tripped = false;
   private probing = false;
   private readonly told = new Set<string>();
+  private inFlight = 0;
+  private readonly queue: Array<() => void> = [];
   /** Messages for the player about how a model is being made (Meshy unavailable, built manually). textContent only. */
   onNotice?: (text: string) => void;
   private readonly resolve: NonNullable<AssetDeps['resolve']>;
@@ -112,6 +121,20 @@ export class AssetModelSource implements ModelSource {
     this.probing = false;
   }
 
+  /** One lookup, waiting for its turn first, so its timeout only starts once it is really on its way. */
+  private async ask(asset: string, kind: PlaceKind, variant: number): Promise<AssetResult> {
+    if (this.inFlight >= MAX_AT_ONCE) await new Promise<void>((go) => this.queue.push(go));
+    this.inFlight++;
+    try {
+      let res = await this.resolve(asset, kind, this.allowGenerate(kind), true, variant);
+      for (let t = 1; res.status === 'none' && res.timeout && t < TIMEOUT_TRIES; t++) res = await this.resolve(asset, kind, this.allowGenerate(kind), true, variant);
+      return res;
+    } finally {
+      this.inFlight--;
+      this.queue.shift()?.();
+    }
+  }
+
   /** Each message once per world: every rejected landmark would say the Meshy key is missing. */
   private tell(res: AssetResult): void {
     for (const text of res.notices ?? []) {
@@ -134,7 +157,7 @@ export class AssetModelSource implements ModelSource {
 
   private async fetch(asset: string, kind: PlaceKind, variant: number): Promise<{ value: Loaded; retryAfter: number }> {
     const miss = (r: AssetResult) => ({ value: null, retryAfter: r.status === 'none' && !r.transient ? MISS_TTL_MS : TRANSIENT_TTL_MS });
-    let res = await this.resolve(asset, kind, this.allowGenerate(kind), true, variant);
+    let res = await this.ask(asset, kind, variant);
     this.noteTransport(res);
     this.tell(res);
     let flaky = 0;

@@ -7,6 +7,8 @@ EXPECTED_OPS = {
     "add-lighthouse-at": ["addPlace", "setAtmosphere"],
     "make-winter": ["setClimate", "setAtmosphere"],
     "red-planet": ["setPalette", "setAtmosphere"],
+    "no-trees": ["setNature"],
+    "add-giraffe": ["addLife"],
 }
 
 RECIPES = sorted((FIXTURES_DIR / "recipes").glob("*.json"))
