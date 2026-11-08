@@ -23,8 +23,24 @@ describe('settlement', () => {
     for (let i = 0; i < buildings.length; i++) for (let j = i + 1; j < buildings.length; j++) {
       expect(Math.hypot(buildings[i].x - buildings[j].x, buildings[i].z - buildings[j].z)).toBeGreaterThanOrEqual(6);
     }
-    expect(spine.points.length).toBe(2);
+    expect(spine.points.length).toBeGreaterThanOrEqual(2);
     expect(buildings.filter((b) => b.kind === 'house').every((b) => b.interaction === 'door')).toBe(true);
+  });
+
+  it('winds its street, grows lanes, and fills from the middle outward', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const field = createField(r);
+    const pl = { ...solvePlacements(r, field).find((p) => p.id === 'village')!, radius: 65 };
+    const place = { ...r.places.find((p) => p.id === 'village')!, size: 'medium' as const, layout: { pattern: 'village' as const, height: 'low' as const, count: 8 } };
+    const { buildings, spine, streets } = layoutSettlement(place, pl, field, r.seed);
+    const [a, b] = [spine.points[0], spine.points[spine.points.length - 1]];
+    const off = spine.points.map((p) => Math.abs((b.x - a.x) * (a.z - p.z) - (a.x - p.x) * (b.z - a.z)) / Math.hypot(b.x - a.x, b.z - a.z));
+    expect(Math.max(...off)).toBeGreaterThan(1); // not a ruler line
+    expect(streets.length).toBeGreaterThan(0);
+    const houses = buildings.filter((h) => h.kind === 'house');
+    expect(houses.length).toBeGreaterThan(0);
+    for (const h of houses) expect(Math.hypot(h.x - pl.x, h.z - pl.z)).toBeLessThan(pl.radius * 0.8); // together, not strung along the whole street
+    for (const h of houses) for (const road of [spine, ...streets]) for (const p of road.points) expect(Math.hypot(h.x - p.x, h.z - p.z)).toBeGreaterThan(road.width / 2);
   });
 
   // Snowy-mountains has no settlement in its recipe, so a village is added for the solver to place.
@@ -43,7 +59,7 @@ describe('settlement', () => {
 
       expect(buildings.filter((b) => b.kind !== 'house').length).toBe(1);
       expect(buildings.filter((b) => b.kind === 'well' || b.kind === 'market').length).toBe(1);
-      expect(spine.points.length).toBe(2);
+      expect(spine.points.length).toBeGreaterThanOrEqual(2);
       for (const b of buildings) {
         for (const s of footprintSamples(b.x, b.z, b.footprint)) {
           expect(field.isWater(s.x, s.z)).toBe(false);

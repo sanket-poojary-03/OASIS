@@ -3,6 +3,11 @@ import type { WorldField } from './field';
 /** The only things that lie on a river, lake or sea bed. */
 export const BED_KINDS: readonly string[] = ['rock', 'pebble', 'reed'];
 
+/** No water at (x, z) or `margin` to any side of it. Testing the middle alone let a road's edge hang over the bank. */
+export function isClearOfWater(field: Pick<WorldField, 'isWater'>, x: number, z: number, margin: number): boolean {
+  return !field.isWater(x, z) && !field.isWater(x + margin, z) && !field.isWater(x - margin, z) && !field.isWater(x, z + margin) && !field.isWater(x, z - margin);
+}
+
 /** How far below a water surface a point is; 0 above it, and anywhere that is not water. */
 export function depthBelowSurface(field: WorldField, x: number, y: number, z: number): number {
   if (!field.isWater(x, z)) return 0;

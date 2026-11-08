@@ -10,10 +10,12 @@ import type { GrassSystem } from './grass';
 import type { ScatterAssets } from './scatterAssets';
 
 import { pickColliderBuilds } from './colliderBudget';
-import { VIEW_RADIUS } from './deviceTier';
+import { CHUNK_WORKERS, VIEW_RADIUS } from './deviceTier';
 import { addShoreFoam } from './shoreFoam';
 
 export const VIEW = VIEW_RADIUS;
+/** Asking costs one message: frames are slowest just when a new world needs all its land, so this must not hold it back. */
+const REQUESTS_PER_FRAME = 8;
 
 interface LiveChunk {
   cx: number;
@@ -43,25 +45,30 @@ export class ChunkManager {
   /** The camera's chunk at the last update (scatter detail rings are around it). */
   private ccx = 0;
   private ccz = 0;
-  private readonly worker: Worker;
+  /** Each builds whole chunks on its own copy of the world, so land arrives several times faster than from one. */
+  private readonly workers: Worker[] = [];
+  private nextWorker = 0;
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
 
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly scatter: ScatterAssets, private readonly grass: GrassSystem) {
     scene.add(this.group);
     addShoreFoam(this.material);
-    this.worker = new Worker(new URL('./chunkWorker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent) => {
-      try { this.receive(e.data); } catch (err) { console.warn('[chunks] bad worker message', err); this.queue.failAll(performance.now()); }
-    };
-    this.worker.onerror = (e) => { console.warn('[chunks] worker error', e.message); this.queue.failAll(performance.now()); };
-    this.worker.onmessageerror = (e) => { console.warn('[chunks] worker message error', e); this.queue.failAll(performance.now()); };
+    for (let i = 0; i < CHUNK_WORKERS; i++) {
+      const worker = new Worker(new URL('./chunkWorker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e: MessageEvent) => {
+        try { this.receive(e.data); } catch (err) { console.warn('[chunks] bad worker message', err); this.queue.failAll(performance.now()); }
+      };
+      worker.onerror = (e) => { console.warn('[chunks] worker error', e.message); this.queue.failAll(performance.now()); };
+      worker.onmessageerror = (e) => { console.warn('[chunks] worker message error', e); this.queue.failAll(performance.now()); };
+      this.workers.push(worker);
+    }
   }
 
-  /** New world: the worker rebuilds its field; existing chunks stay visible until replaced. */
+  /** New world: the workers rebuild their field; existing chunks stay visible until replaced. */
   setSnapshot(snapshot: FieldSnapshot): void {
     this.generation++;
     this.queue.reset();
-    this.worker.postMessage({ type: 'init', generation: this.generation, snapshot });
+    for (const worker of this.workers) worker.postMessage({ type: 'init', generation: this.generation, snapshot });
     for (const c of this.chunks.values()) c.stale = true;
   }
 
@@ -77,12 +84,12 @@ export class ChunkManager {
     const now = performance.now();
     let requested = 0;
     for (const [cx, cz] of wanted) {
-      if (requested >= 4) break;
+      if (requested >= REQUESTS_PER_FRAME) break;
       const k = key(cx, cz);
       const c = this.chunks.get(k);
       if ((!c || c.stale) && this.queue.canRequest(k, now)) {
         this.queue.markPending(k);
-        this.worker.postMessage({ type: 'chunk', generation: this.generation, cx, cz });
+        this.workers[this.nextWorker++ % this.workers.length].postMessage({ type: 'chunk', generation: this.generation, cx, cz });
         requested++;
       }
     }
@@ -109,6 +116,17 @@ export class ChunkManager {
   isReady(x: number, z: number): boolean {
     const c = this.chunks.get(key(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)));
     return !!c && !c.stale && !!c.collider;
+  }
+
+  /** True when every chunk in view around (x, z) has arrived for this world, or has failed every retry. */
+  viewLoaded(x: number, z: number): boolean {
+    const ccx = Math.floor(x / CHUNK_SIZE), ccz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -VIEW; dz <= VIEW; dz++) for (let dx = -VIEW; dx <= VIEW; dx++) {
+      if (!chunkInMap(ccx + dx, ccz + dz)) continue;
+      const k = key(ccx + dx, ccz + dz), c = this.chunks.get(k);
+      if ((!c || c.stale) && !this.queue.gaveUp(k)) return false;
+    }
+    return true;
   }
 
   /** True when the chunk under (x, z) failed every retry, so isReady there will not come true for this world. */

@@ -8,6 +8,35 @@ import { findDoorNode, hingeDoor } from './doorHinge';
 import { needsRecovery, pickNearestLit } from './lightMath';
 
 const POOL_SIZE = 6;
+/** Brighter blew the ground under a lamp out to white in the bloom. */
+const LIGHT_POWER = 22;
+/** The pool of light on the ground under every lit lamp: how wide, and how far above the ground so it never sinks into it. */
+const GROUND_LIGHT_SIZE = 16;
+const GROUND_LIGHT_LIFT = 0.3;
+const GROUND_LIGHT_TEXELS = 64;
+
+/** A soft round spot, bright in the middle and gone at the edge. */
+function spotTexture(): THREE.DataTexture {
+  const n = GROUND_LIGHT_TEXELS, data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const d = Math.min(1, Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / (n / 2)), k = (1 - d) * (1 - d);
+    data.set([255, 255, 255, Math.round(k * 255)], (y * n + x) * 4);
+  }
+  const t = new THREE.DataTexture(data, n, n, THREE.RGBAFormat);
+  t.magFilter = t.minFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+/**
+ * Only the few lamps nearest the camera can cast real light (POOL_SIZE), so a lit street went dark a block away. This
+ * costs one flat shape per lamp, and every lamp in view lights its stretch of street.
+ */
+const GROUND_LIGHT_GEOMETRY = new THREE.CircleGeometry(GROUND_LIGHT_SIZE / 2, 20).rotateX(-Math.PI / 2);
+let groundLightMaterial: THREE.MeshBasicMaterial | null = null;
+const groundLight = (): THREE.MeshBasicMaterial => groundLightMaterial ??= new THREE.MeshBasicMaterial({
+  color: 0xffbf73, map: spotTexture(), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+});
 
 export interface InteractEnv {
   heightAt(x: number, z: number): number;
@@ -36,6 +65,8 @@ export interface InteractItem {
   pivot?: THREE.Object3D;
   lightY: number;
   glow?: THREE.Mesh;
+  /** A lamp's pool of light on the ground. */
+  spot?: THREE.Mesh;
   body?: RigidBody;
   halfHeight: number;
 }
@@ -103,6 +134,12 @@ export class InteractionSystem {
       root.add(glow);
       item.lightY = y;
       item.glow = glow;
+      if (isLight) {
+        const spot = new THREE.Mesh(GROUND_LIGHT_GEOMETRY, groundLight());
+        spot.position.y = GROUND_LIGHT_LIFT;
+        root.add(spot);
+        item.spot = spot;
+      }
     }
     if (item.type === 'push') {
       const p = root.position;
@@ -122,6 +159,7 @@ export class InteractionSystem {
       if (it.pivot.name === 'stand-in-door') it.pivot.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     }
     if (it.glow) { root.remove(it.glow); it.glow.geometry.dispose(); (it.glow.material as THREE.Material).dispose(); }
+    if (it.spot) root.remove(it.spot); // its shape and material are shared
     if (it.body) this.physics.removeBody(it.body);
     if (this.seated === it) { this.player.seated = false; this.seated = null; }
     return it;
@@ -221,7 +259,7 @@ export class InteractionSystem {
       l.position.set(p.x, p.y, p.z);
       l.color.set(isLight ? 0xffd59a : 0xff8a3d);
       l.distance = isLight ? 26 : 14;
-      l.intensity = (isLight ? 40 : 22) * this.flicker(it, t);
+      l.intensity = LIGHT_POWER * this.flicker(it, t);
     });
   }
 
@@ -232,6 +270,7 @@ export class InteractionSystem {
   private applyGlow(it: InteractItem, t: number): void {
     if (!it.glow) return;
     it.glow.visible = it.on;
+    if (it.spot) it.spot.visible = it.on;
     if (it.type === 'fire') it.glow.scale.y = this.flicker(it, t);
   }
 

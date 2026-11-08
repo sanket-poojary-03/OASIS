@@ -50,9 +50,10 @@ Without `LLM_API_KEY`, or without the backend, the app says "LLM not available" 
 - **Web:** Vite, TypeScript, three.js, @dimforge/rapier3d-compat, simplex-noise, zod, vitest
 - **Backend:** Python 3.11+, FastAPI, Pydantic v2, httpx, pytest
 - **LLM:** any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`; default Sarvam `sarvam-105b-conversations` (1–4 s), backup `sarvam-105b` (reasoning, slower))
-- **Art:** one CC0 family. Quaternius Stylized Nature, Medieval Village (house prefabs) and Animated Animals, plus a KayKit Adventurers player. Wind grass, bloom, and a third-person animated player (V).
+- **Art:** one CC0 family. Quaternius Stylized Nature, Medieval Village (house prefabs) and Animated Animals, plus Microsoft Rocketbox players (MIT, realistic people, `scripts/convert_rocketbox.mjs`). Wind grass, bloom, and a third-person animated player (V).
 - **Model finder** (any object, even unexpected): library → approved cache → LLM analysis → Poly Pizza (`POLY_PIZZA_KEY`) + Sketchfab (`SKETCHFAB_TOKEN`) with a vision check (`VISION_MODEL`, default `glm5.3-flash` on Sarvam `/v2`), over up to 4 search terms → Meshy (landmarks only, `MESHY_MAX_GENERATIONS=5`) → a manual build from AI-written parts (JSON, never code). The player is told when Meshy is unavailable and when something is built manually. Online models must be CC0 or CC-BY only, and are credited in the place card. `python scripts/eval_finder.py` scores it on 100 live requests.
 - **Placing on things:** `at` carries an optional `y` (crosshair surface height) so props can sit on tables. "Near this" uses `lookingAt`.
+- **Start screen:** one hand-written world (`web/src/ui/showcase.ts`) flown through by `web/src/ui/menuFlight.ts`. Its models ship with the site (`web/public/models/bundled`, written by `scripts/bundle_models.mjs`), so it needs no backend. Retake `web/public/menu-poster.webp` if it changes.
 - **Deploy:** backend on Render (Docker, `backend/Dockerfile`, build context = repo root), frontend on Vercel (root `web`, include files outside root)
 
 ## Competitors to beat (see the research)

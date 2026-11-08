@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLowTier, VIEW_RADIUS, SHADOW_MAP_SIZE } from '../../src/render/deviceTier';
+import { chunkWorkers, isLowTier, VIEW_RADIUS, SHADOW_MAP_SIZE } from '../../src/render/deviceTier';
 import { COLLIDER_BUDGET, pickColliderBuilds } from '../../src/render/colliderBudget';
 
 describe('device tier', () => {
@@ -12,6 +12,16 @@ describe('device tier', () => {
   it('is the high tier under node', () => {
     expect(VIEW_RADIUS).toBe(3);
     expect(SHADOW_MAP_SIZE).toBe(2048);
+  });
+});
+
+describe('land builders', () => {
+  it('leaves two cores free, and always has at least one builder and at most four', () => {
+    expect(chunkWorkers(2)).toBe(1);
+    expect(chunkWorkers(4)).toBe(2);
+    expect(chunkWorkers(8)).toBe(4);
+    expect(chunkWorkers(32)).toBe(4);
+    expect(chunkWorkers(undefined)).toBe(2);
   });
 });
 

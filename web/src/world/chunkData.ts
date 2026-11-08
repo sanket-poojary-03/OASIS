@@ -22,7 +22,20 @@ export interface ChunkData {
 const GRASS_BIOMES: ReadonlySet<Biome> = new Set(['grass', 'forest', 'marsh', 'pine']);
 const GRASS_CELL = 2;
 /** City paving: light concrete, a touch warm. */
-export const PAVED_COLOUR: readonly [number, number, number] = [0.5, 0.49, 0.47];
+export const PAVED_COLOUR: readonly [number, number, number] = [0.34, 0.33, 0.31];
+/** What a farm field grows: ripe wheat, young green, ploughed earth, mustard. */
+const CROP_COLOURS: ReadonlyArray<readonly [number, number, number]> = [[0.62, 0.46, 0.13], [0.2, 0.42, 0.09], [0.24, 0.15, 0.08], [0.66, 0.56, 0.1]];
+/** Rows and furrows, each one grid square (2 m) across, so the terrain's own vertices draw them cleanly. */
+const ROW = CHUNK_SIZE / CHUNK_RES;
+const FURROW_SHADE = 0.68;
+
+/** A field's colour at `across` metres along the axis its rows are laid out over: a row, then a darker furrow. */
+export function cropColour(crop: number, across: number): [number, number, number] {
+  const c = CROP_COLOURS[crop % CROP_COLOURS.length];
+  const k = Math.round(across / ROW) % 2 === 0 ? 1 : FURROW_SHADE;
+  return [c[0] * k, c[1] * k, c[2] * k];
+}
+
 /** A bed is the land's sand gone dark, whatever is on the land above it: a frozen world's lake has no snow on its floor. */
 const BED_SHADE = 0.45;
 const BED_FULL_DEPTH = 3;
@@ -36,7 +49,7 @@ export function grassChunk(field: WorldField, cx: number, cz: number): Float32Ar
     const rng = mulberry32(hashString(`g:${field.recipe.seed}:${gx}:${gz}`));
     const x = gx * GRASS_CELL + rng() * GRASS_CELL, z = gz * GRASS_CELL + rng() * GRASS_CELL;
     if (rng() > Math.min(1, 0.7 * (field.recipe.nature?.plants ?? 1))) continue;
-    if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5) || field.pavedAt(x, z) > 0.2) continue;
+    if (field.isWater(x, z) || field.slopeAt(x, z) > 0.7 || field.isReserved(x, z, 0.5) || field.pavedAt(x, z) > 0.2 || field.cropAt(x, z)) continue;
     if (!GRASS_BIOMES.has(biomeAt(field, x, z))) continue;
     out.push(x, field.heightAt(x, z), z, rng() * Math.PI * 2, 0.7 + rng() * 0.6);
   }
@@ -62,6 +75,8 @@ export function computeChunk(field: WorldField, cx: number, cz: number): ChunkDa
     let [r, g, b] = blendedGroundColor(biomeSample(field, x, z), tint);
     const pave = field.pavedAt(x, z);
     if (pave > 0) { r += (PAVED_COLOUR[0] - r) * pave; g += (PAVED_COLOUR[1] - g) * pave; b += (PAVED_COLOUR[2] - b) * pave; }
+    const crop = field.cropAt(x, z);
+    if (crop) [r, g, b] = cropColour(crop.crop, crop.rowsAlongX ? z : x);
     const surface = field.waterSurfaceAt(x, z) ?? (field.hasSea && h < field.seaLevelY ? field.seaLevelY : null);
     if (surface !== null && h < surface) {
       const under = smoothstep(0.2, BED_FULL_DEPTH, surface - h), bed = groundColor('sand', tint);

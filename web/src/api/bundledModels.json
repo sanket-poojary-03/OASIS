@@ -1,0 +1,649 @@
+{
+ "landmark:farm windmill#0": {
+  "url": "/models/bundled/tower-windmill.glb",
+  "source": "library"
+ },
+ "landmark:grain silo#0": {
+  "url": "/models/bundled/silo.glb",
+  "source": "library"
+ },
+ "landmark:medieval bell tower#0": {
+  "url": "/models/bundled/bell-tower.glb",
+  "source": "library"
+ },
+ "prop:autumn tree#0": {
+  "url": "/models/bundled/autumn-tree.glb",
+  "source": "library"
+ },
+ "prop:autumn tree#1": {
+  "url": "/models/bundled/autumn-tree.glb",
+  "source": "library"
+ },
+ "prop:autumn tree#2": {
+  "url": "/models/bundled/autumn-tree.glb",
+  "source": "library"
+ },
+ "prop:autumn tree#3": {
+  "url": "/models/bundled/autumn-tree.glb",
+  "source": "library"
+ },
+ "prop:birch tree#0": {
+  "url": "/models/bundled/birch-tree.glb",
+  "source": "library"
+ },
+ "prop:birch tree#1": {
+  "url": "/models/bundled/birch-tree.glb",
+  "source": "library"
+ },
+ "prop:birch tree#2": {
+  "url": "/models/bundled/birch-tree.glb",
+  "source": "library"
+ },
+ "prop:birch tree#3": {
+  "url": "/models/bundled/birch-tree.glb",
+  "source": "library"
+ },
+ "prop:cactus#0": {
+  "url": "/models/bundled/cactus.glb",
+  "source": "library"
+ },
+ "prop:cactus#1": {
+  "url": "/models/bundled/cactus.glb",
+  "source": "library"
+ },
+ "prop:cactus#2": {
+  "url": "/models/bundled/cactus.glb",
+  "source": "library"
+ },
+ "prop:cactus#3": {
+  "url": "/models/bundled/cactus.glb",
+  "source": "library"
+ },
+ "prop:cow#0": {
+  "url": "/models/bundled/8bbddb4a037421a7.glb",
+  "source": "online",
+  "credit": "Cow by Poly by Google (CC-BY 3.0, Poly Pizza)"
+ },
+ "prop:dead tree#0": {
+  "url": "/models/bundled/dead-tree-1.glb",
+  "source": "library"
+ },
+ "prop:dead tree#1": {
+  "url": "/models/bundled/dead-tree-2.glb",
+  "source": "library"
+ },
+ "prop:dead tree#2": {
+  "url": "/models/bundled/dead-tree-3.glb",
+  "source": "library"
+ },
+ "prop:dead tree#3": {
+  "url": "/models/bundled/dead-tree-4.glb",
+  "source": "library"
+ },
+ "prop:deer#0": {
+  "url": "/models/bundled/deer.glb",
+  "source": "library"
+ },
+ "prop:fallen log#0": {
+  "url": "/models/bundled/wood-log-with-moss.glb",
+  "source": "library"
+ },
+ "prop:fallen log#1": {
+  "url": "/models/bundled/wood-log-with-moss.glb",
+  "source": "library"
+ },
+ "prop:fallen log#2": {
+  "url": "/models/bundled/wood-log-with-moss.glb",
+  "source": "library"
+ },
+ "prop:fern#0": {
+  "url": "/models/bundled/fern.glb",
+  "source": "library"
+ },
+ "prop:fern#1": {
+  "url": "/models/bundled/fern.glb",
+  "source": "library"
+ },
+ "prop:flowering bush#0": {
+  "url": "/models/bundled/bush-with-flowers.glb",
+  "source": "library"
+ },
+ "prop:flowering bush#1": {
+  "url": "/models/bundled/bush-with-flowers.glb",
+  "source": "library"
+ },
+ "prop:flowers#0": {
+  "url": "/models/bundled/flower-group-1.glb",
+  "source": "library"
+ },
+ "prop:flowers#1": {
+  "url": "/models/bundled/flower-group-2.glb",
+  "source": "library"
+ },
+ "prop:hay bale#0": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:hay bale#1": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:hay bale#2": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:hay bale#3": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:hay bale#4": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:hay bale#5": {
+  "url": "/models/bundled/hay.glb",
+  "source": "library"
+ },
+ "prop:mushroom#0": {
+  "url": "/models/bundled/mushroom.glb",
+  "source": "library"
+ },
+ "prop:mushroom#1": {
+  "url": "/models/bundled/mushroom.glb",
+  "source": "library"
+ },
+ "prop:oak tree#0": {
+  "url": "/models/bundled/tree-1.glb",
+  "source": "library"
+ },
+ "prop:oak tree#1": {
+  "url": "/models/bundled/tree-2.glb",
+  "source": "library"
+ },
+ "prop:oak tree#10": {
+  "url": "/models/bundled/tree-1.glb",
+  "source": "library"
+ },
+ "prop:oak tree#11": {
+  "url": "/models/bundled/tree-2.glb",
+  "source": "library"
+ },
+ "prop:oak tree#2": {
+  "url": "/models/bundled/tree-3.glb",
+  "source": "library"
+ },
+ "prop:oak tree#3": {
+  "url": "/models/bundled/tree-4.glb",
+  "source": "library"
+ },
+ "prop:oak tree#4": {
+  "url": "/models/bundled/tree-5.glb",
+  "source": "library"
+ },
+ "prop:oak tree#5": {
+  "url": "/models/bundled/tree-1.glb",
+  "source": "library"
+ },
+ "prop:oak tree#6": {
+  "url": "/models/bundled/tree-2.glb",
+  "source": "library"
+ },
+ "prop:oak tree#7": {
+  "url": "/models/bundled/tree-3.glb",
+  "source": "library"
+ },
+ "prop:oak tree#8": {
+  "url": "/models/bundled/tree-4.glb",
+  "source": "library"
+ },
+ "prop:oak tree#9": {
+  "url": "/models/bundled/tree-5.glb",
+  "source": "library"
+ },
+ "prop:palm tree#0": {
+  "url": "/models/bundled/palm-tree-1.glb",
+  "source": "library"
+ },
+ "prop:palm tree#1": {
+  "url": "/models/bundled/palm-tree-2.glb",
+  "source": "library"
+ },
+ "prop:palm tree#2": {
+  "url": "/models/bundled/palm-tree-3.glb",
+  "source": "library"
+ },
+ "prop:palm tree#3": {
+  "url": "/models/bundled/palm-tree-1.glb",
+  "source": "library"
+ },
+ "prop:park bench#0": {
+  "url": "/models/bundled/bench-1.glb",
+  "source": "library"
+ },
+ "prop:park bench#1": {
+  "url": "/models/bundled/bench-2.glb",
+  "source": "library"
+ },
+ "prop:park bench#2": {
+  "url": "/models/bundled/bench-1.glb",
+  "source": "library"
+ },
+ "prop:park bench#3": {
+  "url": "/models/bundled/bench-2.glb",
+  "source": "library"
+ },
+ "prop:park bench#4": {
+  "url": "/models/bundled/bench-1.glb",
+  "source": "library"
+ },
+ "prop:park bench#5": {
+  "url": "/models/bundled/bench-2.glb",
+  "source": "library"
+ },
+ "prop:park bench#6": {
+  "url": "/models/bundled/bench-1.glb",
+  "source": "library"
+ },
+ "prop:park bench#7": {
+  "url": "/models/bundled/bench-2.glb",
+  "source": "library"
+ },
+ "prop:pebble#0": {
+  "url": "/models/bundled/pebble-round-1.glb",
+  "source": "library"
+ },
+ "prop:pebble#1": {
+  "url": "/models/bundled/pebble-round-2.glb",
+  "source": "library"
+ },
+ "prop:pine tree#0": {
+  "url": "/models/bundled/pine-1.glb",
+  "source": "library"
+ },
+ "prop:pine tree#1": {
+  "url": "/models/bundled/pine-2.glb",
+  "source": "library"
+ },
+ "prop:pine tree#2": {
+  "url": "/models/bundled/pine-3.glb",
+  "source": "library"
+ },
+ "prop:pine tree#3": {
+  "url": "/models/bundled/pine-4.glb",
+  "source": "library"
+ },
+ "prop:reed#0": {
+  "url": "/models/bundled/tall-grass.glb",
+  "source": "library"
+ },
+ "prop:reed#1": {
+  "url": "/models/bundled/tall-grass.glb",
+  "source": "library"
+ },
+ "prop:rock#0": {
+  "url": "/models/bundled/rock-medium-1.glb",
+  "source": "library"
+ },
+ "prop:rock#1": {
+  "url": "/models/bundled/rock-medium-2.glb",
+  "source": "library"
+ },
+ "prop:sheep#0": {
+  "url": "/models/bundled/6525f2e663e8d223.glb",
+  "source": "online",
+  "credit": "Sheep by Poly by Google (CC-BY 3.0, Poly Pizza)"
+ },
+ "prop:snowy pine tree#0": {
+  "url": "/models/bundled/pine-tree-with-snow.glb",
+  "source": "library"
+ },
+ "prop:snowy pine tree#1": {
+  "url": "/models/bundled/pine-tree-with-snow.glb",
+  "source": "library"
+ },
+ "prop:snowy pine tree#2": {
+  "url": "/models/bundled/pine-tree-with-snow.glb",
+  "source": "library"
+ },
+ "prop:snowy pine tree#3": {
+  "url": "/models/bundled/pine-tree-with-snow.glb",
+  "source": "library"
+ },
+ "prop:sports car#0": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#1": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:sports car#10": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#11": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:sports car#2": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#3": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:sports car#4": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#5": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:sports car#6": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#7": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:sports car#8": {
+  "url": "/models/bundled/car-1.glb",
+  "source": "library"
+ },
+ "prop:sports car#9": {
+  "url": "/models/bundled/car-2.glb",
+  "source": "library"
+ },
+ "prop:street lamp#0": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#1": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#10": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#11": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#12": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#13": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#14": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#15": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#16": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#17": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#18": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#19": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#2": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#20": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#21": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#22": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#23": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#3": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#4": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#5": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#6": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#7": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#8": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:street lamp#9": {
+  "url": "/models/bundled/street-light.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#0": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#1": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#2": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#3": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#4": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#6": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#7": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#8": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:torch lantern#9": {
+  "url": "/models/bundled/torch.glb",
+  "source": "library"
+ },
+ "prop:tree stump#0": {
+  "url": "/models/bundled/tree-stump-with-moss.glb",
+  "source": "library"
+ },
+ "prop:tree stump#1": {
+  "url": "/models/bundled/tree-stump-with-moss.glb",
+  "source": "library"
+ },
+ "prop:tree stump#2": {
+  "url": "/models/bundled/tree-stump-with-moss.glb",
+  "source": "library"
+ },
+ "prop:tree#0": {
+  "url": "/models/bundled/tree-1.glb",
+  "source": "library"
+ },
+ "prop:tree#1": {
+  "url": "/models/bundled/tree-2.glb",
+  "source": "library"
+ },
+ "prop:tree#2": {
+  "url": "/models/bundled/tree-3.glb",
+  "source": "library"
+ },
+ "prop:tree#3": {
+  "url": "/models/bundled/tree-4.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#0": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#1": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#2": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#3": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#4": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden barrel#5": {
+  "url": "/models/bundled/barrel.glb",
+  "source": "library"
+ },
+ "prop:wooden cart#0": {
+  "url": "/models/bundled/cart.glb",
+  "source": "library"
+ },
+ "prop:wooden cart#1": {
+  "url": "/models/bundled/cart.glb",
+  "source": "library"
+ },
+ "prop:wooden cart#2": {
+  "url": "/models/bundled/cart.glb",
+  "source": "library"
+ },
+ "structure:farm barn#0": {
+  "url": "/models/bundled/barn.glb",
+  "source": "library"
+ },
+ "structure:fountain#0": {
+  "url": "/models/bundled/4620ade69035f78c.glb",
+  "source": "online",
+  "credit": "Fountain by Poly by Google (CC-BY 3.0, Poly Pizza)"
+ },
+ "structure:medieval cottage#0": {
+  "url": "/models/bundled/fantasy-house-1.glb",
+  "source": "library"
+ },
+ "structure:medieval cottage#13": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval cottage#14": {
+  "url": "/models/bundled/fantasy-house-1.glb",
+  "source": "library"
+ },
+ "structure:medieval cottage#15": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval cottage#2": {
+  "url": "/models/bundled/fantasy-house-1.glb",
+  "source": "library"
+ },
+ "structure:medieval cottage#5": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval house#0": {
+  "url": "/models/bundled/fantasy-house-1.glb",
+  "source": "library"
+ },
+ "structure:medieval house#1": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval house#11": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval house#3": {
+  "url": "/models/bundled/fantasy-house-2.glb",
+  "source": "library"
+ },
+ "structure:medieval house#6": {
+  "url": "/models/bundled/fantasy-house-1.glb",
+  "source": "library"
+ },
+ "structure:medieval watermill#0": {
+  "url": "/models/bundled/mill.glb",
+  "source": "library"
+ },
+ "structure:stable#0": {
+  "url": "/models/bundled/fantasy-stable.glb",
+  "source": "library"
+ },
+ "structure:stable#10": {
+  "url": "/models/bundled/fantasy-stable.glb",
+  "source": "library"
+ },
+ "structure:stable#12": {
+  "url": "/models/bundled/fantasy-stable.glb",
+  "source": "library"
+ },
+ "structure:stable#8": {
+  "url": "/models/bundled/fantasy-stable.glb",
+  "source": "library"
+ },
+ "structure:stone well#0": {
+  "url": "/models/bundled/well.glb",
+  "source": "library"
+ },
+ "structure:tavern inn#0": {
+  "url": "/models/bundled/fantasy-inn.glb",
+  "source": "library"
+ },
+ "structure:tavern inn#4": {
+  "url": "/models/bundled/fantasy-inn.glb",
+  "source": "library"
+ },
+ "structure:tavern inn#7": {
+  "url": "/models/bundled/fantasy-inn.glb",
+  "source": "library"
+ },
+ "structure:tavern inn#9": {
+  "url": "/models/bundled/fantasy-inn.glb",
+  "source": "library"
+ }
+}

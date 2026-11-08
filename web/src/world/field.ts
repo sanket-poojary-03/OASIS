@@ -3,15 +3,29 @@ import { CORE_HALF, type Recipe } from '../core/recipe';
 import { RIM_WIDTH } from './mapBounds';
 import { mulberry32 } from '../core/rng';
 import { clamp, fbm, lerp, ridged, smoothstep } from './noise';
-import { SegmentIndex, traceRiver, type Lake, type Vec2 } from './river';
+import { longestRun, SegmentIndex, smoothLine, traceRiver, type Lake, type Vec2 } from './river';
 
-export interface Pad { x: number; z: number; radius: number; y: number }
+/** `open`: a settlement's ground. It is levelled, but trees, grass and props may grow on it, around its plots and roads. */
+export interface Pad { x: number; z: number; radius: number; y: number; open?: boolean }
+/** The ground a building of a settlement stands on: nothing else grows or stands here. */
+export interface Plot { x: number; z: number; radius: number }
+/**
+ * A farm field beside a settlement: a rectangle along the world's axes (the terrain grid's, so its rows draw clean),
+ * with rows along x or z. `crop` picks its colour (world/chunkData).
+ */
+export interface Crop { x: number; z: number; halfX: number; halfZ: number; rowsAlongX: boolean; crop: number }
 /** `paved`: asphalt (city streets, and every road in a world with a city grid); otherwise a dirt road. */
-export interface Road { points: Vec2[]; width: number; bridges: boolean[]; paved?: boolean }
-/** A paved square (a city grid's blocks): centre, half side, and its turn (radians). */
-export interface Paved { x: number; z: number; half: number; angle: number }
+/** `high`: which of its bridges span a gap in the land from lip to lip, rather than crossing water from bank to bank. */
+export interface Road { points: Vec2[]; width: number; bridges: boolean[]; high?: boolean[]; paved?: boolean }
+/**
+ * A paved square (a city grid's blocks): centre, half side, and its turn (radians). `parks`: lots left unpaved, as
+ * squares `parkHalf` either side of a point given along and across the square's own axes.
+ */
+export interface Paved { x: number; z: number; half: number; angle: number; parks?: Array<{ u: number; v: number }>; parkHalf?: number }
 /** Paving fades out over this many metres past its edge. */
 const PAVED_EDGE = 3;
+/** And a park's grass takes over from it across this many metres. */
+const PARK_EDGE = 2;
 
 export interface WorldField {
   readonly recipe: Recipe;
@@ -27,6 +41,8 @@ export interface WorldField {
   readonly river: Vec2[];
   readonly lakes: Lake[];
   readonly pads: Pad[];
+  readonly plots: Plot[];
+  readonly crops: Crop[];
   readonly roads: Road[];
   readonly paved: Paved[];
   meander(z: number): number;
@@ -36,20 +52,33 @@ export interface WorldField {
   isWater(x: number, z: number): boolean;
   waterDistance(x: number, z: number): number;
   waterSurfaceAt(x: number, z: number): number | null;
+  /** How far (x, z) is from the river's line, or Infinity past `range`. */
+  riverDistance(x: number, z: number, range?: number): number;
   /** The river's surface height at its closest point: what its mesh is drawn at. */
   riverLevelAt(x: number, z: number): number;
   detailNoise(x: number, z: number): number;
   addPad(p: Pad): void;
+  addPlot(p: Plot): void;
+  addCrop(c: Crop): void;
+  /** The farm field at (x, z), if any. */
+  cropAt(x: number, z: number): Crop | null;
   addRoad(r: Road): void;
   addPaved(p: Paved): void;
-  /** 1 on paving (city ground: no grass, no trees, concrete colour), fading to 0 just past its edge. */
+  /** 1 on paving (city ground: no grass, no trees, concrete colour), fading to 0 just past its edge and in a park. */
   pavedAt(x: number, z: number): number;
+  /** In a city's park: an open lot that grows trees. */
+  inPark(x: number, z: number): boolean;
   isReserved(x: number, z: number, margin: number): boolean;
+  /** On a settlement's open ground. */
+  inSettlement(x: number, z: number): boolean;
+  /** Within `margin` of a road's edge, or on it: every road's own width counts (city streets are wider than tracks). */
+  isOnRoad(x: number, z: number, margin?: number): boolean;
 }
 
-export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; roads: Road[]; paved?: Paved[] };
+export type FieldSnapshot = { recipe: Recipe; pads: Pad[]; plots?: Plot[]; crops?: Crop[]; roads: Road[]; paved?: Paved[] };
 
-const RIVER_WET = 16;
+/** Water reaches this far either side of a river's line: its banks stand here. */
+export const RIVER_WET = 16;
 /** Decks stand this far above the sea: the height of a bridge deck, so boardwalks meet them level. */
 const DECK_ABOVE_SEA = 1.2;
 /** The river's bed spans this far either side of its line, then rises to its banks at RIVER_WET. */
@@ -63,7 +92,17 @@ const RIVER_BLEND_TO = 34;
 const RIVER_SMOOTH = 5;
 /** How far below its surface a lake's middle lies. */
 const RIVER_MAX_STEP = 2.5;
+/** A river's line runs on this many points past the shore, so its mouth opens into the sea. */
+const RIVER_INTO_SEA = 2;
+/** Around this height above the sea a bank stops being raised: land lower than that is the sea's. */
+const BANK_FADES_TO = 1;
 const LAKE_ABOVE_SEA = 2;
+/** Radii a lake looks for room at, largest first. */
+const LAKE_SIZES = [45, 30, 20];
+/** A lake's water stands this far below the lowest land around it, so the land holds it with no wall. */
+const LAKE_BELOW_LAND = 0.2;
+/** How many points around the chosen spot set its level: the land's dips between fewer stood below the water. */
+const LAKE_SHORE_SAMPLES = 96;
 const LAKE_DEPTH = 6;
 /** The mountains at the map's edge: their height, how much it varies, and how much their foot wanders. */
 const RIM_HEIGHT = 45;
@@ -72,6 +111,21 @@ const RIM_WANDER = 14;
 const LAKE_WET_TO = 0.995;
 /** A river takes its lake's level from this many lake radii out. */
 const RIVER_JOINS_LAKE = 1.2;
+/** And stops this many lake radii from the lake's middle: inside it, so the two surfaces overlap. */
+const RIVER_ENDS_IN_LAKE = 0.8;
+
+/** (x, z) along and across a paved square's own axes, from its centre. */
+function pavedAxes(p: Paved, x: number, z: number): { u: number; v: number } {
+  const dx = x - p.x, dz = z - p.z, c = Math.cos(p.angle), s = Math.sin(p.angle);
+  return { u: dx * c + dz * s, v: -dx * s + dz * c };
+}
+
+/** How far outside the nearest park of a paved square a point is; negative inside one, Infinity with none. */
+function parkDistance(p: Paved, u: number, v: number): number {
+  let best = Infinity;
+  for (const k of p.parks ?? []) best = Math.min(best, Math.max(Math.abs(u - k.u), Math.abs(v - k.v)) - (p.parkHalf ?? 0));
+  return best;
+}
 
 export function createField(recipe: Recipe): WorldField {
   const { terrain, seed } = recipe;
@@ -141,9 +195,20 @@ export function createField(recipe: Recipe): WorldField {
   const lakes: Lake[] = [];
   /** A lake lies on land: lower than the sea, it would be a disc of water on the sea bed. */
   const aboveSea = (y: number) => !hasSea || y > seaLevelY + LAKE_ABOVE_SEA;
+  /** The land around a lake here: its lowest and highest. Water higher than the lowest would need a wall to hold it. */
+  const lakeGround = (x: number, z: number, radius: number, around = 16): { low: number; high: number } => {
+    let low = baseHeight(x, z), high = low;
+    for (const k of [0.5, 1, 1.2, 1.4]) for (let a = 0; a < around; a++) {
+      const h = baseHeight(x + Math.cos((a / around) * Math.PI * 2) * radius * k, z + Math.sin((a / around) * Math.PI * 2) * radius * k);
+      low = Math.min(low, h); high = Math.max(high, h);
+    }
+    return { low, high };
+  };
   if (recipe.water.river && !ocean) {
     if (terrain.shape === 'valley' || terrain.shape === 'canyon') {
       for (let z = -CORE_HALF + 16; z <= CORE_HALF - 16; z += 8) river.push({ x: meander(z), z });
+      // Land flooded by the sea has no river on it, only the stretch that runs between its shores.
+      if (hasSea) river = longestRun(river, (p) => baseHeight(p.x, p.z) > seaLevelY, RIVER_INTO_SEA);
     } else {
       let start: Vec2 = { x: 0, z: 0 };
       let best = -Infinity;
@@ -153,19 +218,29 @@ export function createField(recipe: Recipe): WorldField {
         if (h > best) { best = h; start = { x, z }; }
       }
       const res = traceRiver(baseHeight, start, { seaLevelY: hasSea ? seaLevelY : -Infinity, bound: CORE_HALF });
-      river = res.path;
-      if (res.lake && aboveSea(res.lake.levelY)) lakes.push(res.lake);
+      river = smoothLine(res.path);
+      const levelY = res.lake ? Math.min(res.lake.levelY, lakeGround(res.lake.x, res.lake.z, res.lake.radius, LAKE_SHORE_SAMPLES).low - LAKE_BELOW_LAND) : 0;
+      if (res.lake && aboveSea(levelY)) {
+        lakes.push({ ...res.lake, levelY });
+        // A river ends where it reaches its lake. Traced on, it wandered about under the surface, and the channel it
+        // carves reached past the shore: a ring of dry, dark river bed around the lake.
+        const l = res.lake, enters = river.findIndex((p) => Math.hypot(p.x - l.x, p.z - l.z) < l.radius * RIVER_ENDS_IN_LAKE);
+        if (enters >= 1) river = river.slice(0, enters + 1);
+      }
     }
     if (river.length > 1) riverIndex.addPolyline(river);
   }
   if (recipe.water.lake && lakes.length === 0 && !ocean) {
-    let best = Infinity, at: Vec2 = { x: 0, z: 0 };
     const lim = CORE_HALF * 0.7;
-    for (let x = -lim; x <= lim; x += 32) for (let z = -lim; z <= lim; z += 32) {
-      const h = baseHeight(x, z);
-      if (h < best && aboveSea(h + 0.5)) { best = h; at = { x, z }; }
+    for (const radius of LAKE_SIZES) {
+      // Low, level ground: on a slope the uphill side would be a cut wall.
+      let best = Infinity, lake: Lake | null = null;
+      for (let x = -lim; x <= lim; x += 32) for (let z = -lim; z <= lim; z += 32) {
+        const { low, high } = lakeGround(x, z, radius);
+        if (aboveSea(low - LAKE_BELOW_LAND) && high < best) { best = high; lake = { x, z, radius, levelY: 0 }; }
+      }
+      if (lake) { lakes.push({ ...lake, levelY: lakeGround(lake.x, lake.z, radius, LAKE_SHORE_SAMPLES).low - LAKE_BELOW_LAND }); break; }
     }
-    if (best < Infinity) lakes.push({ x: at.x, z: at.z, radius: 45, levelY: best + 0.5 });
   }
 
   const riverDist = (x: number, z: number, range = 48) => (river.length > 1 ? riverIndex.distance(x, z, range) : Infinity);
@@ -173,12 +248,13 @@ export function createField(recipe: Recipe): WorldField {
   // Each river point's surface height. One height per point across the whole width: measuring the land to either side
   // cannot work for a sheet, so the land is shaped to it instead (carved). A river arrives at its lake's level, so their
   // shores join; inside the lake it stays just below, out of sight, and the lake's bowl shapes the ground.
+  const underSea = (p: Vec2) => hasSea && baseHeight(p.x, p.z) < seaLevelY;
   const riverLevels = new Map<Vec2, number>();
   const levels = river.map((p, i) => {
     let sum = 0, n = 0;
     for (let k = Math.max(0, i - RIVER_SMOOTH); k <= Math.min(river.length - 1, i + RIVER_SMOOTH); k++) { sum += baseHeight(river[k].x, river[k].z) - 1.5; n++; }
     let level = sum / n;
-    if (hasSea) level = Math.max(level, seaLevelY);
+    if (hasSea) level = underSea(p) ? seaLevelY : Math.max(level, seaLevelY);
     for (const l of lakes) {
       const dl = Math.hypot(p.x - l.x, p.z - l.z);
       if (dl < l.radius) level = l.levelY - 1;
@@ -187,13 +263,14 @@ export function createField(recipe: Recipe): WorldField {
     return level;
   });
   // A rise or fall steeper than this between neighbouring points is drawn as a slope, the land cut or filled to match.
-  // A lake's level is fixed: the river adapts to it.
-  const fixed = river.map((p) => lakes.some((l) => Math.hypot(p.x - l.x, p.z - l.z) < l.radius * RIVER_JOINS_LAKE));
+  // A lake's level is fixed, and so is the sea's: the river adapts to them.
+  const fixed = river.map((p) => underSea(p) || lakes.some((l) => Math.hypot(p.x - l.x, p.z - l.z) < l.radius * RIVER_JOINS_LAKE));
   for (let i = 1; i < levels.length; i++) if (!fixed[i]) levels[i] = clamp(levels[i], levels[i - 1] - RIVER_MAX_STEP, levels[i - 1] + RIVER_MAX_STEP);
   for (let i = levels.length - 2; i >= 0; i--) if (!fixed[i]) levels[i] = clamp(levels[i], levels[i + 1] - RIVER_MAX_STEP, levels[i + 1] + RIVER_MAX_STEP);
   river.forEach((p, i) => riverLevels.set(p, levels[i]));
   /** Just outside a lake, the nearest stretch may be the hidden one inside it: there the river is at the lake's level. */
   const levelOf = (n: { a: Vec2; b: Vec2; t: number }, x: number, z: number): number => {
+    if (underSea({ x, z })) return seaLevelY;
     let level = lerp(riverLevels.get(n.a)!, riverLevels.get(n.b)!, n.t);
     for (const l of lakes) {
       const dl = Math.hypot(x - l.x, z - l.z);
@@ -234,19 +311,29 @@ export function createField(recipe: Recipe): WorldField {
       else if (dl < l.radius) h = lerp(l.levelY - 0.1, shore, (dl - edge) / (l.radius - edge));
       else h = lerp(shore, h, smoothstep(l.radius, l.radius * 1.4, dl));
     }
-    const n = river.length > 1 && !inLake ? riverIndex.nearest(x, z, RIVER_BLEND_TO) : null;
+    const n = river.length > 1 ? riverIndex.nearest(x, z, RIVER_BLEND_TO) : null;
     if (n) {
       const level = levelOf(n, x, z), bank = level + BANK_ABOVE;
-      h = n.distance < RIVER_WET ? lerp(level - RIVER_DEPTH, bank, smoothstep(RIVER_BED_HALF, RIVER_WET, n.distance)) : lerp(bank, h, smoothstep(RIVER_WET, RIVER_BLEND_TO, n.distance));
+      const shaped = n.distance < RIVER_WET ? lerp(level - RIVER_DEPTH, bank, smoothstep(RIVER_BED_HALF, RIVER_WET, n.distance)) : lerp(bank, h, smoothstep(RIVER_WET, RIVER_BLEND_TO, n.distance));
+      // A channel only cuts into what is under the sea. Its banks would raise a causeway across the water, walling the sea off.
+      if (inLake) h = Math.min(h, shaped); // through the lake's shore too, or a sill of ground dams the river's mouth
+      else h = hasSea ? lerp(Math.min(h, shaped), shaped, smoothstep(seaLevelY - 0.2, seaLevelY + BANK_FADES_TO, h)) : shaped;
     }
     return h + rimAt(x, z, h);
   };
 
   // ---- pads & roads ----
   const pads: Pad[] = [];
+  const plots: Plot[] = [];
+  const crops: Crop[] = [];
   const roads: Road[] = [];
   const paved: Paved[] = [];
-  const roadIndex = new SegmentIndex(32);
+  /** One index per road width, so a point is measured against the edge of the road it is near. */
+  const roadIndexes = new Map<number, SegmentIndex>();
+  const isOnRoad = (x: number, z: number, margin = 0): boolean => {
+    for (const [width, index] of roadIndexes) if (index.distance(x, z, 16 + margin) < width / 2 + margin) return true;
+    return false;
+  };
 
   // 0 in the water channel, 1 well clear of it; pad influence fades with this so there is no seam.
   const landWeight = (x: number, z: number): number => {
@@ -301,35 +388,52 @@ export function createField(recipe: Recipe): WorldField {
   };
 
   return {
-    recipe, amplitude, seaLevelY, deckY, isDeck, meshHeightAt: (x, z) => (ocean ? carved(x, z) : heightAt(x, z)), hasSea, river, lakes, pads, roads, paved,
-    meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt, riverLevelAt,
+    recipe, amplitude, seaLevelY, deckY, isDeck, meshHeightAt: (x, z) => (ocean ? carved(x, z) : heightAt(x, z)), hasSea, river, lakes, pads, plots, crops, roads, paved,
+    meander, baseHeight, heightAt, slopeAt, isWater, waterDistance, waterSurfaceAt, riverDistance: riverDist, riverLevelAt,
     detailNoise: (x, z) => nD(x, z),
     addPad: (p) => { pads.push({ ...p }); },
-    addRoad: (r) => { roads.push(r); roadIndex.addPolyline(r.points); },
+    addPlot: (p) => { plots.push({ ...p }); },
+    addCrop: (c) => { crops.push({ ...c }); },
+    cropAt: (x, z) => crops.find((c) => Math.abs(x - c.x) < c.halfX && Math.abs(z - c.z) < c.halfZ) ?? null,
+    addRoad: (r) => {
+      roads.push(r);
+      let index = roadIndexes.get(r.width);
+      if (!index) { index = new SegmentIndex(32); roadIndexes.set(r.width, index); }
+      index.addPolyline(r.points);
+    },
+    isOnRoad,
     addPaved: (p) => { paved.push({ ...p }); },
     pavedAt: (x, z) => {
       let w = 0;
       for (const p of paved) {
-        const dx = x - p.x, dz = z - p.z, c = Math.cos(p.angle), s = Math.sin(p.angle);
-        const d = Math.max(Math.abs(dx * c + dz * s), Math.abs(-dx * s + dz * c)) - p.half;
-        if (d < PAVED_EDGE) w = Math.max(w, 1 - smoothstep(0, PAVED_EDGE, d));
+        const { u, v } = pavedAxes(p, x, z);
+        const d = Math.max(Math.abs(u), Math.abs(v)) - p.half;
+        if (d < PAVED_EDGE) w = Math.max(w, (1 - smoothstep(0, PAVED_EDGE, d)) * smoothstep(-PARK_EDGE, 0, parkDistance(p, u, v)));
       }
       return w;
     },
+    inPark: (x, z) => paved.some((p) => {
+      const { u, v } = pavedAxes(p, x, z);
+      return parkDistance(p, u, v) < -PARK_EDGE;
+    }),
     isReserved: (x, z, margin) => {
-      for (const p of pads) if (Math.hypot(x - p.x, z - p.z) < p.radius + margin) return true;
-      return roads.length > 0 && roadIndex.distance(x, z, 16 + margin) < 2 + margin;
+      for (const p of pads) if (!p.open && Math.hypot(x - p.x, z - p.z) < p.radius + margin) return true;
+      for (const p of plots) if (Math.hypot(x - p.x, z - p.z) < p.radius + margin) return true;
+      return isOnRoad(x, z, margin);
     },
+    inSettlement: (x, z) => pads.some((p) => p.open && Math.hypot(x - p.x, z - p.z) < p.radius),
   };
 }
 
 export function snapshotField(f: WorldField): FieldSnapshot {
-  return { recipe: f.recipe, pads: f.pads.map((p) => ({ ...p })), roads: f.roads.map((r) => ({ ...r, points: [...r.points], bridges: [...r.bridges] })), paved: f.paved.map((p) => ({ ...p })) };
+  return { recipe: f.recipe, pads: f.pads.map((p) => ({ ...p })), plots: f.plots.map((p) => ({ ...p })), crops: f.crops.map((c) => ({ ...c })), roads: f.roads.map((r) => ({ ...r, points: [...r.points], bridges: [...r.bridges] })), paved: f.paved.map((p) => ({ ...p })) };
 }
 
 export function restoreField(s: FieldSnapshot): WorldField {
   const f = createField(s.recipe);
   for (const p of s.pads) f.addPad(p);
+  for (const p of s.plots ?? []) f.addPlot(p);
+  for (const c of s.crops ?? []) f.addCrop(c);
   for (const r of s.roads) f.addRoad(r);
   for (const p of s.paved ?? []) f.addPaved(p);
   return f;

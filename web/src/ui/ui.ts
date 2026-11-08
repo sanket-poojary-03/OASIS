@@ -1,6 +1,12 @@
 import type { ObjectInfo } from '../render/worldObjects';
 import type { Check } from '../world/checks';
+import { BusyPill } from './busy';
+import type { BusyStage } from './busyWords';
 import { Notices } from './notices';
+import { HINT_LEAD, promptHint } from './promptHint';
+import { ResolutionMenu, type ResolutionHandlers } from './resolutionMenu';
+import type { Resolution } from '../render/resolution';
+import { Tutorial } from './tutorial';
 import { wait } from './wait';
 
 export interface UIHandlers {
@@ -11,26 +17,17 @@ export interface UIHandlers {
   director(): void;
   /** Leave the current world for the start screen (HUD button or N). */
   newWorld(): void;
+  /** Hand the mouse back, so a panel can be clicked. */
+  releaseMouse(): void;
+  /** The saved resolution at start-up, then each new choice and the ratio in use. */
+  resolution: Resolution;
+  chooseResolution: ResolutionHandlers['choose'];
+  renderRatio: ResolutionHandlers['ratio'];
 }
 
-const EXAMPLES = [
-  'A misty pine valley with a river, a small fishing village on the bank and an old watchtower on the highest hill',
-  'A red desert canyon with an oasis camp, a weathered obelisk on the highest mesa, at sunset',
-  'Frozen mountains at night with a castle on the tallest peak and a hunter’s lodge by a lake',
-  'A tropical island with a beach village, a lighthouse on the east coast and lots of birds',
-];
+const HINT_EVERY_MS = 50;
 
-/** The tilted line by the logo, one per visit. */
-const SPLASHES = [
-  'Type a world into being!',
-  'Every tower is unique!',
-  'Walk in seconds later!',
-  'Ask for anything!',
-  'Now with skylines!',
-  'Rivers find their own way!',
-  'The car is parked by you!',
-  'Change it while you play!',
-];
+const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -49,10 +46,7 @@ export class UI {
   private readonly start = el('div', 'start');
   private readonly prompt = el('textarea', 'prompt-input');
   private readonly healthLine = el('div', 'health');
-  private readonly busy = el('div', 'busy hidden');
-  private readonly busyText = el('div', 'busy-text');
-  private readonly busyBrief = el('div', 'busy-brief hidden');
-  private readonly logList = el('ul', 'log');
+  private readonly busy = new BusyPill();
   private readonly hud = el('div', 'hud hidden');
   private readonly hint = el('div', 'hint hidden');
   private readonly card = el('div', 'card hidden');
@@ -60,52 +54,57 @@ export class UI {
   private readonly commandInput = el('input', 'command-input');
   private readonly preview = el('div', 'preview hidden');
   private readonly checks = el('div', 'checks hidden');
-  private readonly source = el('div', 'source');
   private readonly toastEl = el('div', 'toast hidden');
   private readonly fuel = el('div', 'fuel hidden');
   private readonly fuelFill = el('div', 'fuel-fill');
   private readonly back = el('button', 'secondary hidden', 'Back to my world');
   /** Top-right progress notices (models loading for places added while playing). */
   readonly notices = new Notices();
+  readonly tutorial: Tutorial;
+  readonly resolution: ResolutionMenu;
   private toastTimer = 0;
+  private hintTimer = 0;
+  private welcomed = false;
 
   constructor(root: HTMLElement, private readonly h: UIHandlers) {
+    this.tutorial = new Tutorial(() => h.releaseMouse());
+    this.resolution = new ResolutionMenu(h.resolution, { choose: h.chooseResolution, ratio: h.renderRatio, releaseMouse: h.releaseMouse });
     // start screen: floats over a world turning behind it (App.showcase), like a game's title screen
-    const logo = el('div', 'logo');
-    logo.append(el('h1', 'logo-word', 'OASIS'), el('span', 'splash', SPLASHES[Math.floor(Math.random() * SPLASHES.length)]));
+    const logoImg = el('img');
+    logoImg.src = '/oasis-logo.webp';
+    logoImg.alt = 'OASIS';
+    logoImg.width = 1474;
+    logoImg.height = 755;
+    logoImg.draggable = false;
+    const logo = el('h1', 'logo-word');
+    logo.append(logoImg);
     const head = el('div', 'start-head');
-    head.append(logo, el('p', 'subtitle', 'PROMPT  ·  WORLD  ·  PLAY'), el('p', 'tagline', 'Describe a world. Walk into it. Change it by talking to it.'));
-    this.start.append(el('div', 'start-vignette'), head);
-    this.prompt.placeholder = 'Describe your world…';
+    const tagline = el('p', 'tagline');
+    for (const line of ['Describe a world.', 'Walk into it.', 'Change it by talking to it.']) tagline.append(el('span', undefined, line));
+    head.append(logo, tagline);
+    this.start.append(head);
+    this.prompt.placeholder = HINT_LEAD;
+    this.prompt.setAttribute('aria-label', 'Describe your world');
     this.prompt.maxLength = 600;
-    this.prompt.value = EXAMPLES[0];
-    const chips = el('div', 'chips');
-    for (const ex of EXAMPLES) {
-      const chip = el('button', 'chip', `${ex.slice(0, 42)}…`);
-      chip.onclick = () => { this.prompt.value = ex; };
-      chips.append(chip);
-    }
     const go = el('button', 'primary', 'Create world');
-    go.onclick = () => { if (this.prompt.value.trim().length >= 3) h.generate(this.prompt.value.trim()); };
-    const demo = el('button', 'secondary', '▶ Watch the demo');
+    go.onclick = () => {
+      if (this.prompt.value.trim().length >= 3) h.generate(this.prompt.value.trim());
+      else this.prompt.focus(); // the box starts empty, so this click is asking where to type
+    };
+    const demo = el('button', 'secondary', 'Watch the demo');
     demo.onclick = () => h.director();
     this.back.onclick = () => { this.showStart(false); this.showHud(true); };
     const actions = el('div', 'actions');
     actions.append(go, demo, this.back);
     const panel = el('div', 'start-panel');
-    panel.append(this.prompt, actions, chips);
-    const foot = el('div', 'start-foot');
-    foot.append(this.healthLine, el('div', 'credit', 'Behind this menu: a hand-made showcase world, built live by the OASIS engine · Victoria VR AI Builder Hackathon 2026'));
-    this.start.append(panel, foot);
-    // busy overlay
-    this.busy.append(this.busyText, this.busyBrief, this.logList);
+    panel.append(this.healthLine, this.prompt, actions);
+    this.start.append(panel);
     // hud
     const newWorld = el('button', 'secondary new-world', 'New world (N)');
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
     this.hud.append(
       el('div', 'crosshair', '+'),
-      el('div', 'help', 'WASD move · Shift run · Space jump/swim (hold in air: rocket booster) · Shift in water: dive · E use / drive · T talk to the world · V camera · B character · U undo · C checks · N new world'),
-      this.source, newWorld, this.fuel,
+      this.resolution.root, newWorld, this.fuel,
     );
     this.fuel.append(el('div', 'fuel-label', 'BOOST'), el('div', 'fuel-bar'));
     this.fuel.lastElementChild!.append(this.fuelFill);
@@ -118,7 +117,7 @@ export class UI {
       e.stopPropagation();
     };
     this.command.append(this.commandInput);
-    root.append(this.start, this.busy, this.hud, this.hint, this.card, this.command, this.preview, this.checks, this.toastEl, this.notices.root);
+    root.append(this.busy.held, this.start, this.busy.root, this.hud, this.hint, this.card, this.command, this.preview, this.checks, this.toastEl, this.notices.root, this.tutorial.button, this.tutorial.card);
   }
 
   get commandOpen(): boolean { return !this.command.classList.contains('hidden'); }
@@ -128,6 +127,18 @@ export class UI {
   showStart(show: boolean): void {
     this.start.classList.toggle('hidden', !show);
     if (!show) { blurWithin(this.start); this.back.classList.add('hidden'); }
+    // The controls only mean something in a world, so the tutorial waits for one.
+    this.tutorial.button.classList.toggle('hidden', show);
+    if (show) this.tutorial.close();
+    this.animateHint(show);
+  }
+
+  /** The prompt box's placeholder types out ideas while the start screen is open. */
+  private animateHint(on: boolean): void {
+    clearInterval(this.hintTimer);
+    if (!on || reducedMotion()) return;
+    const from = performance.now();
+    this.hintTimer = window.setInterval(() => { this.prompt.placeholder = promptHint(performance.now() - from); }, HINT_EVERY_MS);
   }
 
   /** The start screen over a running world (I7): HUD and panels step aside, and "Back to my world" returns to it. */
@@ -150,26 +161,26 @@ export class UI {
 
   setHealth(text: string): void { this.healthLine.textContent = text; }
 
-  setBusy(text: string | null): void {
-    this.busy.classList.toggle('hidden', text === null);
-    if (text !== null) this.busyText.textContent = text;
-    else { this.logList.replaceChildren(); this.setBrief(null); }
+  /** A pill over the live world, or nothing. The start screen steps aside for it, so the world shows; it comes back on failure. */
+  setBusy(stage: BusyStage | null): void {
+    if (stage) this.busy.show(stage);
+    else this.busy.hide();
+    this.start.classList.toggle('building', stage !== null);
+    if (stage) this.tutorial.close();
+    if (stage) blurWithin(this.start);
   }
 
-  /** The AI's world brief while the world is built from it (model-written: textContent only). */
-  setBrief(brief: { title?: string; brief: string } | null): void {
-    this.busyBrief.classList.toggle('hidden', !brief?.brief);
-    this.busyBrief.replaceChildren();
-    if (!brief?.brief) return;
-    if (brief.title) this.busyBrief.append(el('div', 'busy-brief-title', brief.title));
-    this.busyBrief.append(el('p', 'busy-brief-text', brief.brief));
+  /** Keeps the current picture on screen while one world is swapped for the next; setBusy(null) fades it away. */
+  holdFrame(source: HTMLCanvasElement): void {
+    this.busy.hold(source);
   }
 
-  log(line: string): void {
-    this.logList.append(el('li', '', line));
+  showHud(show: boolean): void {
+    this.hud.classList.toggle('hidden', !show);
+    if (!show) this.resolution.close();
+    // The controls live in the tutorial now, so a new player needs one pointer to it, and to the click that takes control.
+    if (show && !this.welcomed) { this.welcomed = true; this.toast('Click the world to play. Press H for the controls.'); }
   }
-
-  showHud(show: boolean): void { this.hud.classList.toggle('hidden', !show); }
 
   setHint(text: string | null): void {
     this.hint.classList.toggle('hidden', text === null);
@@ -223,7 +234,6 @@ export class UI {
   }
 
   toggleChecks(): void { this.checks.classList.toggle('hidden'); }
-  setSource(text: string): void { this.source.textContent = text; }
 
   toast(msg: string): void {
     this.toastEl.textContent = msg;

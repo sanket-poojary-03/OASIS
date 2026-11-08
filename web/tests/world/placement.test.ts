@@ -135,3 +135,15 @@ describe('findSpawn settlement case', () => {
     expect(Math.hypot(s2.x, s2.z)).toBeLessThanOrEqual(512 * 1.5);
   });
 });
+
+describe('spread', () => {
+  it('sends places with no tie to another place to different parts of the world', () => {
+    const base = loadRecipeFixture('fishing-valley');
+    const free = Array.from({ length: 6 }, (_, i) => ({ id: `free${i}`, kind: 'structure' as const, label: `Free ${i}`, asset: 'cabin', size: 'small' as const, interaction: 'none' as const, where: [] }));
+    const r = { ...base, places: free, paths: [], water: { river: false, lake: false } };
+    const ps = solvePlacements(r, createField(r));
+    let closest = Infinity;
+    for (const a of ps) for (const b of ps) if (a !== b) closest = Math.min(closest, Math.hypot(a.x - b.x, a.z - b.z));
+    expect(closest).toBeGreaterThan(180);
+  });
+});

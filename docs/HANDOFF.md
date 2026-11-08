@@ -1,106 +1,176 @@
-# OASIS: session handoff (2026-11-04)
+# OASIS: session handoff (2026-11-06)
 
-Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (the newest entries are under `## 2026-11-04` and `## 2026-11-04 (later)`). The project was renamed **WorldSeed → OASIS** on 2026-11-04 (user-facing names only; the branch, spec and plan file names keep `worldseed`).
+Read this first in a new session, together with `CLAUDE.md`. The full decision log is `docs/DECISIONS.md` (newest entries: `## 2026-11-05`). The project was renamed **WorldSeed → OASIS** on 2026-11-04 (user-facing names only; the branch, spec and plan file names keep `worldseed`).
 
 **Deadline: 2026-11-11 16:30 CEST.**
 
-## Where things stand
-- **Branch:** `feat/worldseed`, 104 commits ahead of `main`.
-  - `main` holds only the docs base (26620a5).
-  - There is **no git remote yet**, so nothing has been pushed.
-- **The plan is code-complete.** All 30 plan tasks from `docs/superpowers/plans/2026-11-01-worldseed.md` were implemented and reviewed using subagent-driven development, except Task 19b (art download).
-  - A final whole-branch review found 1 Critical, 7 Important and 13 Minor issues. All were fixed (up to 2230904), and the re-review was clean.
-- **Tests at the last commit:**
-  - Web: vitest 343 passing, tsc clean, build OK.
-  - Backend: `pytest -q` 152 passed.
-- **Browser checks:** a headless-Chrome loop (puppeteer-core driving the installed Chrome on the GPU) screenshots worlds and runs the plan's acceptance checks through `window.__ws` (dev builds). The scripts live in the session scratchpad, not the repo; DECISIONS 2026-11-04 (later) lists what was measured. Claude in Chrome also works for live checks (automation cannot take pointer lock; set `player.controls.isLocked = true`).
-- **Ledger and SDD workspace:** `.superpowers/sdd/2026-11-01-worldseed/` is git-ignored. It holds `progress.md` (the ledger), `rulings.md`, and the task briefs and reports, including the Task 19b manual steps.
-- **Extra worktrees** (all merged and safe to remove): `../VICTORIA-backend` (feat/backend), `../VICTORIA-render` (feat/web2), `../VICTORIA-web3` (feat/web3).
-- **Run locally:**
-  - Backend (Git Bash): `backend/.venv/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --port 8000`. Use `--app-dir`, because background shells ignore `cd`.
-  - Web: `cd web && npm run dev` (http://localhost:5173).
+## Newest work (2026-11-07, not committed)
+Start screen rebuilt: `web/src/ui/showcase.ts` (one world: village and city), `web/src/ui/menuFlight.ts` (camera and clock), `web/public/menu-poster.webp` (shown until the live world is ready). The reasons and the general generator fixes are in `docs/DECISIONS.md`, entry "The start screen's world".
+- **After changing the menu's world:** run `node scripts/bundle_models.mjs` (backend up) if it asks for new models, and retake the poster: a 2160×900 capture at the first beat from `MENU_START_ANGLE`.
+- **Testing in Chrome automation:** an unfocused tab gets about 1 frame a second, and a minimized window reports `innerWidth` 0 (which also selects the low-tier view distance). Do not read load times or frame rates from it without saying so.
+- **Backend restart on Windows:** port 8000 can be held by a `multiprocessing` child of the process you stopped. Stop that too.
+- **Floating models, invisible walls, resolution menu (R):** `render/fit.ts` (`drawnBox`), `world/groundPose.ts`, `render/meshCollider.ts`, `render/resolution.ts`, `ui/resolutionMenu.ts`. Reasons and measurements: `docs/DECISIONS.md`, last entry. Never size a model with plain `setFromObject`: it overstates anything tipped inside its file.
 
-## AI provider: Sarvam (since 2026-11-03)
-- **Settings** (in `backend/.env`, never committed; the user's Sarvam key is there):
-  - `LLM_BASE_URL=https://api.sarvam.ai/v1`
-  - `LLM_MODEL=sarvam-105b-conversations`: answers in 1–4 s, no reasoning step.
-  - `LLM_FALLBACK_MODELS=sarvam-105b`: reasons first, 15–85 s. Used for busy errors and as the last try after two unusable answers.
-  - `LLM_WORLD_MODEL=glm5.3-flash` with `LLM_WORLD_BASE_URL=https://api.sarvam.ai/v2` (since 2026-11-04, the user's choice): whole worlds only, 13–43 s, about twice the places and props. Briefs and live edits stay on `LLM_MODEL`. Unset both to go back.
-  - `LLM_REASONING_EFFORT` is unset. Measured: `low` was worse (7.5k thinking tokens, cut off), and `none` is rejected with HTTP 400.
-  - `LLM_MAX_TOKENS` defaults to 8000. The per-call timeout is 75 s, and the browser waits 90 s.
-- **Old provider:** the OpenRouter settings are kept *commented out* in `backend/.env`. That account had $0 credit, and Google's shared pool returned 429 on about 1 in 3 calls.
-- **Latest eval** (8 varied prompts): 8/8 usable, about 5.2 places per world, about 2.5 s each. Live edits (night/rain, lantern, tent camp, remove) take about 3 s.
-- **Poly Pizza key** is in `backend/.env`, so the online model finder works.
+- **Water reaches its shores (not committed):** `world/waterSheet.ts` draws rivers and lakes as one sheet on the terrain grid. Banks and lakes no longer raise land out of the sea. Reasons and measurements: `docs/DECISIONS.md`, entry "Water reaches its shores".
 
-## What changed this session (after the plan finished), by commit
+- **Roads and canyons (not committed):** a road crosses a gap in the land on a high span from lip to lip, stops at cliffs, and a city's streets stop at them too. `world/roads.ts` (`spansGap`, `CLIFF`, `WALL`), `render/roads.ts` (piers, `deckSurface`), `logic/vehicles.ts`. Cars now cross all bridges. Reasons and measurements: `docs/DECISIONS.md`, entry "Roads and canyons".
+
+- **Roads stay off the water (not committed):** crossings are real bridges (`render/roads.ts`), one straight span each, and the road network avoids them. Cars still stop at water, so they cannot use a bridge. Reasons: `docs/DECISIONS.md`, entry "Roads stay off the water".
+
+## Start here: where things stand
+- **Branch:** `feat/worldseed`, 109 commits ahead of `main`. **No git remote yet**, so nothing has been pushed.
+- **Latest commit:** `30c4554` "one fixed 1 km map; the AI says what grows and which animals; missing models are found or explained". It is the last thing the user asked for. The fixed map was checked in a headless browser (edge stop and message); the user has not yet generated a world on it.
+- **Tests:**
+  - Working tree: web vitest 991 passing (2026-11-07), backend pytest 197 passing.
+  - The commit `30c4554` alone (without the other session's files): web 463, backend 195.
+  - `tsc --noEmit` clean, `npm run build` OK.
+- **Running now:**
+  - Backend on port 8000, started **without `--reload`**. Restart it by hand after any backend change (`--reload` did not pick up changes).
+  - Web dev server on port 5173.
+  - Background shell `bp6d6gj3s`, a live check of the parts designer on two Sarvam models. At handoff its output had only "ok". Its output file: `C:\Users\sanke\AppData\Local\Temp\claude\c--Users-sanke-Desktop-VICTORIA\f3694509-d52b-4f29-b23f-ac0d786f0354\tasks\bp6d6gj3s.output`. Stop it with TaskStop if it isn't needed.
+- **Uncommitted work from another session (`victoria-fa`) is in the same working tree.** Do not commit it without checking with the user:
+  - Modified: `backend/app/{prompts,schemas,service}.py`, `backend/tests/test_service_world.py`, `docs/CREDITS.md`, `docs/DECISIONS.md`, `shared/fixtures/recipes/fishing-valley.json`, `web/package*.json`, `web/src/{app,main,styles.css}`, `web/src/core/recipe.ts`, `web/src/render/{atmosphere,postfx,ripples,worldObjects}.ts`, `web/src/ui/ui.ts`, `web/src/world/{build,placement,props}.ts`, and three web tests.
+  - Untracked: `web/public/oasis-logo.webp`, `web/src/render/nightSky.ts`, `web/src/ui/busy.ts`, `web/src/ui/busyWords.ts`, `web/src/world/scenery.ts`, `web/tests/ui/busyWords.test.ts`, `web/tests/world/scenery.test.ts`.
+  - Two small edits in those files are mine: `busy.ts` `hold()` returns early when the canvas is 0 px (fixes "Could not build that world" in a background tab), and `scenery.test.ts` exempts finds near a new road.
+- **Partial-commit technique (used for 30c4554):** stage HEAD plus my transform with `git hash-object -w --stdin` and `git update-index --cacheinfo`, so the other session's lines are never staged. Check the staged file list before committing. An earlier attempt committed only 3 of the files because a failed staging step did not stop the commit (`ab078f8`); it was undone with `git reset --soft` and redone correctly.
+- **Commit trailer:** `CLAUDE.md` says `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Keep that line on commits in this repo.
+
+## Latest session (2026-11-05 to 06): what changed
 | Commit | Change |
 |---|---|
-| b35a2b9 | **AI only.** Retry busy models, then the backup model. If all fail, the API returns 503 "AI is busy" and the browser shows it and keeps the world. Offline mode only when the backend is unreachable. No silent keyword-mock worlds behind a live backend. |
-| 2791c90 | **Online model picks.** Skip interior/room/scene titles, cap downloads at 8 MB and fall through to the next candidate, and the picker asks for "one object seen from outside". Also `max_tokens` on every LLM call. |
-| 1bafbb6 | **Doors follow the loaded model.** The model's own part named like a door gets hinged. With no door part there's no interaction and no floating slab. Interactions re-register after a model swap. |
-| 027ff0a | **Bloom only at dusk and night.** Fixes the daytime white glare near the sun (`bloomFor`). |
-| 4eb8d36 | **No refusals for ordinary places.** One "unsupported" answer is questioned once. |
-| 71f51f5 | **Groups of anything.** `place.layout {pattern: village\|grid\|ring\|line\|scatter, count ≤60, height low\|mixed\|tall, centre}` in both schemas, the prompt and both mocks. Cities get a street grid with towers rising to the centre; camps and colonies are rings; harbours are lines; orchards and graveyards are scatters. Tower placeholders are built at their real height, and models are fitted to their plot. Code: `web/src/world/layouts.ts`. |
-| 799169d | **Groups can be added while playing.** `check_targets` sends edits that name unknown places back to the AI. |
-| 74a3ad4, c2ed538 | **Switch to Sarvam**, then fix the model roles from measurements. Notes the model puts inside the recipe are moved out instead of rejected. |
-| 066ba03 | **Parked minors closed.** `clientip` unwraps IPv4-mapped hops and skips every non-global address; `httpx2` dropped, pytest moved to `requirements-dev.txt`; the health line corrects itself after a late backend wake; test warn spies restored. |
-| 2d179b5 | **Prompt colours.** Optional recipe `palette {ground, water, sky}` (#rrggbb) and a `setPalette` op in both schemas (fixture `ops/red-planet.json`). It tints biomes, grass, water and a translucent sky dome. Colour words are repaired to hex. Prompt p6. Tests: web 283, backend 111 + 10 skipped. |
-| 354b603 | **No stand-in house while an added asset loads.** Places added with T wait for their model; a top-right spinner notice per place, then a tick or "no model found, simple shape". |
-| 3594255 | **Characters.** Three bundled Quaternius CC0 animated characters (Adventurer, Astronaut, Hooded Ranger) in `web/public/models/characters/`; B switches. |
-| f5de08b | **Rocket booster.** Hold Space in the air (after 0.2 s) to fly; fuel 4 s, refills on the ground; flames, glow, roar, BOOST bar. |
-| (next) | **Driveable cars.** `drive` interaction (both schemas, prompts p7, mocks, repair safety net); bundled sports car parked at every spawn; E in/out, WASD, Space brake, Shift boost, chase camera. |
-| 3bedfe4 | **Nothing floats.** Model-shaped (trimesh) colliders for placed models; cars sit on the terrain under their wheels (terrain filtered out of their Rapier queries); feet include the controller's 5 cm skin. |
-| 2dad3e8 | **Model library.** 186 curated Quaternius CC0 models (`backend/scripts/curate_library.py`), textures 512 px WebP, 40 MB. Trees, rocks and bushes are real models when the backend is up. No rabbit model (Quaternius' are upright characters). |
-| c3040ef | **Smarter finder.** AI-confirmed partial library matches, alternative search words, flat models rejected for buildings, Meshy for any kind. |
-| (next) | **No placeholders with a server.** Objects appear only with their real model; misses are left out with a notice; stand-ins only offline; 4x footprint cap. |
-| bbe7645 | **Varied nature.** 17 scatter kinds, every library variant, oak/birch/autumn groves, ground cover. |
-| 0fb9b84 | **Roads everywhere.** A spanning tree of roads over every place and the spawn, plus the AI's paths. |
-| c51a727 | **Prompt enhancer.** `/api/brief`; up to 24 places with props; sturdier repairs; invalid places dropped one by one. |
-| 361b08c | **Props around places.** Deterministic, off roads and plots, real models with interactions. |
-| 43b4f8f | **GLM-5.3 Flash for worlds, great cities, brief on screen.** World model split; `layout.variants`; paved city blocks; street lamps at crossings; kerb props and parked cars; prompt p9; builds about 2× faster. |
-| f7b2783 | **Mountains without needles.** Softer, weighted ridged noise; blended rock and snow edges; fog that ends at the loaded terrain; dev `?w=&t=&wx=` screenshot hook. |
-| 4e11a4f | **Nothing hangs in the sky.** `RangeCuller` hides roads, water and objects beyond the loaded terrain; gentler roads (slope cost); at most 4 loading notices. |
-| 93ab289 | **Play-tested live cities.** Coasts for seas off islands; compact cities (prompt p10); asphalt; a fountain for open-space centres; readable light; real dusk and dawn; warm haze; scatter detail rings. |
-| 1991225 | **OASIS.** Rename; city towers designed in code (`world/towerSpec.ts`, `render/towers.ts`: setbacks, glass/office/apartment façades, roofs, lit windows); a live city turning behind a new title screen (`ui/showcase.ts`, `App.showcase`); prompt p11. |
-| 044a02e | **Spawn facing the main place.** Beside the biggest settlement, on its inward side, camera turned toward it. |
-| ff5956c | **Playability from measurements.** Convex-hull colliders for detailed group buildings (controller 5 ms → 0.4 ms); adaptive render resolution; thinner outer scatter (1080p on an Iris Xe, sprinting: 45–59 fps); slim houses widened to person scale; a named time completes atmosphere edits (the demo ends at day). |
-| cb9689e | **Fuller worlds.** Prompt p5 asks for 5–9 places and treats repeated things as groups. `repair_recipe` fixes harmless slips (a stray `of`, size words like "huge"). |
+| e37fa7d | **Animated sea.** three.js `Water.js` (ripples, sun glints, reflections, fades into the sky at the horizon); ripples on rivers and lakes; shore foam that stops at the waterline. Grass and distant trees are left out of the reflection. |
+| 1e60d20 | **AI only.** No mock or offline worlds. With no LLM, the player sees "LLM not available" and no world is made. Only 3D models are cached. |
+| 5dc0cc5 | **Model finder** (order below). Parts designer, vision picker, library and cache, and a notice queue. `backend/scripts/eval_finder.py` scores it on live requests. |
+| d5e6074 | **Water has a body.** Rivers are carved below the water with a bed, bank and blend; lakes form only above the sea; Shift dives. Themed models (pirate, sci-fi, cyberpunk) are asked for only when the theme is named. |
+| 30c4554 | **One fixed 1 km map** and **the AI decides nature and animals** (details below). |
 
-**Since ff5956c (see DECISIONS 2026-11-04 "No mock, no world cache, real water worlds"):** mock and offline modes removed ("LLM not available" instead), only 3D models cached, `archipelago` and `ocean` terrain, wooden decks and boardwalks, boats float, asphalt only for real cities. Older rows above mention mocks and offline mode: history, no longer true.
+### Model finder: the order it tries things (`backend/app/assets.py`)
+1. **Library and cache.** The bundled CC0 library, then approved cached models.
+2. **LLM analysis** (`asset_analyse.py`): what the object is, its size and colour, and whether it can be found online.
+3. **Online search** (Poly Pizza; Sketchfab if `SKETCHFAB_TOKEN` is set), over up to 4 search terms. Each result is checked by a **vision model** (`VISION_MODEL`, default `glm5.3-flash` on Sarvam `/v2`; vision is Sarvam only). The right object in the wrong colour is accepted and recoloured in code (`render/tint.ts`).
+4. **Semantic alternatives:** if search fails, the AI suggests other terms (e.g. red lighthouse → coastal lighthouse → beacon tower).
+5. **Meshy** (landmarks only, `MESHY_MAX_GENERATIONS=5`). The player waits for it and no stand-in shows first. If there is no key or no credit, a notice says so, then a second notice says "building manually".
+6. **Manual build** from AI-written parts (JSON, never code), `asset_procedural.py`.
 
-## User preferences (also in memory)
-- **Status after every task:** what was done, findings, and what's next.
-- **Anything goes.** The user can ask for *anything*: build general mechanisms, never one-off modes. What matters is natural language → 3D creation → functional interaction.
-- **AI only.** No mock, offline or hardcoded worlds, and no world caching (only 3D models). With no LLM, say "LLM not available". Avoid keyword rules that override the AI.
-- Get the user's approval before any push, deploy or account action.
+Current keys: `POLY_PIZZA_KEY` is set. `MESHY_API_KEY` and `SKETCHFAB_TOKEN` are **not** set, so Meshy always reports "key missing" and Sketchfab is skipped. Both are optional.
 
-## Open items / next steps
-1. **Merge decision:** merge `feat/worldseed` into `main` locally, push and open a PR (needs a GitHub remote), or keep it as is. The user hasn't chosen yet.
-2. **Art packs** (user downloads; itch.io needs a browser):
+**Eval (100 live requests, title-scored, which favours the old picker):** old 78 right / 9 wrong / 2 missed / 11 declined; GLM 82 / 11 / 3 / 4.
+
+### Fixed map (30c4554)
+- **Size:** 1024 m × 1024 m. `CORE_HALF = 512`, `CHUNK_SIZE = 64`, `CHUNK_RES = 32`, `VIEW = 3`. To change it, change `CORE_HALF` in both schemas, `web/src/core/recipe.ts` and `backend/app/schemas.py`. Not tested at another size.
+- **Edge:** `web/src/world/mapBounds.ts` keeps everything inside the map. Land rises into a ring of mountains over the last 80 m (`rimAt` in `field.ts`), but only where there is land, so a sea stays open. Chunks outside the map are not loaded (`chunkManager.ts`).
+- **Player and cars:** the player stops at the edge and sees "This is the edge of the map" (repeated every 15 s). Cars stop at the edge too.
+- **"Here" past the edge** is refused, and the "Placed" toast gives the distance.
+
+### Nature and animals (30c4554)
+- **Nature:** `recipe.nature` has `trees`, `plants` and `rocks`, each 0–2, default 1. It scales the scatter (`web/src/world/scatter.ts`, `chunkData.ts`). The LLM sets it from the words used ("no trees" → 0; "thick forest" → 2). The `setNature` op changes it live and keeps the placements.
+- **Animals:** life kinds gained `animal`. Any animal name works (giraffe, horse, elephant, dragon). Each animal names its asset, and wanders around `life.at`. Life max is 8. Wildlife is in `web/src/logic/wildlife.ts`.
+
+### Invisible objects: the three causes, all fixed
+1. **Browser queue:** browsers open about 6 connections to one server, so in a world of 30+ new models most requests timed out and were never retried. Now 5 at a time, with a retry (`render/assetModels.ts`). A test world loaded 197 objects with 0 misses.
+2. **Hidden limit:** the search budget was 60 per 10 minutes and refused silently. Now 400 (`main.py`), and a refusal shows a notice.
+3. **Past the old edge:** "here" was clamped to the map edge, so an object landed 188 m away while the toast said "placed where you asked".
+
+### World speed
+A format slip made nearly every world call the LLM a second time. Fixed; worlds went from about 40 s to **15–28 s**, with 0 rejected answers in the last run.
+
+## Known limits (tell the user)
+- Beige haze shows past the mountains from high on the jetpack.
+- The browser sends 5 models at a time, so a world's first load of 30+ new models can take around 2 minutes (estimate, not measured). Cached models load almost at once.
+- Flying animals the AI names (e.g. vulture) walk on the ground.
+- Found animal models glide and bob, with no walk animation.
+- Plain "cabin" gets a silo house.
+- Steep rivers look stepped.
+- A place on the floor of a sheer canyon gets no road down to it, and the log says so.
+- Whether the AI picks a canyon for a prompt is its own choice; placement still lets a settlement sit on a canyon floor.
+- Diving and floating were not checked at full frame rate (the test tab ran at about 1 fps).
+
+## Open items and next steps
+1. **Placement improvements (on hold, not started).** The user first asked for these: road and building overlap, real footprints, prop placement, and hard relations. Explain the current logic first, as asked.
+2. **"Did you hardcode anything?"** This question was answered, with a proposal the user has not yet responded to:
+   - Let the AI choose bed objects.
+   - Remove the bug-specific examples from the vision prompt, then re-run `eval_finder.py`.
+   - Later, replace the themed-model rule with vision-checked library thumbnails.
+3. **Give the user a browser check** of this session's work: generate a new world. Check a "no trees" world, "add a giraffe here", "add a bike here", walking to the map edge, and the jetpack view.
+4. **Merge decision:** merge `feat/worldseed` into `main` locally, push and open a PR (needs a GitHub remote), or keep it as is. Not chosen yet.
+5. **Art packs** (user downloads; itch.io needs a browser):
    - Quaternius Stylized Nature MegaKit
    - Medieval Village MegaKit
    - Animated Animals (Google Drive)
    - KayKit Adventurers
-   - **Suggested for walk-in houses:** Retro House Pack (elegantcrow.itch.io/retro-house-pack, CC0, interiors and separate doors).
-
-   Then re-dispatch Task 19b (tagging contract in `rulings.md`). Possible follow-up: houses you can enter (wall colliders with a doorway gap), or houses assembled from the Quaternius modular kit.
-3. **Visual polish ideas:**
-   - **Browser check needed** for this session's features: the loading notices (T → "add a giraffe here"), B characters, holding Space to fly, E on the parked car, and driving up hills, into a house and toward water.
-   - ~~Ground and sea colour should follow the prompt~~ (done, 2d179b5). Needs a visual check in the browser: "a red planet…", then "make the sky orange", at day and at night.
-   - Fill empty outer city plots with parks or trees.
-   - The zen garden came out backwards (the temple as a scatter group, trees placed singly), so tune the prompt further.
-4. **Deploy (needs user approval and accounts):**
-   - Create a public GitHub repo.
-   - Render (Docker, `backend/Dockerfile`, context = repo root; set the Sarvam env vars, and **don't** set `MESHY_API_KEY` on free instances).
-   - Vercel (root `web`, include files outside root, `VITE_API_URL`).
-   - The Docker image has never been built (Docker Desktop wasn't running).
-5. **Manual checks still open** (the rest of the plan's browser checks were measured and ticked on 2026-11-04):
-   - By eye: grass sway, the walk/run animation, night bloom (Task 24b Step 9); the 50° cliff limit and Esc (Task 14); the demo with no LLM, which should only show the message (Task 25).
-   - Doors on library houses do not open (no door part in the models); decide whether to add stand-in doors to loaded houses.
+   - Suggested for walk-in houses: Retro House Pack (elegantcrow.itch.io/retro-house-pack, CC0).
+   Then re-dispatch Task 19b (tagging contract in `rulings.md`).
+6. **Manual checks still open:**
+   - By eye: grass sway, the walk/run animation, night bloom; the 50° cliff limit and Esc; the demo with no LLM shows only the message.
+   - Doors on library houses do not open (no door part in those models).
    - The snowy valley floor reads teal under dawn light, and bright green grass grows in snowy valleys.
-   - From high up (jetpack) the edge of the loaded land is still faintly visible.
-6. **Submission:**
-   - A video under 3 minutes.
-   - `docs/SUBMISSION.md` now mentions Sarvam, group layouts, palettes and the AI-only behaviour. It still needs the demo, repo and video URLs.
-   - Push and submit before 2026-11-11 16:30 CEST.
-7. ~~Parked minor items~~: all closed in 066ba03.
+7. **Deploy (needs user approval and accounts):** public GitHub repo; Render (Docker, `backend/Dockerfile`, context = repo root; set the Sarvam env vars, and **don't** set `MESHY_API_KEY` on free instances); Vercel (root `web`, include files outside root, `VITE_API_URL`). The Docker image has never been built.
+8. **Submission:** a video under 3 minutes. `docs/SUBMISSION.md` still needs the demo, repo and video URLs. Push and submit before 2026-11-11 16:30 CEST.
+
+## Settings (`backend/.env`, never committed)
+- `LLM_BASE_URL=https://api.sarvam.ai/v1`, `LLM_MODEL=sarvam-105b-conversations` (1–4 s, no reasoning step). Briefs and live edits use it.
+- `LLM_FALLBACK_MODELS=sarvam-105b` (reasons first, 15–85 s). Used for busy errors and as the last try after two unusable answers.
+- `LLM_WORLD_MODEL=glm5.3-flash` with `LLM_WORLD_BASE_URL=https://api.sarvam.ai/v2`: whole worlds only, 13–43 s, about twice the places and props. Unset both to go back.
+- `VISION_MODEL=glm5.3-flash` on `/v2`: image checks in the finder. `/v1` rejects image content, and `/v2` accepts inline base64 only. The `sarvam-105b*` models are text only.
+- `LLM_REASONING_EFFORT` is unset. `low` was worse, and `none` is rejected with HTTP 400.
+- `LLM_MAX_TOKENS` 8000. Per-call timeout 75 s; the browser waits 90 s.
+- OpenRouter settings are kept commented out. That account had no credit.
+- Optional: `MESHY_API_KEY`, `SKETCHFAB_TOKEN`.
+
+## User preferences (also in memory)
+- **Status after every task:** what was done, findings, and what's next.
+- **Anything goes.** Build general mechanisms, never one-off modes. The chain is natural language → 3D creation → functional interaction.
+- **AI only.** No mock, offline or hardcoded worlds, and no world caching (only 3D models). With no LLM, say "LLM not available". Avoid keyword rules that override the AI.
+- **Ask before** any push, deploy or account action.
+- **Secrets:** only in `backend/.env`. Never print keys, and never send the user's email to an unrelated service.
+
+## Rules (from CLAUDE.md, still in force)
+- The LLM proposes and code decides. Validate with Pydantic on the server and Zod in the browser. The LLM never emits code.
+- No `Math.random()` in `web/src/core/**` or `web/src/world/**`; use `mulberry32`.
+- `web/src/core/**` and `web/src/world/**` stay pure (no three.js, no DOM) and are unit-tested with vitest.
+- Metres, y up, north is −z.
+- Schemas exist twice (`web/src/core/{recipe,ops}.ts` and `backend/app/schemas.py`); change both together. `shared/fixtures/**` is the contract.
+- Python responses to the browser go through `dump()` or `dump_ops()`. Model-written text uses `textContent`, never `innerHTML`.
+- Keep files under about 400 lines. Add a dated `docs/DECISIONS.md` entry for each non-obvious choice.
+
+## Commands
+```bash
+cd web && npm run dev            # http://localhost:5173
+cd web && npx vitest run && npx tsc --noEmit && npm run build
+cd backend && source .venv/Scripts/activate && uvicorn app.main:app --port 8000 --log-level warning   # no --reload
+cd backend && pytest -q
+cd backend && python scripts/eval_finder.py   # live finder eval, 100 requests
+cd backend && python scripts/build_manifest.py # after adding CC0 models to backend/assets/library/
+```
+Dev links: `?w=fishing-valley|desert-canyon|snowy-mountains|tropical-island` (fixtures), plus `?w=&t=&wx=` for screenshots. Vitest needs `--silent=false` to show `console.log`.
+
+## Older history (through ff5956c; some rows describe the mock modes removed on 2026-11-04)
+| Commit | Change |
+|---|---|
+| 862589e | Handoff through ff5956c; browser checks ticked with notes. |
+| ff5956c | Convex-hull colliders for group buildings (controller 5 ms → 0.4 ms); adaptive render resolution; thinner outer scatter (1080p on an Iris Xe, sprinting 45–59 fps); person-scale houses; a named time completes atmosphere edits. |
+| 044a02e | Spawn beside the biggest settlement on its inward side, facing it. |
+| 1991225 | OASIS rename; city towers designed in code (`world/towerSpec.ts`, `render/towers.ts`); title screen (`ui/showcase.ts`). |
+| 93ab289 | Coasts for seas off islands; compact cities; asphalt; a fountain for open-space centres; real dusk and dawn. |
+| 4e11a4f | `RangeCuller` hides roads, water and objects beyond the loaded terrain. |
+| f7b2783 | Softer ridged mountains; blended rock and snow; fog that ends at the loaded terrain. |
+| 43b4f8f | GLM-5.3 Flash for worlds; paved city blocks; street lamps; kerb props and parked cars. |
+| 361b08c | Props around places (deterministic, off roads and plots, with interactions). |
+| 0fb9b84 | Roads over every place and the spawn, plus the AI's paths. |
+| bbe7645 | 17 scatter kinds; oak, birch and autumn groves; ground cover. |
+| 2dad3e8 | 186 curated Quaternius CC0 models (`backend/scripts/curate_library.py`), 512 px WebP textures. |
+| 3bedfe4 | Model-shaped colliders; cars sit on the terrain; the controller's 5 cm skin. |
+| f5de08b | Rocket booster (hold Space in the air; 4 s of fuel; flames and BOOST bar). |
+| 3594255 | Three CC0 animated characters; B switches. |
+| (next) | Driveable cars (`drive` interaction; E in/out, WASD, Space brake, Shift boost). |
+| 2d179b5 | Prompt colours: recipe `palette {ground, water, sky}`, `setPalette` op. |
+| 354b603 | No stand-in house while an added asset loads; a spinner notice per place. |
+| 71f51f5 | Groups: `place.layout {pattern, count ≤60, height, centre}` (village, grid, ring, line, scatter). Code: `web/src/world/layouts.ts`. |
+| 799169d | Groups can be added while playing (`check_targets`). |
+| 74a3ad4, c2ed538 | Switch to Sarvam; model roles fixed from measurements. |
+| 066ba03 | Parked minors closed (IPv4-mapped client IPs, pytest moved to `requirements-dev.txt`). |
+| 027ff0a | Bloom only at dusk and night. |
+| 4eb8d36 | One "unsupported" answer is questioned once. |
+| 1bafbb6 | Doors follow the loaded model; interactions re-register after a swap. |
+| 2791c90 | Online model picks: skip interiors, cap downloads at 8 MB, `max_tokens` on every call. |
+| b35a2b9 | Retry busy models, then the backup. Busy → 503 "AI is busy". (Its offline fallback was later removed.) |

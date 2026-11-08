@@ -1,5 +1,6 @@
 import { opsSchema } from '../core/ops';
 import { parseRecipe, type PlaceKind, type Recipe } from '../core/recipe';
+import { bundledAsset } from './bundled';
 import { partsSchema } from './parts';
 import type { AssetResult, EditContext, EditResult, Source, WorldResult } from './types';
 
@@ -143,6 +144,8 @@ export const clampVariant = (v: number): number => Math.max(0, Math.min(MAX_VARI
  * consistent). `variant` rotates between equally good library models, so the houses of a village differ.
  */
 export async function resolveAsset(query: string, kind: PlaceKind, allowGenerate: boolean, allowOnline = true, variant = 0): Promise<AssetResult> {
+  const bundled = bundledAsset(query, kind, clampVariant(variant));
+  if (bundled) return bundled;
   try {
     const body = { query: clip(query, 120), kind, allowGenerate, allowOnline, variant: clampVariant(variant) };
     // Up to 4 searches, each with a vision check, on a new object: the backend limits itself to about 30 s.

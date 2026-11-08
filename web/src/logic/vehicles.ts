@@ -9,6 +9,9 @@ import { parkingSpot, stepCar, type CarInput, type CarState } from './carModel';
 export interface VehicleEnv {
   heightAt(x: number, z: number): number;
   isWater(x: number, z: number): boolean;
+  isOnRoad?(x: number, z: number, margin?: number): boolean;
+  /** The bridge deck under (x, z) for something at height `fromY`; null when there is none for it. */
+  deckAt?(x: number, z: number, fromY: number): number | null;
 }
 
 const quatY = (a: number) => ({ x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) });
@@ -19,7 +22,15 @@ const LIFT = 0.35;
 /** Steepest rise the car climbs (tan 38°). */
 const MAX_CLIMB = 0.78;
 /** Chase camera: this far behind and above the car. */
-const CHASE_BACK = 8, CHASE_UP = 3.2;
+const CHASE_BACK = 5, CHASE_UP = 1.9;
+/** The camera aims this far ahead of the car and this high: at the car, so all of it stays in frame. */
+const CHASE_AIM_AHEAD = 1.5, CHASE_AIM_UP = 0.8;
+/** How fast the camera swings behind a turning car, and follows it up and down. */
+const CHASE_TURN = 5, CHASE_RISE = 8;
+/** The tyres ride this far above the height samples: the terrain mesh is coarser than the height it is drawn from. */
+const RIDE_HEIGHT = 0.04;
+/** The car parks at least this far off any road's edge, so it never starts out blocking one. */
+const PARK_ROAD_GAP = 1.5;
 
 interface Car {
   key: string;
@@ -52,6 +63,7 @@ export class Vehicles {
   private template: Promise<THREE.Object3D> | null = null;
   private readonly chase = new THREE.Vector3();
   private chaseReady = false;
+  private chaseHeading = 0;
   private parkToken = 0;
   private drivingKey: string | null = null;
   private sound: { ctx: AudioContext; osc: OscillatorNode; gain: GainNode } | null = null;
@@ -92,7 +104,7 @@ export class Vehicles {
     const spot = parkingSpot(x, z, {
       heightAt: this.env.heightAt,
       isWater: this.env.isWater,
-      blocked: (px, pz, h) => this.physics.world.intersectionWithShape(
+      blocked: (px, pz, h) => this.env.isOnRoad?.(px, pz, PARK_ROAD_GAP) || this.physics.world.intersectionWithShape(
         { x: px, y: this.env.heightAt(px, pz) + 1.9, z: pz }, quatY(h), probe, undefined, undefined, undefined, undefined,
         (c) => c !== this.player.collider && !this.physics.isTerrain(c),
       ) !== null,
@@ -120,7 +132,7 @@ export class Vehicles {
     if (content && size.x > size.z * 1.15) { content.rotation.y += Math.PI / 2; [size.x, size.z] = [size.z, size.x]; }
     const pose = this.poses.get(info.objectId);
     if (pose) root.position.set(pose.x, pose.y, pose.z);
-    const car = this.addCar(info.objectId, info.label, root, pose?.heading ?? root.rotation.y, size, false, null);
+    const car = this.addCar(info.objectId, info.label, root, pose?.heading ?? root.rotation.y, size, false, content ? wheelsOf(content) : null);
     car.moved = !!pose;
     if (this.drivingKey === car.key) this.driving = car;
   }
@@ -199,7 +211,8 @@ export class Vehicles {
     const t = car.body.translation();
     let { dx, dz } = r;
     const dir = Math.sign(r.state.speed) || 1, h = r.state.heading;
-    if (this.env.isWater(t.x + Math.sin(h) * (car.half.z + 0.5) * dir, t.z + Math.cos(h) * (car.half.z + 0.5) * dir)) {
+    const noseX = t.x + Math.sin(h) * (car.half.z + 0.5) * dir, noseZ = t.z + Math.cos(h) * (car.half.z + 0.5) * dir;
+    if (this.env.isWater(noseX, noseZ) && this.env.deckAt?.(noseX, noseZ, car.root.position.y) == null) {
       dx = 0; dz = 0; r.state.speed = 0; // cars do not swim
     }
     car.state = r.state;
@@ -244,17 +257,23 @@ export class Vehicles {
     this.cars = this.cars.filter((c) => c !== car);
   }
 
-  /** The terrain height under the car's middle: the mean of its front, back, left and right (the plane it rests on). */
+  /** What the car would rest on at (x, z): a bridge deck within its reach, else the terrain. */
+  private surface(car: Car, x: number, z: number): number {
+    const ground = this.env.heightAt(x, z), deck = this.env.deckAt?.(x, z, car.root.position.y);
+    return deck == null ? ground : Math.max(ground, deck);
+  }
+
+  /** The height under the car's middle: the mean of its front, back, left and right (the plane it rests on). */
   private groundUnder(car: Car, x: number, z: number): number {
     const h = car.state.heading, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
-    const L = car.half.z, W = car.half.x, at = this.env.heightAt;
-    return (at(x + fx * L, z + fz * L) + at(x - fx * L, z - fz * L) + at(x + lx * W, z + lz * W) + at(x - lx * W, z - lz * W)) / 4;
+    const L = car.half.z, W = car.half.x, at = (px: number, pz: number) => this.surface(car, px, pz);
+    return (at(x + fx * L, z + fz * L) + at(x - fx * L, z - fz * L) + at(x + lx * W, z + lz * W) + at(x - lx * W, z - lz * W)) / 4 + RIDE_HEIGHT;
   }
 
   /** Stand the model on the ground at (x, y, z), tilted with the terrain under its four sides; spin and steer the wheels. */
   private pose(car: Car, x: number, y: number, z: number, dt: number, steer: number): void {
     const h = car.state.heading, fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);
-    const L = car.half.z, W = car.half.x, at = this.env.heightAt;
+    const L = car.half.z, W = car.half.x, at = (px: number, pz: number) => this.surface(car, px, pz);
     const pitch = -Math.atan2(at(x + fx * L, z + fz * L) - at(x - fx * L, z - fz * L), 2 * L);
     const roll = Math.atan2(at(x + lx * W, z + lz * W) - at(x - lx * W, z - lz * W), 2 * W);
     const k = Math.min(1, dt * 8), rot = car.root.rotation;
@@ -269,11 +288,14 @@ export class Vehicles {
 
   private follow(car: Car, camera: THREE.PerspectiveCamera, dt: number): void {
     const p = car.root.position, h = car.state.heading;
-    const target = new THREE.Vector3(p.x - Math.sin(h) * CHASE_BACK, p.y + CHASE_UP, p.z - Math.cos(h) * CHASE_BACK);
-    if (!this.chaseReady) { this.chase.copy(target); this.chaseReady = true; } else this.chase.lerp(target, Math.min(1, dt * 5));
+    // The distance is fixed and only the swing round a corner is smoothed: easing the position fell behind at speed,
+    // with the car 7 m further off at 126 km/h.
+    if (!this.chaseReady) { this.chaseHeading = h; this.chase.y = p.y + CHASE_UP; this.chaseReady = true; }
+    this.chaseHeading += Math.atan2(Math.sin(h - this.chaseHeading), Math.cos(h - this.chaseHeading)) * Math.min(1, dt * CHASE_TURN);
+    this.chase.set(p.x - Math.sin(this.chaseHeading) * CHASE_BACK, this.chase.y + (p.y + CHASE_UP - this.chase.y) * Math.min(1, dt * CHASE_RISE), p.z - Math.cos(this.chaseHeading) * CHASE_BACK);
     this.chase.y = Math.max(this.chase.y, this.env.heightAt(this.chase.x, this.chase.z) + 1.2);
     camera.position.copy(this.chase);
-    camera.lookAt(p.x + Math.sin(h) * 4, p.y + 1.4, p.z + Math.cos(h) * 4);
+    camera.lookAt(p.x + Math.sin(h) * CHASE_AIM_AHEAD, p.y + CHASE_AIM_UP, p.z + Math.cos(h) * CHASE_AIM_AHEAD);
   }
 
   /** A low sawtooth hum whose pitch follows the speed while driving. */

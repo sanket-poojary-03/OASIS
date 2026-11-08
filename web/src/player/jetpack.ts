@@ -1,11 +1,11 @@
-/** Rocket booster rules (pure, no three.js): tap Space = jump as before; hold Space in the air = thrust. */
+/** Rocket booster rules (pure, no three.js): it fires only while its own key (F) is held; Space is always a plain jump. */
 export const JET = {
   /** Upward acceleration while thrusting (gravity is 20), so a held booster climbs. */
   thrust: 34,
   /** Fastest climb. */
   maxUp: 9,
-  /** Air time before a held Space fires the booster, so a quick tap is still a plain jump. */
-  holdDelay: 0.2,
+  /** Upward speed the booster starts from when it fires on the ground, so it leaves the ground at once. */
+  liftOff: 2,
   /** Full tank → empty in 4 s of thrust. */
   drainPerS: 0.25,
   /** Empty → full in 2.5 s on the ground. */
@@ -15,25 +15,30 @@ export const JET = {
   boostSpeed: 18,
 } as const;
 
+/** Where the player is this frame: standing, off the ground, or swimming. */
+export type JetWhere = 'ground' | 'air' | 'water';
+
 export class Jetpack {
   /** 0 empty … 1 full. */
   fuel = 1;
   /** Thrusting this frame (flames, sound, HUD). */
   firing = false;
-  private airTime = 0;
+  /** Emptied with the key still held: it stays off until the key is let go, so a held key does not hop on refilled fuel. */
+  private spent = false;
 
   /**
-   * One frame. `held`: Space is down; `airborne`: not on the ground and not swimming. Returns the new vertical speed.
+   * One frame. `held`: the booster key is down. Returns the new vertical speed.
    * Gravity is applied by the caller before this; thrust only adds to it.
    */
-  update(dt: number, vy: number, held: boolean, airborne: boolean): number {
-    this.airTime = airborne ? this.airTime + dt : 0;
-    this.firing = airborne && held && this.fuel > 0 && this.airTime >= JET.holdDelay;
+  update(dt: number, vy: number, held: boolean, where: JetWhere): number {
+    if (!held) this.spent = false;
+    this.firing = held && !this.spent && where !== 'water' && this.fuel > 0;
     if (this.firing) {
       this.fuel = Math.max(0, this.fuel - JET.drainPerS * dt);
-      return Math.min(JET.maxUp, vy + JET.thrust * dt);
+      if (this.fuel === 0) this.spent = true;
+      return Math.min(JET.maxUp, (where === 'ground' ? Math.max(vy, JET.liftOff) : vy) + JET.thrust * dt);
     }
-    if (!airborne) this.fuel = Math.min(1, this.fuel + JET.refillPerS * dt);
+    if (where !== 'air') this.fuel = Math.min(1, this.fuel + JET.refillPerS * dt);
     return vy;
   }
 }

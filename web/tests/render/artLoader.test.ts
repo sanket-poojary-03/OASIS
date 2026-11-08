@@ -15,22 +15,20 @@ const rig = () => {
 
 describe('loadArt', () => {
   it('reads the plan queries from the shared list (I4: two-word kind queries kept)', () => {
-    expect(SCATTER_ART.map((e) => e.query).slice(0, 7)).toEqual(['tree', 'pine tree', 'dead tree', 'bush', 'rock', 'cactus', 'reed']);
+    expect(SCATTER_ART.map((e) => e.query).slice(0, 7)).toEqual(['tree', 'pine tree', 'dead tree', 'flowering bush', 'rock', 'cactus', 'reed']);
     expect(SCATTER_ART.map((e) => e.kind)).toEqual(expect.arrayContaining(['birch', 'palm', 'flowers', 'fern', 'mushroom', 'log']));
-    expect(RIGGED_ART.map((e) => e.use)).toEqual(['deer', 'rabbit']); // the player is the bundled roster
+    expect(RIGGED_ART.map((e) => e.use)).toEqual(['deer']); // the player is the bundled roster, and the library has no rabbit
   });
 
-  it('asks the library only (never online or generated), one request per query', async () => {
+  it('needs no server at all: all of it ships with the site', async () => {
     const f = vi.fn(async () => new Response(JSON.stringify({ status: 'none' }), { status: 200 }));
     vi.stubGlobal('fetch', f);
     const { scatter, wildlife } = rig();
-    const report = await loadArt(scatter, wildlife);
-    expect(f).toHaveBeenCalledTimes(SCATTER_ART.length + RIGGED_ART.length);
-    for (const c of f.mock.calls) {
-      const body = JSON.parse((c as unknown as [string, { body: string }])[1].body) as Record<string, unknown>;
-      expect([body.allowOnline, body.allowGenerate]).toEqual([false, false]);
-    }
-    expect(report.loaded).toEqual([]);
+    const loadGltf = vi.fn(async (): Promise<never> => { throw new Error('not in this test'); });
+    await loadArt(scatter, wildlife, { loadGltf });
+    expect(f).not.toHaveBeenCalled();
+    expect(loadGltf).toHaveBeenCalled();
+    for (const [url] of loadGltf.mock.calls as unknown as string[][]) expect(url).toMatch(/^\/models\/bundled\//);
   });
 
   it('an empty library or a dead backend changes nothing: every piece keeps its procedural fallback', async () => {

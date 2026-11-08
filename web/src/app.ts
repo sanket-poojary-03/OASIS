@@ -1,3 +1,4 @@
+import { ROAD_LIFT } from './render/roads';
 import * as THREE from 'three';
 import type { Collider } from '@dimforge/rapier3d-compat';
 import { briefWorld, editWorld, generateWorld } from './api/client';
@@ -25,13 +26,15 @@ import { GrassSystem } from './render/grass';
 import { setNightGlow } from './render/nightGlow';
 import { PostFX } from './render/postfx';
 import { RangeCuller, TERRAIN_RANGE } from './render/rangeCull';
-import { addBridgeColliders, buildRoadMeshes, removeBridgeColliders } from './render/roads';
+import { addBridgeColliders, buildRoadMeshes, deckSurface, removeBridgeColliders } from './render/roads';
 import { ScatterAssets } from './render/scatterAssets';
 import { WaterSystem } from './render/water';
 import { WorldObjects, type ModelSource } from './render/worldObjects';
 import { Underwater } from './render/underwater';
 import { insideMap } from './world/mapBounds';
 import { NoticeQueue } from './ui/assetNotices';
+import { menuShot, type MenuBeat } from './ui/menuFlight';
+import { MENU_FOV, MENU_ORBIT_SPEED } from './ui/showcase';
 import type { UI } from './ui/ui';
 import { waitUntil } from './ui/wait';
 import { buildWorld, type BuiltWorld } from './world/build';
@@ -51,10 +54,24 @@ const MAX_UNDO = 50;
 const OCEAN_VIEW = 700;
 /** Interaction reach from the camera: 4 m at the eye, 9 m from the third-person camera 5 m behind. */
 const REACH_FIRST = 4, REACH_THIRD = 9;
-const SOURCE_LABEL: Record<Source, string> = { live: 'AI: live', none: 'Dev preset' };
 
 /** Seconds between reminders, for a player walking along the edge. */
 const EDGE_NOTICE_EVERY = 15;
+const ROAD_EDGE = 0.4;
+/**
+ * Where the menu's orbit starts: west of the village, with the afternoon sun behind the camera, so the first thing seen
+ * is lit. public/menu-poster.webp is a capture from this angle: retake it if this or the showcase changes.
+ */
+const MENU_START_ANGLE = Math.PI * 1.1;
+/** The live menu takes over from its picture at this, whatever is still loading. */
+const MENU_LOADING_LIMIT_MS = 12_000;
+const MENU_SHADOWS_EVERY = 6;
+/** The view distance follows the menu's camera in steps this big: resetting it re-checks every object in the world. */
+const MENU_REACH_STEP = 8;
+/** The menu's camera stays at least this far above the ground under it. */
+const MENU_CLEARANCE = 16;
+/** The player's field of view; the menu's narrower one keeps tall buildings from leaning. */
+const PLAY_FOV = 70;
 
 export class App {
   built: BuiltWorld | null = null;
@@ -65,6 +82,7 @@ export class App {
   private roads: THREE.Group | null = null;
   private readonly culler = new RangeCuller(TERRAIN_RANGE);
   private bridgeColliders: Collider[] = [];
+  private deckAt: (x: number, z: number, fromY: number) => number | null = () => null;
   private readonly decks: DeckSystem;
   private readonly underwater: Underwater;
   private spawnPending: { x: number; y: number; z: number; yaw?: number } | null = null;
@@ -79,9 +97,19 @@ export class App {
   private cineAngle = 0;
   /** The start screen's world is turning behind it (showcase); a world the player enters ends it. */
   private menuWorld = false;
-  private menuArgs: Parameters<App['showcase']> | null = null;
+  /** Set while the start screen's camera and clock are following the menu's flight (ui/menuFlight). */
+  private menuBeats: readonly MenuBeat[] | null = null;
+  private menuSpots: ReadonlyMap<string, { x: number; y: number; z: number }> = new Map();
+  private menuClock = 0;
+  /** The menu's world is still loading its land, behind the picture of it (index.html). */
+  private menuLoading = false;
+  private menuLoadingSince = 0;
+  private menuFrame = 0;
+  /** The menu camera's height: eased, so a hill under it does not jolt the view. */
+  private cineY = NaN;
   private readonly dayScale: number;
   private artStarted = false;
+  private artLoaded = false;
   private backendSeen = false;
   /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
   private artDirty = false;
@@ -92,6 +120,12 @@ export class App {
   readonly vehicles: Vehicles;
   private readonly feet = new THREE.Vector3();
   private readonly groundAt = (x: number, z: number): number => this.built?.field.heightAt(x, z) ?? -Infinity;
+  /** What feet stand on: a road's surface is above the ground under it. */
+  private readonly feetGroundAt = (x: number, z: number): number => {
+    const field = this.built?.field;
+    // Inward of the edge: a road's ribbon ends square, but its distance test is round past the last point.
+    return field ? field.heightAt(x, z) + (field.isOnRoad(x, z, -ROAD_EDGE) ? ROAD_LIFT : 0) : -Infinity;
+  };
 
   private constructor(
     readonly engine: Engine,
@@ -113,7 +147,13 @@ export class App {
       isReady: this.isReady,
     });
     this.vehicles = new Vehicles(engine.scene, physics, player, {
-      heightAt: (x, z) => this.built?.field.heightAt(x, z) ?? 0,
+      // What the tyres touch: a road's surface stands above the ground, and on the bare ground they would sink into it.
+      heightAt: (x, z) => {
+        const field = this.built?.field;
+        return field ? field.heightAt(x, z) + (field.isOnRoad(x, z) ? ROAD_LIFT : 0) : 0;
+      },
+      deckAt: (x, z, fromY) => this.deckAt(x, z, fromY),
+      isOnRoad: (x, z, margin) => this.built?.field.isOnRoad(x, z, margin) ?? false,
       isWater: (x, z) => !insideMap(x, z) || (this.built?.field.isWater(x, z) ?? false), // a car stops at the edge of the map as at a shore
     }, () => loadCarTemplate());
     objects.onReady.push((root, info) => this.interactions.register(root, info));
@@ -163,6 +203,7 @@ export class App {
     if (this.artStarted) return;
     this.artStarted = true;
     void loadArt(this.scatter, this.wildlife, { onScatter: () => { this.artDirty = true; } }).then((r) => {
+      this.artLoaded = true;
       console.info(`[art] ${r.loaded.length} pack models in use${r.missing.length ? `; procedural fallback for: ${r.missing.join(', ')}` : ''}`);
     });
   }
@@ -178,8 +219,6 @@ export class App {
     this.backendSeen = true;
     this.models.reset?.();
     this.startArt();
-    // The menu's world was built while the server slept (simple shapes): build it again with real models.
-    if (this.menuWorld && this.menuArgs) this.showcase(...this.menuArgs);
   }
 
   /** Bookkeeping for every world/edit answer: tell the player about a rate-limited fallback, note a live backend. */
@@ -187,7 +226,7 @@ export class App {
     if (res.notice) this.ui?.toast(res.notice);
     if (res.source !== 'live') return;
     // A backend that woke after the health pings gave up: correct the "LLM not available" line too.
-    if (!this.backendSeen) this.ui?.setHealth('AI online');
+    if (!this.backendSeen) this.ui?.setHealth('');
     this.backendAnswered();
   }
 
@@ -219,9 +258,12 @@ export class App {
     this.culler.track(this.objects.group, true);
     removeBridgeColliders(this.bridgeColliders, this.physics);
     this.bridgeColliders = addBridgeColliders(built.field, built.roads, this.physics);
+    this.deckAt = deckSurface(built.field, built.roads);
     if (respawn) this.vehicles.reset(); // before objects: a new world's cars never inherit old poses
-    this.objects.standIns = !this.backendSeen; // stand-in shapes only while no server has answered (the menu's world, dev presets)
-    if (this.scatter.standIns !== !this.backendSeen) { this.scatter.standIns = !this.backendSeen; this.artDirty = true; }
+    // Stand-in shapes only while no server has answered, for a dev preset: the menu's own models ship with the site.
+    const standIns = !this.backendSeen && !this.menuWorld;
+    this.objects.standIns = standIns;
+    if (this.scatter.standIns !== standIns) { this.scatter.standIns = standIns; this.artDirty = true; }
     this.objects.rebuild(built, wait, respawn); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
     this.ui?.setChecks(built.checks);
@@ -239,12 +281,9 @@ export class App {
     this.cancel();
     this.working = true;
     try {
-      ui?.setBusy('Imagining your world…');
+      ui?.setBusy('thinking');
       const brief = await briefWorld(prompt);
-      if (brief.brief) {
-        ui?.setBrief(brief);
-        ui?.setBusy('Designing every place in it…');
-      }
+      if (brief.brief) ui?.setBusy('designing');
       const res = await generateWorld(prompt, brief.brief);
       this.noteAnswer(res);
       if (res.type === 'unsupported') { ui?.setBusy(null); ui?.toast(res.reason); return false; }
@@ -272,54 +311,103 @@ export class App {
   }
 
   /**
-   * The start screen's backdrop: `recipe` built like any world, with no player in it, the camera circling its biggest
-   * group (else its first place) and the clock held at `hours`. Minecraft-style: the menu floats over a living world.
+   * The start screen's backdrop: `recipe` built like any world, with no player in it, and `beats` moving the camera and
+   * the clock through it. Minecraft-style: the menu floats over a living world. Nothing here needs the AI server.
    */
-  showcase(recipe: Recipe, orbit: { radius: number; height: number; look: number; speed: number }, hours: number): void {
+  showcase(recipe: Recipe, beats: readonly MenuBeat[]): void {
     if (this.working || (this.built && !this.menuWorld)) return; // never replaces a world the player is in
-    const again = this.menuWorld;
     this.menuWorld = true;
-    this.menuArgs = [recipe, orbit, hours];
+    this.menuBeats = beats;
+    this.startArt();
     const built = this.load(recipe);
     this.spawnPending = null; // nobody spawns: the camera orbits
     this.player.enabled = false;
-    const count = new Map<string, number>();
-    for (const b of built.buildings) count.set(b.placeId, (count.get(b.placeId) ?? 0) + 1);
-    const heart = [...count].sort((a, b) => b[1] - a[1])[0]?.[0];
-    const c = built.placements.find((p) => p.id === heart) ?? built.placements[0] ?? built.spawn;
-    if (!again) this.cineAngle = Math.PI * 0.25; // a rebuild (server woke up) keeps turning from where it was
-    this.cinematic = { x: c.x, y: c.y, z: c.z, ...orbit };
-    this.atmosphere.hours = hours;
+    this.menuSpots = new Map(built.placements.map((p) => [p.id, { x: p.x, y: p.y, z: p.z }]));
+    this.menuLoading = true;
+    this.menuLoadingSince = performance.now();
+    this.menuClock = 0;
+    this.cineAngle = MENU_START_ANGLE;
+    this.cineY = NaN;
+    const first = menuShot(beats, this.menuSpots, 0);
+    this.cinematic = { ...first, speed: MENU_ORBIT_SPEED };
+    this.atmosphere.hours = first.hours;
     this.atmosphere.timeScale = 0;
-    // The camera looks inward across land loaded around the centre: it can see about 0.6 × radius farther.
-    this.atmosphere.reach = orbit.radius * 0.6;
-    this.culler.setRange(TERRAIN_RANGE + orbit.radius * 0.6);
+    this.engine.camera.fov = MENU_FOV;
+    this.engine.camera.updateProjectionMatrix();
+    this.atmosphere.reach = first.radius;
+    this.culler.setRange(TERRAIN_RANGE + first.radius);
+  }
+
+  /** One frame of the backdrop. The clock waits for the land, so the live view takes over from the picture at the shot the picture shows. */
+  private menuStep(c: Cinematic, dt: number): void {
+    // Everything first, so nothing pops in on screen; but a slow connection must not hold the page on a picture for long.
+    const complete = this.artLoaded && !this.objects.loading && this.chunks.viewLoaded(c.x, c.z);
+    if (this.menuLoading && (complete || performance.now() - this.menuLoadingSince > MENU_LOADING_LIMIT_MS)) {
+      this.menuLoading = false;
+      this.reveal();
+    }
+    // The sun moves slowly here and little else casts a moving shadow, so the shadows need not be redrawn every frame.
+    const shadows = this.engine.renderer.shadowMap;
+    shadows.autoUpdate = false;
+    shadows.needsUpdate = this.menuFrame++ % MENU_SHADOWS_EVERY === 0;
+    if (!this.menuLoading) {
+      this.menuClock += dt;
+      this.cineAngle += dt * c.speed;
+    }
+    const shot = menuShot(this.menuBeats!, this.menuSpots, this.menuClock);
+    c.x = shot.x; c.y = shot.y; c.z = shot.z; c.radius = shot.radius; c.height = shot.height; c.look = shot.look;
+    this.atmosphere.hours = shot.hours;
+    this.atmosphere.setShadowArea(c, shot.shadow);
+    // The camera looks across the land loaded around what it circles, so it sees as much farther as it stands back.
+    if (Math.abs(this.atmosphere.reach - shot.radius) > MENU_REACH_STEP) {
+      this.atmosphere.reach = shot.radius;
+      this.culler.setRange(TERRAIN_RANGE + shot.radius);
+    }
+    // Never through a hill: the ground under the camera lifts it, gently, since a hill is seen coming.
+    const ground = this.built?.field.heightAt(c.x + Math.cos(this.cineAngle) * c.radius, c.z + Math.sin(this.cineAngle) * c.radius) ?? -Infinity;
+    const wanted = Math.max(c.y + c.height, ground + MENU_CLEARANCE);
+    this.cineY = Number.isNaN(this.cineY) ? wanted : this.cineY + (wanted - this.cineY) * Math.min(1, dt * 1.5);
   }
 
   /** Leave the start screen's backdrop: the camera and the clock are the player's again. */
   private endShowcase(): void {
     if (!this.menuWorld) return;
     this.menuWorld = false;
-    this.menuArgs = null;
+    this.menuBeats = null;
+    this.menuLoading = false;
     this.cinematic = null;
     this.atmosphere.timeScale = this.dayScale;
+    this.atmosphere.setShadowArea(null);
+    this.engine.renderer.shadowMap.autoUpdate = true;
+    this.engine.camera.fov = PLAY_FOV;
+    this.engine.camera.updateProjectionMatrix();
+  }
+
+  /** Fades the 3D view in over the page's picture of the menu. */
+  private reveal(): void {
+    this.engine.renderer.domElement.classList.remove('waiting');
   }
 
   private async enter(res: Extract<WorldResult, { type: 'recipe' }>): Promise<boolean> {
     const ui = this.ui;
     this.endShowcase();
-    ui?.setBusy('Shaping terrain, carving rivers, placing everything…');
+    ui?.setBusy('building');
+    // The picture stays until the new world can take over: nobody sees its land streaming in.
+    const canvas = this.engine.renderer.domElement;
+    if (!canvas.classList.contains('waiting')) { // else the page's picture of the menu is still doing that job
+      this.postfx.render();
+      ui?.holdFrame(canvas);
+    }
     await nextFrame();
     this.models.reset?.(); // a new world may find models that were missing (or unreachable) before
-    const built = this.load(res.recipe);
-    for (const line of [...res.notes, ...built.log]) ui?.log(line);
-    ui?.setSource(SOURCE_LABEL[res.source]);
+    this.load(res.recipe);
     this.history = [];
     const spawned = await waitUntil(() => !this.spawning, {
       failed: () => !!this.spawnPending && this.chunks.failed(this.spawnPending.x, this.spawnPending.z),
       timeoutMs: SPAWN_TIMEOUT_MS,
       frame: nextFrame,
     });
+    this.reveal();
     if (!spawned) {
       ui?.setBusy(null);
       ui?.toast('The terrain could not be loaded — reload or try another world');
@@ -328,6 +416,7 @@ export class App {
     ui?.setBusy(null);
     ui?.showStart(false);
     ui?.showHud(true);
+    ui?.tutorial.highlight();
     return true;
   }
 
@@ -336,7 +425,9 @@ export class App {
     let hit: LookHit | null = null;
     if (!lookOverride) {
       const h = this.pick([...this.objects.pickables(), ...this.chunks.meshes()], 400);
-      if (h) hit = { x: h.point.x, y: h.point.y, z: h.point.z, placeId: this.objects.infoFor(h.object)?.placeId };
+      // A find out in the open is not a place the AI can name in an edit, so "here" is just its spot.
+      const placeId = h ? this.objects.infoFor(h.object)?.placeId : undefined;
+      if (h) hit = { x: h.point.x, y: h.point.y, z: h.point.z, placeId: b.recipe.places.some((p) => p.id === placeId) ? placeId : undefined };
     }
     return makeEditContext({ player: this.player.position, recipe: b.recipe, placements: b.placements, override: lookOverride, hit });
   }
@@ -346,7 +437,7 @@ export class App {
     const ui = this.ui;
     const recipe = this.built.recipe;
     this.working = true;
-    ui?.setBusy('Thinking…');
+    ui?.setBusy('editing');
     let res: EditResult;
     try {
       res = await editWorld(recipe, text, this.editContext(lookOverride));
@@ -358,7 +449,6 @@ export class App {
       this.working = false;
       ui?.setBusy(null);
     }
-    ui?.setSource(SOURCE_LABEL[res.source]);
     this.noteAnswer(res);
     if (res.type === 'unsupported') { ui?.toast(res.notice ? `${res.notice} ${res.reason}` : res.reason); return; }
     if (this.built?.recipe !== recipe) return; // the world changed while we waited
@@ -455,20 +545,22 @@ export class App {
     this.avatar.riding = !!this.vehicles.driving; // also after a world edit put the driver out
     if (this.cinematic) {
       const c = this.cinematic;
-      this.cineAngle += dt * c.speed;
-      this.engine.camera.position.set(c.x + Math.cos(this.cineAngle) * c.radius, c.y + c.height, c.z + Math.sin(this.cineAngle) * c.radius);
+      if (this.menuBeats) this.menuStep(c, dt);
+      else this.cineAngle += dt * c.speed;
+      this.engine.camera.position.set(c.x + Math.cos(this.cineAngle) * c.radius, this.menuBeats ? this.cineY : c.y + c.height, c.z + Math.sin(this.cineAngle) * c.radius);
       this.engine.camera.lookAt(c.x, c.y + (c.look ?? 4), c.z);
     } else if (this.built && this.vehicles.driving) {
       this.vehicles.update(dt, this.engine.camera);
       this.ui?.setFuel(this.player.jetpack.fuel, false);
     } else if (this.built) {
       this.player.update(dt, this.built.field, this.isReady);
-      this.avatar.update(dt, this.engine.camera, this.player.position, this.player.moving, this.player.running, this.groundAt);
+      this.avatar.update(dt, this.engine.camera, this.player.position, { dir: this.player.move, speed: this.player.speed, running: this.player.running, airborne: this.player.airborne }, this.feetGroundAt);
       const jet = this.player.jetpack;
       this.booster.update(dt, t, jet.firing, this.feet.copy(this.player.position).setY(this.player.position.y - FEET));
       this.ui?.setFuel(jet.fuel, jet.firing);
     }
-    if (this.artDirty) { this.artDirty = false; this.chunks.refreshScatter(); }
+    // While the menu's world is out of sight its art is applied once, when all of it is here, not once per model.
+    if (this.artDirty && (!this.menuLoading || this.artLoaded)) { this.artDirty = false; this.chunks.refreshScatter(); }
     this.physics.step(dt);
     this.atmosphere.update(dt, this.engine.camera.position);
     const under = this.underwater.update(dt, this.built?.field, this.engine.camera.position, this.engine.scene.fog as THREE.Fog, this.atmosphere.night);
@@ -479,7 +571,7 @@ export class App {
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
     this.postfx.setNight(this.atmosphere.night);
     this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor (DECISIONS 2026-11-02)
-    setNightGlow(this.atmosphere.isNight ? 1.4 : 0); // placeholder windows and the windows/lamps of loaded models
+    setNightGlow(1.4 * THREE.MathUtils.smoothstep(this.atmosphere.night, 0.45, 0.9)); // placeholder windows and the windows/lamps of loaded models: they come on as the light goes
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
     if (this.player.atEdge && !this.menuWorld && t - this.edgeToldAt > EDGE_NOTICE_EVERY) {

@@ -26,7 +26,7 @@ function rig(object: THREE.Object3D) {
 describe('WorldObjects with a rigged model (C1)', () => {
   it('draws a skinned model at its place, fitted to the height, and sizes the collider from it', async () => {
     const template = skinnedTemplate();
-    const { objects, addFixedBox } = rig(template);
+    const { objects, addFixedBox, addFixedTrimesh } = rig(template);
     objects.rebuild(world);
     await flush();
     const root = objects.group.children[0];
@@ -38,11 +38,10 @@ describe('WorldObjects with a rigged model (C1)', () => {
     expect((b.min.x + b.max.x) / 2).toBeCloseTo(100, 4);
     expect((b.min.z + b.max.z) / 2).toBeCloseTo(100, 4);
     expect(b.max.x - b.min.x).toBeCloseTo(5, 4);
-    const [x, y, z, hx, hy, hz] = addFixedBox.mock.calls.at(-1)!;
-    expect([x, y, z]).toEqual([100, 5, 100]);
-    expect(hx).toBeCloseTo(2.5, 4);
-    expect(hy).toBeCloseTo(5, 4);
-    expect(hz).toBeCloseTo(2.5, 4);
+    expect(addFixedBox).not.toHaveBeenCalled();
+    const collider = new THREE.Box3().setFromArray(addFixedTrimesh.mock.calls.at(-1)![0]);
+    expect(collider.min.distanceTo(b.min)).toBeLessThan(1e-3);
+    expect(collider.max.distanceTo(b.max)).toBeLessThan(1e-3);
     content.traverse((o) => { if (o instanceof THREE.SkinnedMesh) expect(o.frustumCulled).toBe(false); });
     // the template is shared by every copy: untouched, still the 2 m rig at the origin
     expect(template.parent).toBeNull();
@@ -76,7 +75,78 @@ describe('WorldObjects colliders follow the model', () => {
   });
 });
 
+describe('WorldObjects rest on the ground', () => {
+  /** One prop of this shape on ground rising 30 cm per metre along x. */
+  async function placed(shape: THREE.Object3D, y = 30, interaction = 'none') {
+    const onSlope = {
+      placements: [{ id: 'thing', x: 100, y, z: 100, rotation: 0, reasons: [], warnings: [] }],
+      recipe: { places: [{ id: 'thing', kind: 'prop', size: 'medium', label: 'Thing', asset: 'thing', interaction, where: [] }] },
+      buildings: [],
+      field: { heightAt: (x: number) => x * 0.3 },
+    } as unknown as BuiltWorld;
+    const { objects } = rig(shape);
+    objects.rebuild(onSlope);
+    await flush();
+    return objects.group.children[0];
+  }
+  const longLog = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1))); return g; };
+  const pole = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 0.2))); return g; };
+
+  it('a low prop leans to the slope, so neither end hangs in the air', async () => {
+    const root = await placed(longLog());
+    expect(root.rotation.z).toBeCloseTo(Math.atan(0.3), 5);
+    expect(root.position.y).toBeCloseTo(30, 5); // the plane through the slope's own middle: no gap, no sinking
+    const half = (root.userData.size as THREE.Vector3).x / 2;
+    const lowEnd = new THREE.Vector3(-half, 0, 0).applyEuler(root.rotation).add(root.position);
+    expect(lowEnd.y).toBeCloseTo(lowEnd.x * 0.3, 3); // on the ground under it
+  });
+
+  it('a tall thin prop stays upright and sinks a little to touch', async () => {
+    const root = await placed(pole());
+    expect(root.rotation.x === 0 && root.rotation.z === 0).toBe(true);
+    expect(root.position.y).toBeLessThan(30);
+    expect(root.position.y).toBeGreaterThan(29.5);
+  });
+
+  it('a wide sign on a thin post stays upright: only what touches the ground counts', async () => {
+    const sign = new THREE.Group();
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.1));
+    post.position.y = 0.5;
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.05));
+    board.position.y = 0.85;
+    sign.add(post, board);
+    const root = await placed(sign);
+    expect(root.rotation.x === 0 && root.rotation.z === 0).toBe(true);
+  });
+
+  it('something standing on something else keeps its height (a mug on a table)', async () => {
+    const root = await placed(longLog(), 31);
+    expect(root.position.y).toBe(31);
+    expect(root.rotation.z).toBe(0);
+  });
+
+  it('a pushed prop is left to its own body', async () => {
+    const root = await placed(longLog(), 30, 'push');
+    expect(root.position.y).toBe(30);
+    expect(root.rotation.z).toBe(0);
+  });
+});
+
 describe('WorldObjects footprint cap', () => {
+  it('a scattered prop stays prop-sized, however low and long its model', async () => {
+    const long = new THREE.Group();
+    long.add(new THREE.Mesh(new THREE.BoxGeometry(10, 1, 2)));
+    const scattered = {
+      placements: [], buildings: [], recipe: { places: [] },
+      extras: [{ id: 'yard-prop-0-0', placeId: 'yard', asset: 'old cart', size: 'large', x: 0, y: 0, z: 0, rotation: 0 }],
+    } as unknown as BuiltWorld;
+    const { objects } = rig(long);
+    objects.rebuild(scattered);
+    await flush();
+    const size = new THREE.Box3().setFromObject(objects.group.children[0].getObjectByName('content')!).getSize(new THREE.Vector3());
+    expect(Math.max(size.x, size.z)).toBeCloseTo(5, 3);
+  });
+
   it('a low, wide model fitted to a landmark height is shrunk to at most 4x as wide as tall', async () => {
     const cover = new THREE.Group();
     cover.add(new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.5, 12))); // 10 m wide, 0.5 m tall

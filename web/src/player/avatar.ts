@@ -2,14 +2,27 @@ import * as THREE from 'three';
 import { animatedClone, type AnimatedModel, type ModelTemplate } from '../render/animated';
 
 /**
- * Capsule centre → feet: half-height 0.55 + radius 0.35, plus the 5 cm skin the character controller keeps between the
- * capsule and the ground (measured: the capsule rests 0.95 m above flat ground). Without it the feet hover.
+ * Capsule centre → feet: half-height 0.62 + radius 0.28, plus the 2 cm skin the character controller keeps between the
+ * capsule and the ground. Without it the feet hover.
  */
-export const FEET = 0.95;
+export const FEET = 0.92;
 /** Third-person camera: this far behind the player, and never closer than this to the ground under it. */
-const BACK = 5;
+const BACK = 3.2;
+/** The camera's height over the capsule centre, and how far it rises or sinks as the view tilts. */
+const CAMERA_UP = 0.95;
+const CAMERA_TILT = 2;
 const CLEARANCE = 0.5;
 const TURN_RATE = 10;
+/** The capsule rides high on a slope: within this of the ground the feet stand on the ground itself. */
+const FOOT_SNAP = 0.5;
+const FOOT_FOLLOW = 18;
+/** Off the ground this long before the jump pose shows, so a bump or a step does not flash it. */
+const AIR_DELAY = 0.15;
+/** Slower than this (walking into a wall) the legs stop. */
+const MIN_STRIDE = 0.3;
+
+/** What the player's body is doing this frame. */
+export interface Motion { dir: THREE.Vector3; speed: number; running: boolean; airborne: boolean }
 
 /** Procedural stand-in until (or unless) the adventurer model arrives: a capsule body with a head, 1.75 m tall. */
 function placeholderFigure(): AnimatedModel {
@@ -25,13 +38,14 @@ function placeholderFigure(): AnimatedModel {
   for (const m of [body, head, nose]) { m.castShadow = true; root.add(m); }
   const mixer = new THREE.AnimationMixer(root);
   return {
-    root, mixer, play: () => {},
+    root, mixer, play: () => {}, pace: () => {},
     dispose: () => { for (const m of [body, head, nose]) m.geometry.dispose(); cloth.dispose(); skin.dispose(); },
   };
 }
 
 /**
- * The visible player. V toggles third person (camera 5 m behind, over the shoulder) and back to first person.
+ * The visible player. V toggles third person (camera close behind) and back to first person. In third person the
+ * figure faces the way it walks, not the way the camera looks: A walks it to the left, S back toward the camera.
  * Starts as a procedural figure; use() swaps in the animated adventurer whenever it loads (art hot-swap).
  */
 export class Avatar {
@@ -39,6 +53,8 @@ export class Avatar {
   private model: AnimatedModel = placeholderFigure();
   private inCar = false;
   private animated = false;
+  private feetY: number | null = null;
+  private airTime = 0;
   private readonly dir = new THREE.Vector3();
   private readonly flat = new THREE.Vector3();
   /** Gear worn on top of whichever character is on (the rocket booster); moved onto each new model. */
@@ -88,7 +104,7 @@ export class Avatar {
    * Call after Player.update (which puts the camera at the eye). In third person this moves the camera behind the
    * player, keeping it above the ground; in first person it does nothing (the figure is hidden and not animated).
    */
-  update(dt: number, camera: THREE.PerspectiveCamera, centre: THREE.Vector3, moving: boolean, running: boolean, groundAt?: (x: number, z: number) => number): void {
+  update(dt: number, camera: THREE.PerspectiveCamera, centre: THREE.Vector3, motion: Motion, groundAt?: (x: number, z: number) => number): void {
     if (!this.thirdPerson) return;
     camera.getWorldDirection(this.dir);
     this.flat.set(this.dir.x, 0, this.dir.z);
@@ -96,15 +112,23 @@ export class Avatar {
     this.flat.normalize();
     const root = this.model.root;
     this.model.mixer.update(dt);
-    root.position.set(centre.x, centre.y - FEET, centre.z);
+    this.airTime = motion.airborne ? this.airTime + dt : 0;
+    const airborne = this.airTime > AIR_DELAY;
+    const capsule = centre.y - FEET, ground = groundAt ? groundAt(centre.x, centre.z) : capsule;
+    const target = !airborne && Math.abs(capsule - ground) < FOOT_SNAP ? ground : capsule;
+    if (this.feetY === null || Math.abs(target - this.feetY) > 1.5) this.feetY = target;
+    else this.feetY += (target - this.feetY) * Math.min(1, dt * FOOT_FOLLOW);
+    root.position.set(centre.x, this.feetY, centre.z);
+    const moving = motion.dir.lengthSq() > 0;
     if (moving) {
-      const target = Math.atan2(this.flat.x, this.flat.z);
+      const target = Math.atan2(motion.dir.x, motion.dir.z);
       const diff = Math.atan2(Math.sin(target - root.rotation.y), Math.cos(target - root.rotation.y));
       root.rotation.y += diff * Math.min(1, dt * TURN_RATE);
     }
-    this.model.play(moving ? (running ? 'run' : 'walk') : 'idle');
+    this.model.play(airborne ? 'jump' : moving && motion.speed > MIN_STRIDE ? (motion.running ? 'run' : 'walk') : 'idle');
+    this.model.pace(motion.speed);
     const cx = centre.x - this.flat.x * BACK, cz = centre.z - this.flat.z * BACK;
-    let cy = centre.y + 1.6 - this.dir.y * 3;
+    let cy = centre.y + CAMERA_UP - this.dir.y * CAMERA_TILT;
     if (groundAt) cy = Math.max(cy, groundAt(cx, cz) + CLEARANCE);
     camera.position.set(cx, cy, cz);
   }

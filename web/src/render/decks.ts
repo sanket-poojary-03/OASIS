@@ -45,7 +45,8 @@ function plankTexture(): THREE.DataTexture {
 export const WOOD_COLOUR = 0x8f6a42;
 let top: THREE.MeshStandardMaterial | null = null;
 const topMaterial = (): THREE.MeshStandardMaterial => (top ??= new THREE.MeshStandardMaterial({ map: plankTexture(), roughness: 0.9 }));
-const under = new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 1, flatShading: true });
+/** Posts and rails: also a bridge's (render/roads). */
+export const under = new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 1, flatShading: true });
 
 function deckGeometry(field: WorldField, x: number, z: number, radius: number, y: number): THREE.BufferGeometry {
   const segments = Math.max(16, Math.min(64, Math.round(radius * 2)));

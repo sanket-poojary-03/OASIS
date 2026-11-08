@@ -32,6 +32,9 @@ LICENSE = "CC0 1.0 (Quaternius, via poly.pizza)"
 # house shaped like an upturned hull). A generic word on a themed model does not count as asking for it.
 THEMED = ("quaternius/buildings/pirate/", "quaternius/buildings/scifi/", "quaternius/buildings/cyberpunk/")
 GENERIC = {"house", "building", "hut", "shack", "wooden", "modern", "small", "big", "home"}
+# Models whose pack title says one thing and whose shape says another. This "house" is a squat stone block with a flat
+# roof: asked for as a cottage, it stood in every village as a black box twice the width of the rest.
+RETAGGED = {"quaternius/buildings/medieval/house/fantasy-house-3.glb": ["building", "fantasy", "medieval", "stone", "storehouse", "cellar"]}
 
 
 def needs_for(rel: str, tags: list[str]) -> dict:
@@ -228,6 +231,7 @@ def main() -> None:
                     r.raise_for_status()
                     path.write_bytes(r.content)
                 size = glb_size(path.read_bytes())
+                tags = RETAGGED.get(rel, tags)
                 entries.append({"id": slug(rel), "file": rel, "tags": sorted(set(tags)), **needs_for(rel, sorted(set(tags))), "license": LICENSE, "source": "quaternius",
                                 "title": title, "poly": m["ID"], "size": [round(v, 3) for v in size] if size else None})
                 report.append(f"{rel}  {size}  {path.stat().st_size // 1024} KB")

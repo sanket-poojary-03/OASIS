@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/rng';
 import { animatedClone, type AnimatedModel, type ModelTemplate } from '../render/animated';
-import { fitToHeight } from '../render/fit';
+import { drawnBox, fitToHeight } from '../render/fit';
 import { cloneModel, type ModelSource } from '../render/worldObjects';
 import type { BuiltWorld } from '../world/build';
 import type { WorldField } from '../world/field';
@@ -28,6 +28,12 @@ const RABBIT: AnimalTuning = { fleeRadius: 9, walkSpeed: 1.2, fleeSpeed: 7 };
 /** Any other animal: it wanders and does not run from the player who just asked for it. */
 const ANY_ANIMAL: AnimalTuning = { fleeRadius: 0, walkSpeed: 1.2, fleeSpeed: 0 };
 const ANY_ANIMAL_HEIGHT = 1.5;
+/** A model this much wider than deep lies across the way it would walk. */
+const ANIMAL_LONG = 1.15;
+/** An animal asked for at a spot grazes around it, this far at most. */
+const HERD_LEASH = 28;
+/** How far an animal's middle keeps from a wall or a road's edge. */
+const ANIMAL_CLEARANCE = 0.6;
 /** A model has no walk to play, so a walking animal bobs by this share of its height. */
 const STRIDE = 0.015;
 
@@ -81,7 +87,7 @@ export type AnimalKind = 'deer' | 'rabbit';
  * `anim` is set when the pack model is in use; otherwise `mesh` is the procedural figure. `any`: the found model of any
  * other animal, whose geometry is shared with the finder's copy. `bob`: metres it rises while walking.
  */
-interface Animal { kind: AnimalKind | 'any'; mesh: THREE.Group; anim?: AnimatedModel; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean; bob: number }
+interface Animal { kind: AnimalKind | 'any'; mesh: THREE.Group; anim?: AnimatedModel; state: AnimalState; tuning: AnimalTuning; x: number; z: number; hop: boolean; bob: number; home?: { x: number; z: number; leash: number } }
 
 /** Procedural figures own their geometries (materials are the shared per-colour cache). */
 function disposeGeometries(g: THREE.Object3D): void {
@@ -176,11 +182,12 @@ export class Wildlife {
         }
         const state: AnimalState = { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 };
         if (!found) continue; // no valid spot: skip the animal (rng draws above stay stable)
+        const home = life.at ? { x: life.at.x, z: life.at.z, leash: HERD_LEASH } : undefined;
         if (life.kind === 'animal') {
           const height = life.height ?? ANY_ANIMAL_HEIGHT, key = `${life.asset}:${height}`;
           const body = new THREE.Group();
           this.group.add(body);
-          this.animals.push({ kind: 'any', mesh: body, x, z, hop: false, bob: height * STRIDE, tuning: ANY_ANIMAL, state });
+          this.animals.push({ kind: 'any', mesh: body, x, z, hop: false, bob: height * STRIDE, tuning: ANY_ANIMAL, state, home });
           const group = wanted.get(key) ?? { asset: life.asset!, height, bodies: [] };
           group.bodies.push(body);
           wanted.set(key, group);
@@ -192,7 +199,7 @@ export class Wildlife {
         const anim = template ? animatedClone(template) : undefined;
         const mesh = anim?.root ?? (deer ? deerMesh() : rabbitMesh());
         this.group.add(mesh);
-        this.animals.push({ kind, mesh, anim, x, z, hop: !deer, bob: 0, tuning: deer ? DEER : RABBIT, state });
+        this.animals.push({ kind, mesh, anim, x, z, hop: !deer, bob: 0, tuning: deer ? DEER : RABBIT, state, home });
       }
     }
     for (const { asset, height, bodies } of wanted.values()) {
@@ -202,7 +209,12 @@ export class Wildlife {
           const model = cloneModel(found.object);
           fitToHeight(model, height);
           model.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true; });
-          body.add(model);
+          // A found model faces any way. An animal is longer than it is wide, so turn its length along the way it walks.
+          const size = drawnBox(model).getSize(new THREE.Vector3());
+          const facing = new THREE.Group();
+          if (size.x > size.z * ANIMAL_LONG) facing.rotation.y = Math.PI / 2;
+          facing.add(model);
+          body.add(facing);
         }
       });
     }
@@ -216,7 +228,9 @@ export class Wildlife {
       const sp = speedOf(a.state, a.tuning);
       if (sp > 0) {
         const nx = a.x + Math.sin(a.state.heading) * sp * dt, nz = a.z + Math.cos(a.state.heading) * sp * dt;
-        if (isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7) { a.x = nx; a.z = nz; }
+        // Around houses and off roads, and back toward its herd once it has wandered too far from it.
+        const strays = !!a.home && Math.hypot(nx - a.home.x, nz - a.home.z) > a.home.leash && Math.hypot(nx - a.home.x, nz - a.home.z) > Math.hypot(a.x - a.home.x, a.z - a.home.z);
+        if (!strays && isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7 && !field.isReserved(nx, nz, ANIMAL_CLEARANCE)) { a.x = nx; a.z = nz; }
         else if (a.state.mode === 'walk') a.state = { ...a.state, heading: a.state.heading + Math.PI };
       }
       a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0) + (sp > 0 ? Math.abs(Math.sin(t * 5)) * a.bob : 0), a.z);

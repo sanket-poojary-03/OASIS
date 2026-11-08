@@ -2,17 +2,14 @@ import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import type { WorldField } from '../world/field';
 import { disposeGroup } from './dispose';
-import { pieces } from './rangeCull';
-import { ribbonGeometry } from './ribbon';
-import { rippleMaterial } from './ripples';
+import { waterSheet } from '../world/waterSheet';
+import { NO_FADE, rippleMaterial } from './ripples';
 import { foamUniforms } from './shoreFoam';
 import { rippleTexture } from './waterNormals';
 
 export { disposeGroup };
 
 const WATER = 0x2b6f8f;
-/** A river mesh ends just past where its banks rise above its water (RIVER_WET), hidden in them. */
-export const RIVER_MESH_HALF_WIDTH = 16.5;
 /** The sun's full intensity (AtmosphereSystem), which is a sun glint of full strength on the water. */
 const FULL_LIGHT = 2.6;
 /** How much of its colour the sea keeps with no sun: Water.js does not light it, so it would glow at night. */
@@ -36,7 +33,10 @@ export class WaterSystem {
   private readonly normals = rippleTexture();
   private readonly time = { value: 0 };
   private readonly sky = { value: new THREE.Color(0xbfd6ea) };
-  private readonly material = rippleMaterial(this.normals, this.time, this.sky);
+  /** The sea's height: rivers and lakes fade out as they come down to it, so a river's mouth has no hard line. */
+  private readonly fadeFrom = { value: NO_FADE };
+  private readonly material = rippleMaterial(this.normals, this.time, this.sky, this.fadeFrom);
+  private readonly seaBelowMaterial = rippleMaterial(this.normals, this.time, this.sky);
   private readonly seaColour = new THREE.Color(WATER);
   private readonly toSun = new THREE.Vector3();
   private readonly toMoon = new THREE.Vector3();
@@ -68,6 +68,8 @@ export class WaterSystem {
     this.group.clear();
     const colour = field.recipe.palette?.water ?? WATER; // a palette water colour: "a purple sea"
     this.material.color.set(colour);
+    this.seaBelowMaterial.color.set(colour);
+    this.fadeFrom.value = field.hasSea ? field.seaLevelY : NO_FADE;
     this.seaColour.set(colour);
     foamUniforms.uFoamOn.value = field.hasSea && field.deckY === null ? 1 : 0; // an ocean has no shores
     foamUniforms.uFoamSea.value = field.seaLevelY;
@@ -76,13 +78,12 @@ export class WaterSystem {
       this.sea.position.y = field.seaLevelY;
       this.group.add(this.sea);
     }
-    if (field.river.length > 1) {
-      for (const run of pieces(field.river, 8)) this.group.add(new THREE.Mesh(ribbonGeometry(run, RIVER_MESH_HALF_WIDTH, field.riverLevelAt, true), this.material));
-    }
-    for (const l of field.lakes) {
-      const lake = new THREE.Mesh(new THREE.CircleGeometry(l.radius, 48).rotateX(-Math.PI / 2), this.material);
-      lake.position.set(l.x, l.levelY, l.z);
-      this.group.add(lake);
+    for (const { positions, indices } of waterSheet(field)) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      this.group.add(new THREE.Mesh(geo, this.material));
     }
   }
 
@@ -94,7 +95,7 @@ export class WaterSystem {
     const inSea = under && viewer.y < this.sea.position.y && this.field?.waterSurfaceAt(viewer.x, viewer.z) === this.field?.seaLevelY;
     if (inSea && !this.seaFromBelow) {
       // Water.js reflects the sky from above only; from below the surface is drawn by the lit ripples.
-      this.seaFromBelow = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.material);
+      this.seaFromBelow = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this.seaBelowMaterial);
       this.seaFromBelow.userData.alwaysVisible = true;
       this.group.add(this.seaFromBelow);
     }

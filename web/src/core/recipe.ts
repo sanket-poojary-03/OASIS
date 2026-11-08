@@ -53,6 +53,9 @@ export const layoutSchema = z.strictObject({
 
 /** Small things that belong around a place (barrels by a market, benches in a park); code scatters them nearby. */
 export const MAX_PLACE_PROPS = 4;
+export const MAX_SCENERY = 12;
+export const SCENERY_KINDS = ['landmark', 'structure', 'prop'] as const;
+export const SCENERY_SPOTS = ['anywhere', 'water', 'high'] as const;
 export const placePropSchema = z.strictObject({
   asset: z.string().min(2).max(80),
   count: z.number().int().min(1).max(6).default(3),
@@ -108,6 +111,15 @@ export const atmosphereSchema = z.strictObject({
 /** The most places one recipe can hold (mirrors backend `Recipe.places` max_length). */
 export const MAX_PLACES = 24;
 
+/** A kind of thing found out in the open, all over the world: the AI says what, code says where (world/scenery). */
+export const scenerySchema = z.strictObject({
+  asset: z.string().min(2).max(80),
+  kind: z.enum(SCENERY_KINDS).default('prop'),
+  size: z.enum(PLACE_SIZES).default('medium'),
+  interaction: z.enum(INTERACTIONS).default('none'),
+  spot: z.enum(SCENERY_SPOTS).default('anywhere'),
+});
+
 export const recipeSchema = z
   .strictObject({
     version: z.literal(1),
@@ -120,6 +132,7 @@ export const recipeSchema = z
     palette: paletteSchema.optional(),
     nature: natureSchema.optional(),
     places: z.array(placeSchema).max(MAX_PLACES),
+    scenery: z.array(scenerySchema).max(MAX_SCENERY).optional(),
     paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(MAX_PLACES).default([]),
     life: z.array(lifeSchema).max(8).default([]),
   })
@@ -150,6 +163,8 @@ export type PlaceKind = (typeof PLACE_KINDS)[number];
 export type PlaceSize = (typeof PLACE_SIZES)[number];
 export type Layout = z.infer<typeof layoutSchema>;
 export type PlaceProp = z.infer<typeof placePropSchema>;
+export type SceneryEntry = z.infer<typeof scenerySchema>;
+export type ScenerySpot = SceneryEntry['spot'];
 export type LifeKind = (typeof LIFE_KINDS)[number];
 
 export function parseRecipe(data: unknown): { ok: true; recipe: Recipe } | { ok: false; error: string } {

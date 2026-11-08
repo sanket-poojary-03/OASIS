@@ -5,12 +5,14 @@ import type { Interaction, PlaceKind, PlaceSize } from '../core/recipe';
 import type { Physics } from '../physics/physics';
 import type { BuiltWorld } from '../world/build';
 import type { Building } from '../world/settlement';
-import { fitToHeight } from './fit';
+import { drawnBox, fitToHeight } from './fit';
 import { addNightGlow } from './nightGlow';
-import { surfaceOf } from './meshCollider';
+import { baseOf, surfaceOf } from './meshCollider';
 import { buildPlaceholder } from './placeholders';
 import { buildTower } from './towers';
 import { hashString } from '../core/rng';
+import type { WorldField } from '../world/field';
+import { groundPose } from '../world/groundPose';
 import { towerFacade, towerSpec, type FacadeHint } from '../world/towerSpec';
 
 export interface ObjectInfo {
@@ -78,7 +80,7 @@ const MAX_STRETCH = 3;
  */
 export function fitWidth(object: THREE.Object3D, max: number, keepHeight = false): THREE.Object3D {
   object.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  const size = drawnBox(object).getSize(new THREE.Vector3());
   const w = Math.max(size.x, size.z);
   if (w > max && w > 0) {
     const k = max / w;
@@ -112,11 +114,18 @@ interface Spec {
 /** A single modern tower (a "glass skyscraper" landmark) stands this tall; group members keep their layout height. */
 const SINGLE_TOWER_HEIGHT: Record<PlaceSize, number> = { small: 36, medium: 56, large: 84 };
 
-/** Group buildings with more triangles than this collide as their convex hull (see refreshCollider). */
-const HULL_ABOVE_TRIS = 1500;
+/** A place's height differs from the ground's by more than this: it stands on something (a table, a boat on the water). */
+const ON_SOMETHING = 0.25;
+/**
+ * A prop leans to the slope when it is no taller than this many times the base it stands on (a cart, a log, a bench,
+ * but not a signpost with a wide sign on a thin post), and no wider overall than this many metres.
+ */
+const LEAN_TALLNESS = 2;
+const LEAN_MAX_WIDTH = 8;
 
 /** Heights of scattered props by size: a crate, a bench or barrel, a street lamp or parked car. */
 const EXTRA_HEIGHT: Record<PlaceSize, number> = { small: 0.9, medium: 1.6, large: 3.2 };
+const EXTRA_MAX_WIDTH = 5;
 /** Street lamps at city crossings stand taller than a large prop. */
 const STREET_LAMP_HEIGHT = 4.6;
 
@@ -138,7 +147,7 @@ const MAX_HOUSE_GROWTH = 2.2;
 
 export function widenHouse(content: THREE.Object3D): void {
   content.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(content).getSize(new THREE.Vector3());
+  const size = drawnBox(content).getSize(new THREE.Vector3());
   const w = Math.max(size.x, size.z);
   if (w <= 0 || w >= MIN_HOUSE_WIDTH) return;
   content.scale.multiplyScalar(Math.min(MAX_HOUSE_GROWTH, MIN_HOUSE_WIDTH / w));
@@ -169,6 +178,7 @@ export class WorldObjects {
   private readonly waiting = new Map<string, string>();
   /** This rebuild's objects still loading per waiting place, whether any found no model, and whether it has a notice. */
   private pending = new Map<string, { left: number; missing: boolean; announced: boolean }>();
+  private field: WorldField | null = null;
   /**
    * Stand-in shapes allowed: only while no server has answered (nothing can find models). With a server, every object shows its
    * real model or nothing: the user never wants procedural placeholders.
@@ -185,6 +195,7 @@ export class WorldObjects {
    */
   rebuild(world: BuiltWorld, wait: ReadonlySet<string> = new Set(), announceAll = false): void {
     this.clear();
+    this.field = world.field;
     const version = ++this.version;
     const specs: Spec[] = [];
     for (const pl of world.placements) {
@@ -217,6 +228,15 @@ export class WorldObjects {
         asset: e.asset, kind: 'prop', variant: Number(e.id.split('-').pop()) || 0, height: interaction === 'drive' ? VEHICLE_HEIGHT[e.size] : e.id.includes('-lamp-') ? STREET_LAMP_HEIGHT : EXTRA_HEIGHT[e.size],
         x: e.x, y: e.y, z: e.z, rotation: e.rotation, extra: true,
         info: { placeId: e.placeId, objectId: e.id, label: `${place?.label ?? e.placeId} — ${e.asset}`, reasons: [`belongs around ${place?.label ?? e.placeId}`], warnings: [], source: 'placeholder', interaction, kind: 'prop' },
+      });
+    }
+    for (const s of world.scenery ?? []) {
+      // Asked for as a structure: a find shares the free library and online search, never the Meshy budget of a landmark.
+      specs.push({
+        asset: s.asset, kind: s.kind === 'prop' ? 'prop' : 'structure', variant: Number(s.id.split('-').pop()) || 0,
+        height: s.interaction === 'drive' ? VEHICLE_HEIGHT[s.size] : s.kind === 'prop' ? EXTRA_HEIGHT[s.size] : HEIGHT[s.kind][s.size],
+        x: s.x, y: s.y, z: s.z, rotation: s.rotation, extra: true,
+        info: { placeId: s.id, objectId: s.id, label: s.asset.charAt(0).toUpperCase() + s.asset.slice(1), reasons: s.reasons, warnings: [], source: 'placeholder', interaction: s.interaction, kind: s.kind },
       });
     }
     const labels = new Map(world.recipe.places.map((p) => [p.id, p.label]));
@@ -259,6 +279,9 @@ export class WorldObjects {
     this.emit(placeId, label, p.missing ? 'missing' : 'ready');
   }
 
+  /** True while any object of this world still waits for its model. */
+  get loading(): boolean { return this.pending.size > 0; }
+
   pickables(): THREE.Object3D[] {
     return this.entries.map((e) => e.root);
   }
@@ -271,6 +294,7 @@ export class WorldObjects {
   private spawn(s: Spec, version: number, wait: boolean): void {
     const root = new THREE.Group();
     root.position.set(s.x, s.y, s.z);
+    root.rotation.order = 'YXZ'; // turned first, then leaned on the slope (restOnGround)
     root.rotation.y = s.rotation;
     root.userData.info = s.info;
     root.userData.size = new THREE.Vector3();
@@ -278,7 +302,7 @@ export class WorldObjects {
     const entry: Entry = { root, spec: s, collider: null };
     this.entries.push(entry);
     const placeholder = (): void => {
-      this.setContent(root, this.fit(normalizeTo(buildPlaceholder(s.asset, s.height), s.height), s));
+      this.setContent(entry, this.fit(normalizeTo(buildPlaceholder(s.asset, s.height), s.height), s));
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info);
     };
@@ -290,7 +314,7 @@ export class WorldObjects {
       if (!res) { if (wait && this.standIns) placeholder(); return; } // with a server: no model, no object
       const content = this.fit(normalizeTo(cloneModel(res.object), s.height), s);
       addNightGlow(content, s.asset); // houses, towers, lighthouses and lanterns keep lit windows at night
-      this.setContent(root, content);
+      this.setContent(entry, content);
       s.info.source = res.source;
       s.info.credit = res.credit;
       this.refreshCollider(entry);
@@ -305,7 +329,7 @@ export class WorldObjects {
     const content = new THREE.Group();
     content.name = 'content';
     content.add(buildTower(towerSpec(t.seed, t.facade, s.height, width), t.seed));
-    this.setContent(entry.root, content);
+    this.setContent(entry, content);
     s.info.source = 'procedural';
     this.refreshCollider(entry);
     for (const cb of this.onReady) cb(entry.root, s.info);
@@ -316,18 +340,36 @@ export class WorldObjects {
     if (s.info.kind === 'building' && s.info.objectId.includes('-house-')) widenHouse(content);
     // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
     if (s.maxWidth) return fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group;
+    // Scattered props stay prop-sized whatever their shape (a cart lying on its side came out 8 m long). Cars have their own size.
+    if (s.extra && s.kind === 'prop' && s.info.interaction !== 'drive') return fitWidth(content, EXTRA_MAX_WIDTH) as THREE.Group;
     // Models are fitted by height, so a low, wide one balloons (a 6 m-tall manhole cover was 100 m across): cap the
-    // footprint of buildings and landmarks at MAX_ASPECT times their height. Props (rugs, bridges, docks) keep theirs.
+    // footprint of buildings and landmarks at MAX_ASPECT times their height. Named props (rugs, bridges, docks) keep theirs.
     return s.kind === 'prop' ? content : (fitWidth(content, s.height * MAX_ASPECT) as THREE.Group);
   }
 
-  private setContent(root: THREE.Group, content: THREE.Group): void {
+  private setContent(e: Entry, content: THREE.Group): void {
+    const root = e.root;
     const old = root.getObjectByName('content');
     if (old) root.remove(old);
     content.updateMatrixWorld(true);
-    root.userData.size = new THREE.Box3().setFromObject(content).getSize(new THREE.Vector3());
+    const size = drawnBox(content).getSize(new THREE.Vector3());
+    root.userData.size = size;
+    this.restOnGround(e, content, size);
     shadows(content);
     root.add(content);
+  }
+
+  /** The model is only known now: its low side reaches the ground, and a low prop leans to the slope. */
+  private restOnGround(e: Entry, content: THREE.Group, size: THREE.Vector3): void {
+    const s = e.spec, i = s.info.interaction;
+    // A pushed prop's body falls onto the ground, and a car follows it. Anything else off the ground stands on something.
+    if (!this.field || i === 'push' || i === 'drive' || Math.abs(s.y - this.field.heightAt(s.x, s.z)) > ON_SOMETHING) return;
+    const base = baseOf(content);
+    const lean = s.kind === 'prop' && size.y <= Math.max(base.maxX - base.minX, base.maxZ - base.minZ) * LEAN_TALLNESS && Math.max(size.x, size.z) <= LEAN_MAX_WIDTH;
+    const pose = groundPose(this.field.heightAt, s.x, s.z, s.rotation, base, size.y, lean);
+    e.root.position.y = pose.y;
+    e.root.rotation.x = pose.tiltX;
+    e.root.rotation.z = pose.tiltZ;
   }
 
   private refreshCollider(e: Entry): void {
@@ -335,14 +377,11 @@ export class WorldObjects {
     const size = e.root.userData.size as THREE.Vector3;
     // Pushed props and vehicles get their own moving bodies (interactions, vehicles); flat things need none.
     if (e.spec.info.interaction === 'push' || e.spec.info.interaction === 'drive' || size.y < 1.2) return;
-    // Shaped like the model (stand on its real surface); a box only for rigged or very heavy models.
+    // Shaped like the model: stand on its real surface, and walk right up to it.
     const surface = surfaceOf(e.root);
-    // A detailed group building collides as its convex hull: pushing against a 5-12k-triangle house mesh ran the
-    // character controller's full 20 iterations every frame (5 ms). The hull keeps the roof; single places keep the mesh.
-    const hull = surface && e.spec.info.kind === 'building' && surface.indices.length / 3 > HULL_ABOVE_TRIS ? this.physics.addFixedHull(surface.positions) : null;
-    e.collider = hull ?? (surface
+    e.collider = surface
       ? this.physics.addFixedTrimesh(surface.positions, surface.indices)
-      : this.physics.addFixedBox(e.spec.x, e.spec.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation));
+      : this.physics.addFixedBox(e.spec.x, e.root.position.y + size.y / 2, e.spec.z, size.x / 2, size.y / 2, size.z / 2, e.spec.rotation);
   }
 
   private clear(): void {

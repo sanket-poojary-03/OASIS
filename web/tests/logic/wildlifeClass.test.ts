@@ -32,6 +32,20 @@ describe('Wildlife', () => {
     for (let i = 0; i < 400; i++) w.update(1, i, new THREE.Vector3(0, 0, 0), field, ready);
     for (const m of w.group.children) { expect(water(m.position.x)).toBe(false); expect(m.visible).toBe(ready(m.position.x)); }
   });
+  it('walks around houses and off roads, and keeps near its herd', () => {
+    const house = (x: number, z: number) => Math.hypot(x - 20, z) < 6;
+    const built = { ...field, isReserved: (x: number, z: number, margin: number) => Math.hypot(x - 20, z) < 6 + margin } as unknown as WorldField;
+    const herd = { ...world, field: built, recipe: { seed: 7, life: [{ kind: 'animal', asset: 'sheep', count: 6, at: { x: 5, z: 0 } }] } } as unknown as BuiltWorld;
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(herd);
+    for (let i = 0; i < 3000; i++) {
+      w.update(0.1, i, new THREE.Vector3(1e6, 0, 1e6), built);
+      for (const m of w.group.children) {
+        expect(house(m.position.x, m.position.z)).toBe(false);
+        expect(Math.hypot(m.position.x - 5, m.position.z)).toBeLessThan(30);
+      }
+    }
+  });
   it('uses animated pack models when given, hot-swaps live animals, and keeps the procedural ones otherwise', () => {
     const w = new Wildlife(new THREE.Scene());
     w.rebuild(world);

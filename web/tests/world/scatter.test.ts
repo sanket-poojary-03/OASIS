@@ -78,6 +78,21 @@ describe('scatter', () => {
     expect(after.length).toBeLessThan(before.length);
   });
 
+  it('wide, low things sink by the slope so their low side touches; trees and flat-ground things stand at the ground', () => {
+    const field = createField(loadRecipeFixture('snowy-mountains'));
+    let sunk = 0;
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (const it of scatterChunk(field, x, z)) {
+      const ground = field.heightAt(it.x, it.z), under = ground - it.y;
+      if (it.kind === 'pine' || it.kind === 'snowy_pine' || it.kind === 'tree') expect(under).toBe(0);
+      else {
+        expect(under).toBeGreaterThanOrEqual(0);
+        expect(under).toBeLessThanOrEqual(0.5);
+        if (under > 0.05) sunk++;
+      }
+    }
+    expect(sunk).toBeGreaterThan(0);
+  });
+
   it('only places non-rock items (pebbles count as rock) on gentle slopes', () => {
     const field = createField(loadRecipeFixture('snowy-mountains'));
     let checked = 0;

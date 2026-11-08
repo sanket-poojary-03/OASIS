@@ -21,14 +21,35 @@ export class RenderScale {
   /** The frame rate before the last step down (to judge whether it helped), and windows left to hold still. */
   private before = 0;
   private hold = 0;
+  /** The player chose a resolution: it stays, whatever the frame rate. */
+  private fixed = false;
 
   constructor(readonly max: number, private readonly apply: (ratio: number) => void, readonly min = Math.min(0.6, max)) {
     this.ratio = max;
   }
 
+  /** Hold this pixel ratio from now on (it may be above `max`: the player asked for it). */
+  fix(ratio: number): void {
+    this.fixed = true;
+    this.ratio = ratio;
+    this.apply(ratio);
+  }
+
+  /** Follow the frame rate again, starting from full resolution. */
+  adapt(): void {
+    this.fixed = false;
+    this.elapsed = 0;
+    this.frames = 0;
+    this.good = 0;
+    this.before = 0;
+    this.hold = 0;
+    this.ratio = this.max;
+    this.apply(this.max);
+  }
+
   /** One frame's real duration in seconds. Hitches over 0.5 s (a hidden tab, a shader compile) are not samples. */
   sample(dt: number): void {
-    if (!(dt > 0) || dt > 0.5) return;
+    if (this.fixed || !(dt > 0) || dt > 0.5) return;
     this.elapsed += dt;
     this.frames++;
     if (this.elapsed < WINDOW_S) return;

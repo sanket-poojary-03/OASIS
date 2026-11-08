@@ -1,9 +1,11 @@
+import '@fontsource-variable/rubik/wght.css';
 import './styles.css';
 import { LLM_UNAVAILABLE } from './api/client';
 import { wakeBackend } from './api/wake';
 import { App } from './app';
 import { runDirector } from './logic/director';
-import { showcaseRecipe, SHOWCASE_HOURS, SHOWCASE_ORBIT } from './ui/showcase';
+import { applyResolution, loadResolution, saveResolution } from './render/resolution';
+import { MENU_BEATS, showcaseRecipe } from './ui/showcase';
 import { UI } from './ui/ui';
 
 const editable = (el: unknown): boolean =>
@@ -42,18 +44,26 @@ void (async () => {
     app.player.controls.unlock();
     ui.showStartOver();
   };
+  /** localStorage itself can throw when site data is blocked. */
+  const storage = (() => { try { return localStorage; } catch { return null; } })();
+  const resolution = loadResolution(storage);
+  applyResolution(app.engine.scale, resolution, devicePixelRatio);
   const ui = new UI(root, {
+    resolution,
+    chooseResolution: (choice) => { applyResolution(app.engine.scale, choice, devicePixelRatio); saveResolution(storage, choice); },
+    renderRatio: () => app.engine.scale.ratio,
     generate: (prompt) => void app.generate(prompt),
     command: (text) => void app.command(text),
     confirm: () => app.confirm(),
     cancel: () => app.cancel(),
     director: () => void runDirector(app, ui),
     newWorld,
+    releaseMouse: () => app.player.controls.unlock(),
   });
   app.ui = ui;
   ui.showStart(true);
   // Behind the start screen a real world turns slowly (dev ?w= worlds skip it).
-  if (!(import.meta.env.DEV && new URLSearchParams(location.search).has('w'))) app.showcase(showcaseRecipe(), SHOWCASE_ORBIT, SHOWCASE_HOURS);
+  if (!(import.meta.env.DEV && new URLSearchParams(location.search).has('w'))) app.showcase(showcaseRecipe(), MENU_BEATS);
   // Dev only (screenshot checks): ?w=<fixture> enters a shared fixture at once, &t=dawn|day|dusk|night sets the time, &wx= the weather.
   if (import.meta.env.DEV) {
     (window as unknown as { __ws: unknown }).__ws = { app, ui };
@@ -72,16 +82,16 @@ void (async () => {
   void wakeBackend((h, final) => {
     if (!h && app.backendOnline) return; // a world/edit answer already proved it is up
     const llm = h?.provider === 'live';
-    ui.setHealth(llm ? 'AI online' : final ? LLM_UNAVAILABLE : 'Waking the AI server…');
+    ui.setHealth(llm ? '' : final ? LLM_UNAVAILABLE : 'Waking the AI server…');
     if (final && !llm) ui.toast(LLM_UNAVAILABLE);
   }).then((h) => {
     if (h?.ok) app.backendAnswered();
   });
   canvas.addEventListener('click', () => {
-    if (app.built && !app.spawning && !app.busy && !ui.startOpen && !ui.commandOpen && !ui.previewOpen && !app.cinematic) app.player.controls.lock();
+    if (app.built && !app.spawning && !app.busy && !ui.startOpen && !ui.commandOpen && !ui.previewOpen && !ui.tutorial.isOpen && !app.cinematic) app.player.controls.lock();
   });
   addEventListener('keydown', (e) => {
-    if (!app.built || app.cinematic || app.busy || ui.startOpen || uiOwnsKey(e, root)) return;
+    if (!app.built || app.cinematic || app.busy || ui.startOpen || ui.tutorial.isOpen || uiOwnsKey(e, root)) return;
     if (ui.previewOpen) {
       if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); app.confirm(); }
       else if (e.code === 'Escape') { e.preventDefault(); app.cancel(); }
@@ -96,6 +106,8 @@ void (async () => {
     else if (e.code === 'KeyB') void app.characters.next().then((name) => ui.toast(`Playing as ${name}${app.avatar.thirdPerson ? '' : ' · V to see yourself'}`));
     else if (e.code === 'KeyV') ui.toast(app.avatar.toggle() ? 'Third-person view · V for first person' : 'First-person view');
     else if (e.code === 'KeyC') ui.toggleChecks();
+    else if (e.code === 'KeyH') ui.tutorial.open();
+    else if (e.code === 'KeyR') ui.resolution.toggle();
   });
   (window as unknown as { app: App }).app = app;
 })();

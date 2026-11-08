@@ -15,3 +15,9 @@ export function detectLowTier(): boolean {
 export const LOW_TIER = detectLowTier();
 export const VIEW_RADIUS = LOW_TIER ? 2 : 3;
 export const SHADOW_MAP_SIZE = LOW_TIER ? 1024 : 2048;
+
+/** Land builders running at once: all but two of the cores (the page and the GPU's driver need theirs), and at most four. */
+export function chunkWorkers(cores: number | undefined): number {
+  return Math.max(1, Math.min(4, (cores ?? 4) - 2));
+}
+export const CHUNK_WORKERS = chunkWorkers(typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined);

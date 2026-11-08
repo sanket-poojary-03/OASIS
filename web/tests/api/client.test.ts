@@ -63,13 +63,22 @@ describe('asset request parameters', () => {
   it('sends allowOnline and a clamped integer variant (backend AssetRequest: 0..99)', async () => {
     const f = reply(200, { status: 'none' });
     vi.stubGlobal('fetch', f);
-    await resolveAsset('pine tree', 'prop', false, false);
+    await resolveAsset('silver pine', 'prop', false, false);
     await resolveAsset('house', 'structure', false, true, 3);
     await resolveAsset('house', 'structure', false, true, 250);
     await resolveAsset('house', 'structure', false, true, -2.5);
     const bodies = f.mock.calls.map((c) => JSON.parse((c as unknown as [string, { body: string }])[1].body) as Record<string, unknown>);
-    expect(bodies[0]).toEqual({ query: 'pine tree', kind: 'prop', allowGenerate: false, allowOnline: false, variant: 0 });
+    expect(bodies[0]).toEqual({ query: 'silver pine', kind: 'prop', allowGenerate: false, allowOnline: false, variant: 0 });
     expect(bodies.slice(1).map((b) => [b.allowOnline, b.variant])).toEqual([[true, 3], [true, 99], [true, 0]]);
+  });
+
+  it('answers a model that ships with the site without asking the server', async () => {
+    const f = reply(500, {});
+    vi.stubGlobal('fetch', f);
+    const res = await resolveAsset('Pine Tree ', 'prop', false, false);
+    expect(res).toMatchObject({ status: 'ready', source: 'library' });
+    expect(res.url).toMatch(/^\/models\/bundled\/.+\.glb$/);
+    expect(f).not.toHaveBeenCalled();
   });
 });
 

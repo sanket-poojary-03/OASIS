@@ -9,6 +9,9 @@ import { JET, Jetpack } from './jetpack';
 
 const EYE = 0.75; // capsule centre → eye height offset
 const DIVE_SPEED = 3;
+/** On foot, m/s: a brisk walk and a run, at which the character's stride clips still look like walking and running. */
+export const WALK_SPEED = 2.2;
+export const RUN_SPEED = 5;
 
 export class Player {
   readonly controls: PointerLockControls;
@@ -21,7 +24,13 @@ export class Player {
   running = false;
   /** Walked into the edge of the map this frame. */
   atEdge = false;
-  /** The rocket booster: hold Space in the air to fly while it has fuel. */
+  /** Off the ground (jumping, falling, flying); not while swimming. */
+  airborne = false;
+  /** Metres per second actually covered over the ground this frame. */
+  speed = 0;
+  /** The way the player is walking this frame, flat and of length 1 (zero when standing). */
+  readonly move = new THREE.Vector3();
+  /** The rocket booster: hold F to fly while it has fuel. */
   readonly jetpack = new Jetpack();
   private readonly body: RigidBody;
   readonly collider: Collider;
@@ -31,14 +40,14 @@ export class Player {
   readonly keys = new Set<string>();
   private readonly fwd = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
-  private readonly move = new THREE.Vector3();
 
   constructor(private readonly camera: THREE.PerspectiveCamera, dom: HTMLElement, physics: Physics) {
     this.controls = new PointerLockControls(camera, dom);
     const R = physics.R;
     this.body = physics.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 200, 0));
-    this.collider = physics.world.createCollider(R.ColliderDesc.capsule(0.55, 0.35), this.body);
-    this.controller = physics.world.createCharacterController(0.05);
+    // About the character's real width, so walls stop you at your shoulder and not a stride before them.
+    this.collider = physics.world.createCollider(R.ColliderDesc.capsule(0.62, 0.28), this.body);
+    this.controller = physics.world.createCharacterController(0.02);
     this.controller.enableAutostep(0.6, 0.2, true);
     this.controller.enableSnapToGround(0.6);
     this.controller.setMaxSlopeClimbAngle((50 * Math.PI) / 180);
@@ -73,7 +82,7 @@ export class Player {
 
   /** `ready(x, z)` reports whether terrain collision exists there; while it is false a degraded mode uses the analytic field as the floor. */
   update(dt: number, field: WorldField, ready?: (x: number, z: number) => boolean): void {
-    if (!this.enabled) { this.moving = false; this.running = false; return; }
+    if (!this.enabled) { this.moving = false; this.running = false; this.airborne = false; this.speed = 0; this.move.set(0, 0, 0); return; }
     const t = this.body.translation();
     this.camera.getWorldDirection(this.fwd);
     this.fwd.y = 0;
@@ -92,7 +101,9 @@ export class Player {
     this.moving = this.move.lengthSq() > 0;
     this.running = running && this.moving;
     if (ready && !ready(t.x, t.z)) {
-      const n = fallbackStep(t, this.move, running ? 10 : 5, dt, (x, z) => field.heightAt(x, z));
+      const n = fallbackStep(t, this.move, running ? RUN_SPEED : WALK_SPEED, dt, (x, z) => field.heightAt(x, z));
+      this.airborne = false;
+      this.speed = this.moving ? (running ? RUN_SPEED : WALK_SPEED) : 0;
       n.x = clampToMap(n.x);
       n.z = clampToMap(n.z);
       this.vy = 0;
@@ -105,7 +116,7 @@ export class Player {
     const swimming = surface !== null && t.y < surface + 0.3;
     const grounded = this.controller.computedGrounded();
     const boosting = this.jetpack.firing;
-    const speed = swimming ? 3 : boosting ? (running ? JET.boostSpeed : JET.speed) : running ? 10 : 5;
+    const speed = swimming ? 3 : boosting ? (running ? JET.boostSpeed : JET.speed) : running ? RUN_SPEED : WALK_SPEED;
     if (swimming) {
       const target = (surface! - 0.5 - t.y) * 3;
       this.vy += (target - this.vy) * Math.min(1, dt * 4);
@@ -116,9 +127,11 @@ export class Player {
     } else {
       this.vy -= 20 * dt;
     }
-    this.vy = this.jetpack.update(dt, this.vy, active && this.keys.has('Space'), !swimming && !grounded);
+    this.vy = this.jetpack.update(dt, this.vy, active && this.keys.has('KeyF'), swimming ? 'water' : grounded ? 'ground' : 'air');
     this.controller.computeColliderMovement(this.collider, { x: this.move.x * speed * dt, y: this.vy * dt, z: this.move.z * speed * dt });
     const m = this.controller.computedMovement();
+    this.airborne = !swimming && !this.controller.computedGrounded();
+    this.speed = dt > 0 ? Math.hypot(m.x, m.z) / dt : 0;
     const nx = clampToMap(t.x + m.x), nz = clampToMap(t.z + m.z);
     this.atEdge = nx !== t.x + m.x || nz !== t.z + m.z;
     let ny = t.y + m.y;

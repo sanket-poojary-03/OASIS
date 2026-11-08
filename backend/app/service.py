@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from .llm import LLMError, extract_json
 from .asset_match import cheap_llm
 from .prompts import brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
-from .schemas import EditRequest, Recipe, dump, dump_ops, ops_adapter
+from .schemas import MAX_SCENERY, EditRequest, Recipe, dump, dump_ops, ops_adapter
 
 # Time-of-day words in a request (complete_time) and words naming a drivable vehicle (repair_*: a vehicle the AI left as scenery can still be driven).
 TIME_WORDS = [(r"\b(night|midnight)\b", "night"), (r"\b(dawn|sunrise|morning)\b", "dawn"), (r"\b(dusk|sunset|evening)\b", "dusk"), (r"\b(noon|midday|daytime|day)\b", "day")]
@@ -70,6 +70,9 @@ _KIND_WORDS = {"building": "structure", "house": "structure", "shop": "structure
                "town": "settlement", "city": "settlement", "district": "settlement", "camp": "settlement", "monument": "landmark",
                "tower": "landmark", "object": "prop", "item": "prop", "decoration": "prop", "furniture": "prop"}
 _ROAD_KINDS = {"path", "road", "street", "route", "trail"}
+_SCENERY_KINDS = {"landmark", "structure", "prop"}
+_SCENERY_SPOTS = {"anywhere", "water", "high"}
+_INTERACTIONS = {"none", "door", "light", "fire", "sound", "sit", "push", "drive"}
 _LIFE_KINDS = {"deer", "birds", "rabbits", "animal"}
 # Relations that take no arguments: models often add an "of" anyway.
 _BARE_RELATIONS = {"highest", "lowest", "flat", "by_water"}
@@ -166,6 +169,10 @@ def repair_recipe(raw):
         raw["paths"] = [p for p in raw["paths"] if not isinstance(p, dict) or (p.get("from") in ids and p.get("to") in ids)]
     if isinstance(raw.get("life"), list):
         raw["life"] = _repair_life(raw["life"])
+    if "scenery" in raw:
+        raw["scenery"] = _repair_scenery(raw["scenery"])
+        if not raw["scenery"]:
+            raw.pop("scenery")
     return raw
 
 
@@ -185,6 +192,27 @@ def _repair_life(raw: list) -> list[dict]:
         _repair_at(item)
         out.append(item if kind in _LIFE_KINDS else {**item, "kind": "animal", "asset": str(item.get("asset") or kind).strip()[:80]})
     return out
+
+
+def _repair_scenery(raw) -> list[dict]:
+    """The usable entries of the scenery list: it is an extra, so a bad entry must not cost the world its places."""
+    out: list[dict] = []
+    for item in raw if isinstance(raw, list) else []:
+        asset = item if isinstance(item, str) else item.get("asset") if isinstance(item, dict) else None
+        if not isinstance(asset, str) or len(asset.strip()) < 2:
+            continue
+        src = item if isinstance(item, dict) else {}
+        kind = _KIND_WORDS.get(str(src.get("kind", "prop")).lower(), str(src.get("kind", "prop")).lower())
+        interaction = str(src.get("interaction", "none")).lower()
+        spot = str(src.get("spot", "anywhere")).lower()
+        out.append({
+            "asset": asset.strip()[:80],
+            "kind": kind if kind in _SCENERY_KINDS else "structure" if kind == "settlement" else "prop",
+            "size": _SIZE_WORDS.get(str(src.get("size", "medium")).lower(), "medium"),
+            "interaction": interaction if interaction in _INTERACTIONS else "none",
+            "spot": spot if spot in _SCENERY_SPOTS else "anywhere",
+        })
+    return out[:MAX_SCENERY]
 
 
 def _repair_variants(layout) -> None:

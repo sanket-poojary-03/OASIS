@@ -24,10 +24,18 @@ const RADIUS: Record<PlaceKind, Record<PlaceSize, number>> = {
   structure: { small: 6, medium: 9, large: 13 },
   prop: { small: 1.5, medium: 2.5, large: 4 },
 };
+/** A thing's footprint on the ground (world/scenery uses the same sizes as named places). */
+export const footprint = (kind: PlaceKind, size: PlaceSize): number => RADIUS[kind][size];
 const MAX_SLOPE: Record<PlaceKind, number> = { settlement: 0.22, landmark: 0.5, structure: 0.32, prop: 0.6 };
 const GAP = 4;
 const MIN_DECK = 4;
 const CANDIDATES = 1500;
+/**
+ * A place with no tie to another one drifts away from the rest, so the world does not bunch up on one side. Worth less
+ * than a relation (those score up to 1), so "highest" and "by water" still decide; it settles what they leave open.
+ */
+const SPREAD_WEIGHT = 0.3;
+const SPREAD_RANGE = 320;
 const DIR: Record<'north' | 'south' | 'east' | 'west', { x: number; z: number }> = {
   north: { x: 0, z: -1 }, south: { x: 0, z: 1 }, east: { x: 1, z: 0 }, west: { x: -1, z: 0 },
 };
@@ -71,14 +79,18 @@ export function orderPlaces(places: Place[]): Place[] {
 function padFor(p: Placement, field: WorldField): Pad {
   // A deck holds everything of its place (land pads may blend away at their edge); even a prop gets room to stand by it.
   if (field.deckY !== null) return { x: p.x, z: p.z, radius: Math.max(p.radius, MIN_DECK), y: field.deckY };
-  return { x: p.x, z: p.z, radius: p.kind === 'settlement' ? p.radius * 0.85 : p.radius, y: p.y };
+  return p.kind === 'settlement' ? { x: p.x, z: p.z, radius: p.radius * 0.85, y: p.y, open: true } : { x: p.x, z: p.z, radius: p.radius, y: p.y };
 }
 
-function siteProblem(field: WorldField, x: number, z: number, r: number, maxSlope: number, placed: Map<string, Placement>, relax: boolean): string | null {
+/** Where a settlement's ground is checked for water, as shares of its radius: a river is narrow, so a few points can miss one running through the middle of a town. */
+const SETTLEMENT_WET_CHECK: Array<[number, number]> = [0.5, 1].flatMap((d) => Array.from({ length: 12 }, (_, i): [number, number] => [Math.cos((i * Math.PI) / 6) * d, Math.sin((i * Math.PI) / 6) * d]));
+
+function siteProblem(field: WorldField, x: number, z: number, r: number, maxSlope: number, placed: Map<string, Placement>, relax: boolean, settlement = false): string | null {
   if (Math.abs(x) > CORE_HALF - r || Math.abs(z) > CORE_HALF - r) return 'outside the world core';
   // The cheap test first: in a full world most candidates overlap a place, and terrain samples are the cost.
   for (const p of placed.values()) if (Math.hypot(p.x - x, p.z - z) < p.radius + r + (relax ? 0 : GAP)) return `overlapping ${p.id}`;
   if (field.deckY !== null) return null; // an ocean: anywhere clear will float a deck
+  if (settlement && !relax) for (const [fx, fz] of SETTLEMENT_WET_CHECK) if (field.isWater(x + fx * r, z + fz * r)) return 'water runs through it';
   let slope = 0;
   for (const [dx, dz] of [[0, 0], [r * 0.7, 0], [-r * 0.7, 0], [0, r * 0.7], [0, -r * 0.7]]) {
     if (field.isWater(x + dx, z + dz)) return 'in water';
@@ -179,7 +191,7 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   for (const relax of [false, true]) {
     const cands: Candidate[] = [];
     for (const p of sampleCandidates(place, placed, rng, ocean)) {
-      if (siteProblem(field, p.x, p.z, radius, MAX_SLOPE[place.kind], placed, relax) === null) {
+      if (siteProblem(field, p.x, p.z, radius, MAX_SLOPE[place.kind], placed, relax, place.kind === 'settlement') === null) {
         cands.push({ ...p, h: field.heightAt(p.x, p.z), slope: field.slopeAt(p.x, p.z) });
       }
     }
@@ -188,11 +200,12 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
     let minH = Infinity, maxH = -Infinity;
     for (const c of cands) { minH = Math.min(minH, c.h); maxH = Math.max(maxH, c.h); }
     const ctx: ScoreCtx = { field, placed, minH, maxH, radius };
+    const tied = place.where.some((r) => r.rel === 'near');
     let best = cands[0], bestScore = -Infinity, bestScored: Array<{ score: number; reason: string }> = [];
     for (const c of cands) {
       const scored = place.where.map((r) => scoreRelation(r, c, ctx));
       const mean = scored.length ? scored.reduce((s, x) => s + x.score, 0) / scored.length : 0.5;
-      const total = mean + 0.05 * (1 - clamp(c.slope / 0.5, 0, 1));
+      const total = mean + 0.05 * (1 - clamp(c.slope / 0.5, 0, 1)) + (tied ? 0 : SPREAD_WEIGHT * openness(c, placed));
       if (total > bestScore) { bestScore = total; best = c; bestScored = scored; }
     }
     const reasons = bestScored.map((s) => s.reason);
@@ -208,6 +221,13 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   }
   warnings.push('no valid spot found; placed at the least-bad spot');
   return finish(place, field, best.x, best.z, radius, [], warnings, placed);
+}
+
+/** 0 right beside another place, 1 with nothing within SPREAD_RANGE. */
+function openness(c: Candidate, placed: Map<string, Placement>): number {
+  let nearest = SPREAD_RANGE;
+  for (const p of placed.values()) nearest = Math.min(nearest, Math.hypot(p.x - c.x, p.z - c.z));
+  return nearest / SPREAD_RANGE;
 }
 
 function fallbackCost(field: WorldField, x: number, z: number, r: number, maxSlope: number, placed: Map<string, Placement>): number {

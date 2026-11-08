@@ -12,7 +12,8 @@ import { glowsAtNight } from './nightGlow';
 const CELL = 16;
 const CELLS = 4;
 const SIZE = CELL * CELLS;
-const NIGHT_WARM = 0xffd29a;
+/** Dimmer than a cottage's few windows: a tower has hundreds, and together they washed the whole building out in the bloom. */
+const NIGHT_WARM = new THREE.Color(0xffd29a).multiplyScalar(0.55);
 
 type Rgb = [number, number, number];
 const rgb = (hex: number): Rgb => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
@@ -48,7 +49,8 @@ function facadeTextures(facade: Facade | 'shop', body: number, trim: number): { 
     const c = kind === 'wall' ? wall : kind === 'frame' ? frame : shade(pane, sky * (facade === 'glass' ? 0.9 + 0.2 * (cellLit ? 1 : 0) : 1));
     const i = (y * SIZE + x) * 4;
     colour.set([c[0], c[1], c[2], 255], i);
-    const g = kind === 'pane' && cellLit ? 255 : 0;
+    // A pane of a curtain wall is a whole bay: at full light a glass tower was a board of white squares.
+    const g = kind === 'pane' && cellLit ? (facade === 'glass' ? 120 : 255) : 0;
     mask.set([g, g, g, 255], i);
   }
   const make = (data: Uint8Array, srgb: boolean): THREE.DataTexture => {
@@ -80,7 +82,7 @@ function facadeMaterial(facade: Facade | 'shop', body: number, trim: number): TH
     const glass = facade === 'glass' || facade === 'shop';
     const m = new THREE.MeshStandardMaterial({
       map, emissiveMap: glow, emissive: NIGHT_WARM, emissiveIntensity: 0,
-      roughness: glass ? 0.3 : 0.85, metalness: glass ? 0.35 : 0.05,
+      roughness: glass ? 0.3 : 0.85, metalness: 0, // nothing here to reflect: metal would only draw dark (see render/matte)
     });
     m.name = 'tower-window';
     glowsAtNight(m);

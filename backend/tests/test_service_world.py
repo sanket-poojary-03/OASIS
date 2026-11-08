@@ -223,3 +223,28 @@ def test_a_few_bad_places_are_left_out_not_the_whole_world(tmp_path, valley_json
     out = WorldService(FakeLLM(json.dumps(reply))).generate("valley")
     # in the service the size slip of "Odd" is repaired first, so only the nameless one is left out
     assert len(out["recipe"]["places"]) == 4 and any("Left out 1 place" in n and "odd2" in n for n in out["notes"])
+
+
+def test_scenery_keeps_good_entries_and_drops_bad_ones():
+    from app.service import repair_recipe
+    raw = {"places": [], "scenery": [
+        {"asset": "stone shrine", "kind": "Building", "size": "huge", "interaction": "pray", "spot": "somewhere"},
+        "wooden cart",
+        {"kind": "prop"},
+        {"asset": "x"},
+        7,
+        {"asset": "a village of huts", "kind": "settlement"},
+    ]}
+    assert repair_recipe(raw)["scenery"] == [
+        {"asset": "stone shrine", "kind": "structure", "size": "large", "interaction": "none", "spot": "anywhere"},
+        {"asset": "wooden cart", "kind": "prop", "size": "medium", "interaction": "none", "spot": "anywhere"},
+        {"asset": "a village of huts", "kind": "structure", "size": "medium", "interaction": "none", "spot": "anywhere"},
+    ]
+
+
+def test_scenery_that_is_unusable_or_too_long_cannot_cost_the_world():
+    from app.schemas import MAX_SCENERY
+    from app.service import repair_recipe
+    assert "scenery" not in repair_recipe({"places": [], "scenery": "lots of shrines"})
+    long = repair_recipe({"places": [], "scenery": [{"asset": f"thing {i}"} for i in range(30)]})
+    assert len(long["scenery"]) == MAX_SCENERY

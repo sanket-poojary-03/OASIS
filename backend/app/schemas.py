@@ -9,6 +9,7 @@ FIXTURES_DIR = Path(__file__).resolve().parents[2] / "shared" / "fixtures"
 CORE_HALF = 512
 # The most places one recipe holds (mirrors web MAX_PLACES); also the most AI paths.
 MAX_PLACES = 24
+MAX_SCENERY = 12
 
 Id = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")]
 Unit = Annotated[float, Field(ge=0, le=1)]
@@ -95,6 +96,15 @@ class PlaceProp(Strict):
     asset: Annotated[str, Field(min_length=2, max_length=80)]
     count: Annotated[int, Field(ge=1, le=6)] = 3
     size: Size = "medium"
+
+
+class Scenery(Strict):
+    """A kind of thing found out in the open, all over the world: the AI says what, code says where."""
+    asset: Annotated[str, Field(min_length=2, max_length=80)]
+    kind: Literal["landmark", "structure", "prop"] = "prop"
+    size: Size = "medium"
+    interaction: Interaction = "none"
+    spot: Literal["anywhere", "water", "high"] = "anywhere"
 
 
 class Place(Strict):
@@ -192,6 +202,7 @@ class Recipe(Strict):
     palette: Palette | None = None
     nature: Nature | None = None
     places: Annotated[list[Place], Field(max_length=MAX_PLACES)]
+    scenery: Annotated[list[Scenery], Field(max_length=MAX_SCENERY)] | None = None
     paths: Annotated[list[Path_], Field(max_length=MAX_PLACES)] = []
     life: Annotated[list[Life], Field(max_length=8)] = []
 

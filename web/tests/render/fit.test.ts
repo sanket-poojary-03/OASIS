@@ -34,6 +34,24 @@ describe('fitToHeight (M9: one helper for "scale to height, feet at y = 0")', ()
     expect((b.min.x + b.max.x) / 2).toBeCloseTo(before.x * (2 / 12), 5);
   });
 
+  it('measures what is drawn: a model tipped inside its file touches y = 0 and is the asked height', () => {
+    const tipped = new THREE.Group();
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12));
+    ball.rotation.set(0.7, 0.4, 0.6); // the box around its turned box is far taller than the ball
+    tipped.add(ball);
+    fitToHeight(tipped, 3);
+    tipped.updateMatrixWorld(true);
+    let low = Infinity, high = -Infinity;
+    const v = new THREE.Vector3(), pos = ball.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(ball.matrixWorld);
+      low = Math.min(low, v.y);
+      high = Math.max(high, v.y);
+    }
+    expect(low).toBeCloseTo(0, 5);
+    expect(high).toBeCloseTo(3, 5);
+  });
+
   it('leaves an empty object untouched', () => {
     const g = new THREE.Group();
     fitToHeight(g, 5);

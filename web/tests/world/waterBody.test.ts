@@ -4,9 +4,7 @@ import { BED_KINDS, depthBelowSurface } from '../../src/world/waterDepth';
 import { computeChunk } from '../../src/world/chunkData';
 import { createField, type WorldField } from '../../src/world/field';
 import { scatterChunk } from '../../src/world/scatter';
-import { pieces } from '../../src/render/rangeCull';
-import { ribbonData } from '../../src/render/ribbon';
-import { RIVER_MESH_HALF_WIDTH } from '../../src/render/water';
+import { waterSheet } from '../../src/world/waterSheet';
 import { loadRecipeFixture } from '../fixtures';
 
 const FIXTURES = ['snowy-mountains', 'fishing-valley', 'desert-canyon', 'tropical-island'] as const;
@@ -26,12 +24,7 @@ const WORLDS = worlds();
 /** Everywhere a water mesh is drawn, with the height it is drawn at. */
 function underMesh(field: WorldField): Array<{ x: number; z: number; y: number }> {
   const out: Array<{ x: number; z: number; y: number }> = [];
-  if (field.river.length > 1) {
-    for (const run of pieces(field.river, 8)) {
-      const p = ribbonData(run, RIVER_MESH_HALF_WIDTH, field.riverLevelAt, true).positions;
-      for (let i = 0; i < p.length; i += 3) out.push({ x: p[i], y: p[i + 1], z: p[i + 2] });
-    }
-  }
+  for (const { positions: p } of waterSheet(field)) for (let i = 0; i < p.length; i += 3) out.push({ x: p[i], y: p[i + 1], z: p[i + 2] });
   for (const l of field.lakes) {
     for (let a = 0; a < 48; a++) out.push({ x: l.x + Math.cos((a / 48) * 6.283) * l.radius, z: l.z + Math.sin((a / 48) * 6.283) * l.radius, y: l.levelY });
   }
@@ -110,7 +103,9 @@ describe('what lies under the water', () => {
         if (!field.isWater(it.x, it.z)) continue;
         found++;
         expect(BED_KINDS).toContain(it.kind);
-        expect(it.y).toBeCloseTo(field.heightAt(it.x, it.z), 5);
+        const bed = field.heightAt(it.x, it.z);
+        expect(it.y).toBeLessThanOrEqual(bed); // a stone sinks a little on a sloping bed, so its low side touches
+        expect(it.y).toBeGreaterThanOrEqual(bed - 0.5);
       }
     }
     expect(found).toBeGreaterThan(0);

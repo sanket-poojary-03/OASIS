@@ -1110,12 +1110,11 @@
   "file": "quaternius/buildings/medieval/house/fantasy-house-3.glb",
   "tags": [
    "building",
-   "cottage",
+   "cellar",
    "fantasy",
-   "home",
-   "house",
    "medieval",
-   "village"
+   "stone",
+   "storehouse"
   ],
   "license": "CC0 1.0 (Quaternius, via poly.pizza)",
   "source": "quaternius",

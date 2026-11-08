@@ -16,7 +16,12 @@ describe('buildWorld', () => {
     for (const name of ['fishing-valley', 'desert-canyon', 'snowy-mountains', 'tropical-island'] as const) {
       const w = buildWorld(loadRecipeFixture(name));
       if (name === 'fishing-valley') expect(w.buildings.length).toBeGreaterThan(2);
-      const near = (x: number, z: number) => Math.min(...w.roads.flatMap((r) => r.points.map((p) => Math.hypot(p.x - x, p.z - z))));
+      // Distance to the road itself, not its points: a village's main street is one long segment through its middle.
+      const near = (x: number, z: number) => Math.min(...w.roads.flatMap((r) => r.points.slice(1).map((b, i) => {
+        const a = r.points[i], dx = b.x - a.x, dz = b.z - a.z;
+        const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+        return Math.hypot(a.x + dx * t - x, a.z + dz * t - z);
+      })));
       for (const p of w.placements) {
         if (w.recipe.places.find((q) => q.id === p.id)?.kind === 'prop') continue;
         expect(near(p.x, p.z), `${name}: ${p.id}`).toBeLessThan(15);

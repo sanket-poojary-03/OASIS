@@ -49,6 +49,25 @@ export function traceRiver(
   return { path, lake: null };
 }
 
+/** Rounds a line's corners, its ends staying put. A traced river turns in steps of 22.5 degrees: its banks came out as long straight runs meeting in spikes. */
+export function smoothLine(points: Vec2[], passes = 8): Vec2[] {
+  let line = points;
+  for (let n = 0; n < passes; n++) {
+    line = line.map((p, i) => (i === 0 || i === line.length - 1 ? p : { x: (line[i - 1].x + p.x * 2 + line[i + 1].x) / 4, z: (line[i - 1].z + p.z * 2 + line[i + 1].z) / 4 }));
+  }
+  return line;
+}
+
+/** The longest unbroken stretch of `points` that passes `keep`, running on `past` points either way. Empty if it is under two points. */
+export function longestRun(points: Vec2[], keep: (p: Vec2) => boolean, past = 0): Vec2[] {
+  let from = 0, length = 0;
+  for (let i = 0, run = 0; i < points.length; i++) {
+    run = keep(points[i]) ? run + 1 : 0;
+    if (run > length) { length = run; from = i - run + 1; }
+  }
+  return length < 2 ? [] : points.slice(Math.max(0, from - past), from + length + past);
+}
+
 export function segmentDistance(px: number, pz: number, a: Vec2, b: Vec2): number {
   const dx = b.x - a.x, dz = b.z - a.z;
   const len2 = dx * dx + dz * dz;

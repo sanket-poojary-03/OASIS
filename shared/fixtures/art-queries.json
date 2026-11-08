@@ -3,7 +3,7 @@
     {"kind": "tree", "query": "tree", "height": 6},
     {"kind": "pine", "query": "pine tree", "height": 7},
     {"kind": "dead_tree", "query": "dead tree", "height": 5},
-    {"kind": "bush", "query": "bush", "height": 1.1},
+    {"kind": "bush", "query": "flowering bush", "height": 1.4},
     {"kind": "rock", "query": "rock", "height": 1.2},
     {"kind": "cactus", "query": "cactus", "height": 2.6},
     {"kind": "reed", "query": "reed", "height": 1.4},

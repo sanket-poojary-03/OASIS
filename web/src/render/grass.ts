@@ -9,13 +9,15 @@ function blade(angle: number, offset: number): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4]);
-  const base = new THREE.Color(0x3f6b2a), tip = new THREE.Color(0x9cc95e), c = new THREE.Color();
+  // The base matches the grass colour of the ground, so a tuft grows out of it instead of standing on it as a dark speck.
+  const base = new THREE.Color(0x6f9c4c), tip = new THREE.Color(0xb4dc72), c = new THREE.Color();
   const col: number[] = [];
   for (let i = 0; i < 5; i++) { c.copy(base).lerp(tip, pos[i * 3 + 1] / h); col.push(c.r, c.g, c.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.rotateY(angle);
   g.translate(Math.cos(angle) * offset, 0, Math.sin(angle) * offset);
-  g.computeVertexNormals();
+  // Lit as the ground is, whichever way a blade faces: facing the side, tufts drew as dark specks on sunlit land.
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(Array.from({ length: 5 }, () => [0, 1, 0]).flat(), 3));
   return g;
 }
 
@@ -49,6 +51,10 @@ export class GrassSystem {
         '#include <color_fragment>',
         `#include <color_fragment>
         diffuseColor.rgb = mix(diffuseColor.rgb, uTint * dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 2.2, uTintMix);`,
+      ).replace(
+        // Both sides of a blade face up: a double-sided material would flip the normal of the far side, and light it from below.
+        '#include <normal_fragment_begin>',
+        'float faceDirection = 1.0;\nvec3 normal = normalize(vNormal);\nvec3 nonPerturbedNormal = normal;',
       );
     };
   }

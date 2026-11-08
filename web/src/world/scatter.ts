@@ -42,7 +42,16 @@ export function scatterRules(biome: Biome, grove: number, temperature: number): 
   }
 }
 
+/** A city's open lot: shade trees and planting, whatever grows on the land outside the city. */
+const parkRules = (grove: number): Rule[] => [[groveTree(grove), 0.3], ['bush', 0.12], ['flowers', 0.08]];
+
 const ON_SLOPES: ReadonlySet<ScatterKind> = new Set(['rock', 'pebble']);
+/** How far a wide, low thing reaches from its middle, in metres at scale 1: it sinks by the slope over that, so its low side touches. */
+const GROUND_REACH: Partial<Record<ScatterKind, number>> = { rock: 1, log: 1.5, stump: 0.6, bush: 0.5, pebble: 0.3 };
+const MAX_SCATTER_SINK = 0.5;
+const TREES: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pine', 'palm', 'dead_tree']);
+/** The share of a forest's trees left standing among a settlement's houses: people clear the land they live on. */
+const SETTLEMENT_TREES = 0.3;
 
 /** Which of the recipe's `nature` amounts governs each kind. */
 const NATURE: Record<ScatterKind, 'trees' | 'plants' | 'rocks'> = {
@@ -69,15 +78,20 @@ export function scatterChunk(field: WorldField, cx: number, cz: number, size = 6
     let acc = 0, kind: ScatterKind | null = null;
     const surface = field.isWater(x, z) ? field.waterSurfaceAt(x, z) : null;
     const grove = field.detailNoise(x * 0.004 + 31.7, z * 0.004 - 12.3);
-    const rules = surface !== null ? bedRules(surface - field.heightAt(x, z)) : scatterRules(biomeAt(field, x, z), grove, field.recipe.climate.temperature);
+    const park = field.inPark(x, z);
+    const rules = surface !== null ? bedRules(surface - field.heightAt(x, z)) : park ? parkRules(grove) : scatterRules(biomeAt(field, x, z), grove, field.recipe.climate.temperature);
     for (const [k, p] of rules) {
       acc += p * (nature?.[NATURE[k]] ?? 1);
       if (roll < acc) { kind = k; break; }
     }
     if (!kind) continue;
     if (!ON_SLOPES.has(kind) && field.slopeAt(x, z) > 0.6) continue;
-    if (field.isReserved(x, z, 2) || field.pavedAt(x, z) > 0) continue;
-    out.push({ kind, x, y: field.heightAt(x, z), z, rotation: rng() * Math.PI * 2, scale: 0.75 + rng() * 0.6, variant: Math.floor(rng() * VARIANTS) });
+    if (field.isReserved(x, z, 2) || field.pavedAt(x, z) > 0 || field.cropAt(x, z)) continue;
+    if (TREES.has(kind) && !park && field.inSettlement(x, z) && rng() > SETTLEMENT_TREES) continue;
+    const rotation = rng() * Math.PI * 2, scale = 0.75 + rng() * 0.6, variant = Math.floor(rng() * VARIANTS);
+    const reach = GROUND_REACH[kind];
+    const sink = reach === undefined ? 0 : Math.min(MAX_SCATTER_SINK, field.slopeAt(x, z) * reach * scale);
+    out.push({ kind, x, y: field.heightAt(x, z) - sink, z, rotation, scale, variant });
   }
   return out;
 }

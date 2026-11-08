@@ -9,6 +9,9 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
  * and exposure (a render target is never tone-mapped by the scene render itself). The scene target is multisampled,
  * because the canvas MSAA does not apply inside a composer; on high-DPI screens (pixel ratio >= 2) it is skipped.
  */
+/** How dark it must be (AtmosphereSystem.night) before anything blooms. */
+const BLOOM_FROM = 0.5;
+
 export class PostFX {
   private readonly composer: EffectComposer;
   private readonly bloom: UnrealBloomPass;
@@ -45,11 +48,13 @@ export class PostFX {
 }
 
 /**
- * Bloom is for the night: emissive windows and the light/fire glows. By day the only thing above any threshold is the
- * HDR sky near the sun, which smeared a white haze over buildings and trees, so the pass is off in daylight and builds
- * up through dusk. Threshold drops at night so the softer glows (below the dusk threshold) still bloom.
+ * Bloom is for the dark: emissive windows and the light/fire glows. While the sun is up the only thing above any
+ * threshold is the HDR sky around it, which smeared a white haze over the whole picture, dusk and dawn included. So the
+ * pass stays off until the sun has gone (night 0.5) and builds up from there. Threshold drops as it gets darker so the
+ * softer glows still bloom.
  */
 export function bloomFor(night: number): { enabled: boolean; strength: number; threshold: number } {
   const n = Math.min(1, Math.max(0, night));
-  return { enabled: n > 0.05, strength: 0.9 * n, threshold: 0.85 - 0.3 * n };
+  const dark = Math.max(0, (n - BLOOM_FROM) / (1 - BLOOM_FROM));
+  return { enabled: dark > 0, strength: 0.45 * dark, threshold: 0.9 - 0.2 * dark };
 }

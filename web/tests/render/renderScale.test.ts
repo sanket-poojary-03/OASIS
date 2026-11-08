@@ -45,4 +45,26 @@ describe('RenderScale', () => {
     s.sample(3); // a hidden tab
     expect(s.ratio).toBe(1);
   });
+
+  it('a resolution the player chose stays, however slow the frames', () => {
+    const applied: number[] = [];
+    const s = new RenderScale(1, (r) => applied.push(r));
+    s.fix(0.75);
+    expect(applied).toEqual([0.75]);
+    run(s, 20, 30);
+    expect(s.ratio).toBe(0.75);
+    s.fix(1.5); // above the automatic ceiling: their choice
+    run(s, 60, 30);
+    expect(s.ratio).toBe(1.5);
+    expect(applied).toEqual([0.75, 1.5]);
+  });
+
+  it('going back to automatic starts from full resolution and follows the frame rate again', () => {
+    const s = new RenderScale(1, () => {});
+    s.fix(0.5);
+    s.adapt();
+    expect(s.ratio).toBe(1);
+    fill(s, 20, 2.1);
+    expect(s.ratio).toBe(0.9);
+  });
 });

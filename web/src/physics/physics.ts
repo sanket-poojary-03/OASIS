@@ -27,12 +27,6 @@ export class Physics {
     return this.world.createCollider(this.R.ColliderDesc.trimesh(positions, indices));
   }
 
-  /** One convex shape around a model's world-space vertices (its roof included); null when no hull can be made. */
-  addFixedHull(positions: Float32Array): Collider | null {
-    const desc = this.R.ColliderDesc.convexHull(positions);
-    return desc ? this.world.createCollider(desc) : null;
-  }
-
   /** A fixed upright cylinder (a floating deck). */
   addFixedCylinder(x: number, y: number, z: number, halfHeight: number, radius: number): Collider {
     return this.world.createCollider(this.R.ColliderDesc.cylinder(halfHeight, radius).setTranslation(x, y, z));

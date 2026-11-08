@@ -5,15 +5,17 @@ import { resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
 import type { AnimalKind, Wildlife } from '../logic/wildlife';
 import { SCATTER_KINDS as KINDS, type ScatterKind } from '../world/scatter';
-import type { ScatterAssets } from './scatterAssets';
+import { matteMaterials } from './matte';
+import { drawnVariants, type ScatterAssets } from './scatterAssets';
 
 type Gltf = { scene: THREE.Object3D; animations: THREE.AnimationClip[] };
 
 const SCATTER_KINDS: ReadonlySet<string> = new Set<string>(KINDS);
 /** Variants asked for per scatter kind (the library rotates equally good models: tree 1…5); stops at the first repeat. */
 export const SCATTER_VARIANTS = 5;
-// The player is not here: the bundled characters (player/characters.ts) dress it, with or without a backend.
-const RIGGED_USES: ReadonlySet<string> = new Set(['deer', 'rabbit']);
+// The player is not here: the bundled characters (player/characters.ts) dress it, with or without a backend. Nor is the
+// rabbit: the library has none, and the base art must not wait on a server to be told so.
+const RIGGED_USES: ReadonlySet<string> = new Set(['deer']);
 
 /**
  * The base-art queries live in shared/fixtures/art-queries.json so the backend tests can check them against the real
@@ -39,7 +41,8 @@ export interface ArtReport { loaded: string[]; missing: string[] }
 export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: ArtDeps = {}): Promise<ArtReport> {
   let loader: GLTFLoader | null = null;
   const resolve = deps.resolve ?? ((query: string, variant = 0) => resolveAsset(query, 'prop', false, false, variant));
-  const loadGltf = deps.loadGltf ?? ((url: string) => (loader ??= new GLTFLoader()).loadAsync(url));
+  const fetchGltf = deps.loadGltf ?? ((url: string) => (loader ??= new GLTFLoader()).loadAsync(url));
+  const loadGltf = (url: string): Promise<Gltf> => fetchGltf(url).then((g) => { matteMaterials(g.scene); return g; });
   const report: ArtReport = { loaded: [], missing: [] };
 
   const one = async (query: string, apply: (g: Gltf) => void): Promise<void> => {
@@ -57,7 +60,8 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
   /** Every variant of a scatter kind (tree 1…5), one after another: the first arrives fast, the rest add variety. */
   const variants = async (e: (typeof SCATTER_ART)[number]): Promise<void> => {
     const seen = new Set<string>();
-    for (let v = 0; v < SCATTER_VARIANTS; v++) {
+    // No more than a kind ever draws (a model that is loaded and never shown only costs time).
+    for (let v = 0; v < Math.min(SCATTER_VARIANTS, drawnVariants(e.kind)); v++) {
       try {
         const res = await resolve(e.query, v);
         if (res.status !== 'ready' || !res.url || res.source !== 'library') { if (v === 0) report.missing.push(e.query); return; }

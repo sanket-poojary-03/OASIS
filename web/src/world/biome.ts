@@ -44,9 +44,9 @@ export function biomeAt(field: WorldField, x: number, z: number): Biome {
 
 export const BIOME_COLOR: Record<Biome, [number, number, number]> = {
   sand: [0.86, 0.79, 0.6],
-  grass: [0.42, 0.6, 0.28],
-  forest: [0.25, 0.45, 0.2],
-  pine: [0.22, 0.36, 0.24],
+  grass: [0.27, 0.46, 0.15],
+  forest: [0.16, 0.34, 0.11],
+  pine: [0.14, 0.27, 0.15],
   snow: [0.93, 0.95, 0.98],
   rock: [0.47, 0.45, 0.42],
   desert: [0.85, 0.6, 0.38],
@@ -75,6 +75,9 @@ export function groundColor(biome: Biome, tint: Rgb | undefined): Rgb {
   return [0, 1, 2].map((i) => c[i] + (Math.min(1, Math.max(tint[i], 0.06) * k) - c[i]) * 0.85) as unknown as Rgb;
 }
 
+/** How far around a sample the ground colour looks (temperature, moisture), for soft edges between kinds of land. */
+const EDGE_BLEND: ReadonlyArray<readonly [number, number]> = [-0.04, -0.02, 0, 0.02, 0.04].flatMap((dt) => [-0.05, -0.025, 0, 0.025, 0.05].map((dm) => [dt, dm] as const));
+
 const mix = (a: Rgb, b: Rgb, k: number): [number, number, number] => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 
 /**
@@ -87,7 +90,15 @@ export function blendedGroundColor(s: BiomeSample, tint: Rgb | undefined): Rgb {
   const t = s.temperature - s.height01 * 0.55;
   // Just below the snow line, the colour of the land as if it were a little warmer; snow fades in over the band.
   const snowK = 1 - smoothstep(0.0, 0.1, t);
-  const warm = groundColor(classifyBiome(t < 0.05 ? { ...flat, temperature: s.temperature + (0.06 - t) } : flat), tint);
+  const warmer = t < 0.05 ? { ...flat, temperature: s.temperature + (0.06 - t) } : flat;
+  // Grass into forest into pine: the average of what the land would be if a little warmer, cooler, wetter or drier.
+  // One sample drew a hard edge at each threshold, and from above the land looked like camouflage.
+  let r = 0, g = 0, b = 0;
+  for (const [dt, dm] of EDGE_BLEND) {
+    const c = groundColor(classifyBiome({ ...warmer, temperature: warmer.temperature + dt, moisture: warmer.moisture + dm }), tint);
+    r += c[0]; g += c[1]; b += c[2];
+  }
+  const warm: Rgb = [r / EDGE_BLEND.length, g / EDGE_BLEND.length, b / EDGE_BLEND.length];
   const ground = snowK > 0 ? mix(warm, groundColor('snow', tint), snowK) : warm;
   const rockK = smoothstep(0.55, 0.95, s.slope);
   return rockK > 0 ? mix(ground, groundColor('rock', tint), rockK) : ground;

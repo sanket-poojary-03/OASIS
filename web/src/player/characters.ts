@@ -4,13 +4,15 @@ import type { ModelTemplate } from '../render/animated';
 import type { Avatar } from './avatar';
 
 /**
- * The playable characters, bundled with the web app (web/public/models/characters).
- * All three are Quaternius CC0 models on one shared rig (Idle / Walk / Run clips), credited in docs/CREDITS.md.
+ * The playable characters, bundled with the web app (web/public/models/characters): Microsoft Rocketbox avatars (MIT,
+ * credited in docs/CREDITS.md), converted by scripts/convert_rocketbox.mjs. One rig, with Idle / Walk / Run clips.
  */
 export const CHARACTERS = [
-  { name: 'Adventurer', file: 'adventurer.glb' },
-  { name: 'Astronaut', file: 'astronaut.glb' },
-  { name: 'Hooded Ranger', file: 'hooded-ranger.glb' },
+  { name: 'Street', file: 'street.glb' },
+  { name: 'Tourist', file: 'tourist.glb' },
+  { name: 'Builder', file: 'builder.glb' },
+  { name: 'Police', file: 'police.glb' },
+  { name: 'Woman', file: 'woman.glb' },
 ] as const;
 
 export const CHARACTER_HEIGHT = 1.8;

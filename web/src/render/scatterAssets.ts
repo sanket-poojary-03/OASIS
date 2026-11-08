@@ -102,6 +102,11 @@ const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree'
  * notice, use up to 4 models; ground cover and shrubs 2.
  */
 export const drawnVariants = (kind: ScatterKind): number => (SHADOW.has(kind) ? 4 : 2);
+/**
+ * The outer rings draw only a kind's lightest models: nobody counts the branches at 150 m, and one oak can be 6k
+ * triangles to another's 3.5k. Oaks alone were more than half of what a wooded view drew (measured on the start screen).
+ */
+const FAR_VARIANTS = 2;
 
 /** Attributes a pack model may keep when its meshes are merged (only those every mesh has). */
 const KEEP = ['position', 'normal', 'uv', 'color'];
@@ -167,6 +172,7 @@ export class ScatterAssets {
     });
     const list = this.models.get(kind) ?? [];
     list.push({ geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed });
+    list.sort((a, b) => a.geometry.getAttribute('position').count - b.geometry.getAttribute('position').count); // lightest first: see FAR_VARIANTS
     this.models.set(kind, list);
   }
 
@@ -184,7 +190,7 @@ export class ScatterAssets {
     for (const it of items) {
       const models = this.models.get(it.kind);
       if (!models?.length && !this.standIns) continue; // with a server: real model or nothing
-      const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, drawnVariants(it.kind)) : -1;
+      const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, lod > 0 ? FAR_VARIANTS : drawnVariants(it.kind)) : -1;
       const key = `${it.kind}#${v}`;
       const g = groups.get(key) ?? { kind: it.kind, model: v >= 0 ? models![v] : undefined, list: [] };
       g.list.push(it);

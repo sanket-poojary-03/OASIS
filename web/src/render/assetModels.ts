@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { assetJob, clampVariant, resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
 import type { PlaceKind } from '../core/recipe';
+import { matteMaterials } from './matte';
 import { buildProcedural } from './proceduralModel';
 import { tintedCopy } from './tint';
 import type { ModelSource } from './worldObjects';
@@ -148,7 +149,7 @@ export class AssetModelSource implements ModelSource {
   private gltf(url: string): Promise<{ scene: THREE.Object3D }> {
     let p = this.gltfs.get(url);
     if (!p) {
-      p = this.loadGltf(url);
+      p = this.loadGltf(url).then((g) => { matteMaterials(g.scene); return g; });
       this.gltfs.set(url, p);
       p.catch(() => { if (this.gltfs.get(url) === p) this.gltfs.delete(url); });
     }

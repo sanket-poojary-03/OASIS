@@ -58,6 +58,14 @@ Rules:
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
   e.g. "modern apartment block") plus landmarks and structures (towers, plazas, stations). Indoor or abstract requests: make the
   closest outdoor world. Explain any compromise in notes.
+- Spread the world out: it is 1 km across and the player walks all of it. Use near only for what truly belongs to another place. Give the
+  other places their own part of the world with direction, covering north, south, east and west, not one side.
+- scenery (8-12 entries, always give it): kinds of things found out in the open, far from the main places, all over the world, so
+  exploring anywhere finds something. Say what; the engine repeats each kind across the land and decides where:
+  {"asset":"mossy stone shrine","kind":"landmark|structure|prop","size":"small|medium|large","interaction":"none|door|light|fire|sound|sit|push","spot":"anywhere|water|high"}.
+  spot: water for things by a shore (fishing shack, rowboat), high for things on hilltops (cairn, beacon). Mix 1-2 landmarks, 3-4 structures
+  and 4-6 props, all different, all fitting this world: a fantasy valley gets shrines, hunters' huts, standing stones, broken carts,
+  campfires; a city's outskirts get billboards, kiosks, water towers, bus shelters; a red planet gets crashed probes, solar arrays, supply crates.
 - Make the world feel full, varied and alive: aim for 12-20 places spread over different areas (not all in one spot). Usually one or two groups (settlement + layout) plus landmarks, structures
   and several usable props (lanterns, benches, wells, campfires, bells, carts, crates) placed near the things they belong to.
   Anything that comes in numbers is a group, not one landmark: gravestones in a graveyard, tents in a camp, trees in an orchard,
@@ -103,7 +111,8 @@ open sea, boardwalks join the decks, and things like rafts, boats and kelp float
   hill, by the river, north of the town), so the world has many places worth walking or driving to. Rivers, lakes, the sea and
   hills are the land, not places;
 - small details around places (lanterns by the inn, benches in the plaza, crates at the dock, parked cars on the street);
-- roads linking the main places, and fitting wildlife.
+- roads linking the main places, and fitting wildlife;
+- things found out in the open all over the world, far from the main places (shrines, huts, standing stones, broken carts: whatever fits).
 Only outdoor things that can be seen. No story, quests, characters or feelings. Reply with ONE JSON object and nothing else:
 {"title": "short world title", "brief": "the brief"}"""
 
