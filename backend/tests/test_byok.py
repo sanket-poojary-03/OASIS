@@ -116,9 +116,10 @@ def test_a_players_key_is_still_held_to_the_per_ip_limit():
     assert api.post("/api/brief", json={"prompt": "a harbour"}, headers=headers).status_code == 429
 
 
-def test_the_daily_budget_message_points_to_bringing_a_key():
+def test_the_daily_budget_message_asks_to_come_back_and_names_no_hidden_feature():
+    # The key field is hidden until after the hackathon (ui.ts BRING_YOUR_OWN_KEY), so the message must not point to it.
     msg = RateLimiter(daily_cap=0).check("a")
-    assert "own" in msg and "key" in msg and "preset" not in msg
+    assert "tomorrow" in msg and "key" not in msg and "preset" not in msg
 
 
 def test_model_lookups_run_with_the_players_key():

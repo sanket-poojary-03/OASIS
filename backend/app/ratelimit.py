@@ -19,7 +19,7 @@ class RateLimiter:
         if day != self.day:
             self.day, self.count = day, 0
         if self.count >= self.daily_cap and not own_key:
-            return "Today's free AI limit is used up. Add your own Sarvam API key on the start screen to keep going, or try again tomorrow."
+            return "Today's free AI limit is used up. Please try again tomorrow."
         q = self.hits[ip]
         while q and now - q[0] > self.window:
             q.popleft()

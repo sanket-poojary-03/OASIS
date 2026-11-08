@@ -28,6 +28,8 @@ export interface UIHandlers {
 }
 
 const HINT_EVERY_MS = 50;
+/** "Use my own AI key" on the start screen. Hidden until after the hackathon; the key logic underneath stays (api/userKey). */
+const BRING_YOUR_OWN_KEY = false;
 
 const reducedMotion = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -101,7 +103,8 @@ export class UI {
     const actions = el('div', 'actions');
     actions.append(go, demo, this.back);
     const panel = el('div', 'start-panel');
-    panel.append(this.healthLine, this.prompt, actions, new KeyPanel().root);
+    panel.append(this.healthLine, this.prompt, actions);
+    if (BRING_YOUR_OWN_KEY) panel.append(new KeyPanel().root);
     this.start.append(panel, this.resolution.root); // one menu: it moves to the HUD when a world opens (showHud)
     // hud
     const newWorld = el('button', 'secondary new-world', 'New world (N)');
