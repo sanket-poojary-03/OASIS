@@ -374,3 +374,19 @@ connections with an empty 202 (curl and Python's urllib get results; headers, us
 difference), so the Sketchfab finder sends its httpx requests through `UrllibTransport`; Poly Pizza, Meshy and the LLM
 keep plain httpx. And its `max_face_count` filter throws relevance away ("wrecked plane" returned a condiment jar), so
 the finder asks for 24 results unfiltered and drops those over `ONLINE_MAX_TRIS` (30k) itself, keeping their ranked order.
+
+## 2026-11-08: A blocked animal stops and turns away; life is only living creatures
+A walking animal whose next step was refused turned straight back, every frame. Since animals asked for at a spot stand
+right there (a road, a lake, inside a house's room), both ways were often shut, so it flipped 180° sixty times a second.
+Now a blocked animal stops for 1–3 s facing somewhere else, and one standing where it may not walk is free to walk off
+it. The AI had also added "a plane" as an animal (addLife), so it walked and flickered too: both prompts now say life
+is only living creatures, and vehicles, machines and other objects are places. It still decides which is which.
+
+## 2026-11-08: Places may carry a real height; it never changes the layout
+The AI may give a place its real height in metres (and an animal up to 15 m). Repairs clamp it into hard limits
+(0.1–1000 m) and `core/sizes.ts` into a range per kind (prop 0.2–6, structure 2–25, landmark 5–80; settlements keep their
+layout's heights), noting a clamp on the place card. A first version also grew a place's ground with its height: a
+70 m spire took three times the ground, pushed the other places elsewhere and moved the start away from the lakes. Now the
+ground stays as the size word makes it (the layout is the old one) and a model drawn at its height is shrunk evenly to
+fit that ground, so a flat wreck or a winged model keeps its space. The prompts carry a full JSON example with a height:
+prose rules alone were ignored.

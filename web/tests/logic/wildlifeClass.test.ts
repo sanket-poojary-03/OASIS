@@ -14,6 +14,20 @@ const field = {
   waterSurfaceAt: (x: number) => (water(x) ? 6 : null),
 } as unknown as WorldField;
 const world = { recipe: { seed: 7, life: [{ kind: 'deer', count: 8 }, { kind: 'rabbits', count: 8 }] }, field, placements: [], spawn: { x: 0, y: 5, z: 0 } } as unknown as BuiltWorld;
+/** Near half-turns that come within a second of the last one: the flicker of an animal turning back and forth. */
+function rapidTurns(w: Wildlife, body: THREE.Object3D, f: WorldField, dt: number, frames: number, each?: () => void): number {
+  let rapid = 0, last = body.rotation.y, lastTurn = -Infinity;
+  for (let i = 0; i < frames; i++) {
+    w.update(dt, i * dt, new THREE.Vector3(1e6, 0, 1e6), f);
+    each?.();
+    const turn = Math.abs(Math.atan2(Math.sin(body.rotation.y - last), Math.cos(body.rotation.y - last)));
+    last = body.rotation.y;
+    if (turn < 2.5) continue;
+    if (i * dt - lastTurn < 1) rapid++;
+    lastTurn = i * dt;
+  }
+  return rapid;
+}
 const positions = (w: Wildlife) => w.group.children.map((m) => `${m.position.x},${m.position.z}`);
 
 describe('Wildlife', () => {
@@ -52,6 +66,23 @@ describe('Wildlife', () => {
     expect(w.spotsOf(1)).toEqual([{ x: 30, z: 4 }]);
     expect(w.spotsOf(2)).toHaveLength(1); // the flock's centre
     expect(w.spotsOf(9)).toEqual([]);
+  });
+  it('an animal dropped where it may not walk (a lake here) neither spins on the spot nor stays stuck: it walks out', () => {
+    const asked = { ...world, recipe: { seed: 7, life: [{ kind: 'animal', asset: 'dragon', count: 1, at: { x: 50, z: 0 } }] } } as unknown as BuiltWorld;
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(asked);
+    const dragon = w.group.children[0];
+    const flicker = rapidTurns(w, dragon, field, 0.1, 3000); // 300 s
+    expect(flicker).toBe(0);
+    expect(water(dragon.position.x)).toBe(false);
+  });
+  it('an animal that meets a wall never walks through it, and turns away without flickering', () => {
+    const wall = { ...field, isReserved: (x: number) => x > 12 } as unknown as WorldField;
+    const herd = { ...world, field: wall, recipe: { seed: 3, life: [{ kind: 'animal', asset: 'goat', count: 1, at: { x: 11.5, z: 0 } }] } } as unknown as BuiltWorld;
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(herd);
+    const goat = w.group.children[0];
+    expect(rapidTurns(w, goat, wall, 0.05, 2000, () => expect(goat.position.x).toBeLessThanOrEqual(12))).toBe(0);
   });
   it('never walks into water or unloaded terrain, and hides there', () => {
     const w = new Wildlife(new THREE.Scene());

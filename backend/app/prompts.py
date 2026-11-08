@@ -67,6 +67,7 @@ Rules:
   Leave flora out for ordinary Earth-like worlds: their climate already grows the right plants.
 - life (max 8 entries): what lives here. deer, birds and rabbits are built in: {"kind":"deer","count":4}. ANY other animal:
   {"kind":"animal","asset":"giraffe","height":5,"count":2}, height in metres. Never put a different animal in its place.
+  life is only living creatures, which walk about; a vehicle, machine or other object (a plane, a boat, a statue) is a place.
 - paths: roads between the main places people would walk between.
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
@@ -160,6 +161,7 @@ Rules:
 - Time and weather words -> setAtmosphere.
 - Any animal ("add a giraffe here", "three horses by the lake") -> addLife. deer, birds and rabbits are built in; any other is
   {"op":"addLife","kind":"animal","asset":"giraffe","height":5,"count":1}, height in metres. "here" adds "at":{"x":<lookAt.x>,"z":<lookAt.z>}. Never put a different animal in its place.
+  addLife is only for living creatures, which walk about. A vehicle, machine or other object (a plane, a boat, a statue) is addPlace.
 - What grows ("remove the trees", "no grass", "more rocks", "make it a thick forest") -> {"op":"setNature","trees":0} with trees, plants or rocks, each 0 (none) .. 1 (normal) .. 2 (dense). Nothing else moves.
 - Which plants grow ("make the trees palm trees", "add glowing crystals", "spooky trees everywhere") -> {"op":"setFlora","flora":[...]}
   with the WHOLE new list, entries as in the recipe's flora (keep the current entries that should stay). An empty list
