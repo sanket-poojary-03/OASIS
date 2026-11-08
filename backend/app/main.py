@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,12 +15,15 @@ from .asset_procedural import PartsDesigner
 from .asset_vision import VisionPicker
 from .assets import AssetLibrary, AssetService, LLMPicker, MeshyClient, ModelCache, PolyPizzaFinder, SketchfabFinder, default_pick
 from .clientip import client_ip as forwarded_client
-from .llm import LLMClient
+from .llm import LLMClient, using_key
 from .ratelimit import RateLimiter
 from .schemas import AssetRequest, BriefRequest, EditRequest, WorldRequest
 from .service import AIUnavailable, WorldService
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+# A player's own AI key (header X-LLM-Key): printable, no spaces, a sane length. Checked before any AI call.
+KEY_SHAPE = re.compile(r"[!-~]{8,300}")
+BAD_KEY = "That API key doesn't look right. Check it and paste it again."
 
 
 def default_assets(llm=None) -> AssetService:
@@ -70,10 +74,19 @@ def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetServic
     def client_ip(request: Request) -> str:
         return forwarded_client(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
 
-    def guard(request: Request) -> None:
-        msg = limiter.check(client_ip(request))
+    def players_key(request: Request) -> str | None:
+        key = (request.headers.get("x-llm-key") or "").strip()
+        if key and not KEY_SHAPE.fullmatch(key):
+            raise HTTPException(status_code=400, detail=BAD_KEY)
+        return key or None
+
+    def guard(request: Request, key: str | None) -> None:
+        msg = limiter.check(client_ip(request), own_key=key is not None)
         if msg:
             raise HTTPException(status_code=429, detail=msg)
+
+    def unavailable(e: AIUnavailable) -> HTTPException:
+        return HTTPException(status_code=401 if str(e) == AIUnavailable.KEY_REJECTED else 503, detail=str(e))
 
     @app.get("/api/health")
     def health() -> dict:
@@ -86,29 +99,37 @@ def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetServic
 
     @app.post("/api/brief")
     def post_brief(req: BriefRequest, request: Request) -> dict:
-        guard(request)
-        return world.brief(req.prompt)
+        key = players_key(request)
+        guard(request, key)
+        with using_key(key):
+            return world.brief(req.prompt)
 
     @app.post("/api/world")
     def post_world(req: WorldRequest, request: Request) -> dict:
-        guard(request)
+        key = players_key(request)
+        guard(request, key)
         try:
-            return world.generate(req.prompt, req.brief)
+            with using_key(key):
+                return world.generate(req.prompt, req.brief)
         except AIUnavailable as e:
-            raise HTTPException(status_code=503, detail=str(e)) from e
+            raise unavailable(e) from e
 
     @app.post("/api/edit")
     def post_edit(req: EditRequest, request: Request) -> dict:
-        guard(request)
+        key = players_key(request)
+        guard(request, key)
         try:
-            return world.edit(req)
+            with using_key(key):
+                return world.edit(req)
         except AIUnavailable as e:
-            raise HTTPException(status_code=503, detail=str(e)) from e
+            raise unavailable(e) from e
 
     @app.post("/api/assets/resolve")
     def post_resolve(req: AssetRequest, request: Request) -> dict:
-        ip = client_ip(request)
-        return assets.resolve(req, gate=lambda: asset_limiter.check(ip) is None, pick_gate=lambda: pick_limiter.check(ip) is None)
+        ip, key = client_ip(request), players_key(request)
+        with using_key(key):
+            return assets.resolve(req, gate=lambda: asset_limiter.check(ip) is None,
+                                  pick_gate=lambda: pick_limiter.check(ip, own_key=key is not None) is None)
 
     @app.get("/api/assets/jobs/{job_id}")
     def get_job(job_id: str) -> dict:

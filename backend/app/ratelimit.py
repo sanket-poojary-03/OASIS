@@ -12,18 +12,20 @@ class RateLimiter:
         self.day: int | None = None
         self.count = 0
 
-    def check(self, ip: str) -> str | None:
+    def check(self, ip: str, own_key: bool = False) -> str | None:
+        """`own_key`: the player brought their own AI key, so the server's daily budget neither applies nor counts it."""
         now = self.clock()
         day = int(now // 86400)
         if day != self.day:
             self.day, self.count = day, 0
-        if self.count >= self.daily_cap:
-            return "Daily AI budget reached. Try again tomorrow or use the preset worlds."
+        if self.count >= self.daily_cap and not own_key:
+            return "Today's free AI limit is used up. Add your own Sarvam API key on the start screen to keep going, or try again tomorrow."
         q = self.hits[ip]
         while q and now - q[0] > self.window:
             q.popleft()
         if len(q) >= self.per_ip:
             return "Too many requests. Wait a few minutes."
         q.append(now)
-        self.count += 1
+        if not own_key:
+            self.count += 1
         return None

@@ -4,6 +4,7 @@ import { BusyPill } from './busy';
 import type { BusyStage } from './busyWords';
 import { Notices } from './notices';
 import { Minimap } from './minimap';
+import { KeyPanel } from './keyPanel';
 import { HINT_LEAD, promptHint } from './promptHint';
 import { ResolutionMenu, type ResolutionHandlers } from './resolutionMenu';
 import type { Resolution } from '../render/resolution';
@@ -100,7 +101,7 @@ export class UI {
     const actions = el('div', 'actions');
     actions.append(go, demo, this.back);
     const panel = el('div', 'start-panel');
-    panel.append(this.healthLine, this.prompt, actions);
+    panel.append(this.healthLine, this.prompt, actions, new KeyPanel().root);
     this.start.append(panel, this.resolution.root); // one menu: it moves to the HUD when a world opens (showHud)
     // hud
     const newWorld = el('button', 'secondary new-world', 'New world (N)');

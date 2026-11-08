@@ -7,7 +7,7 @@ from typing import Callable, Protocol
 
 from pydantic import ValidationError
 
-from .llm import LLMError, extract_json
+from .llm import LLMError, LLMKeyRejected, extract_json
 from .asset_match import cheap_llm
 from .prompts import brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
 from .schemas import MAX_LIFE_HEIGHT, MAX_SCENERY, EditRequest, Recipe, dump, dump_ops, ops_adapter
@@ -38,6 +38,7 @@ class AIUnavailable(Exception):
     NO_LLM = "LLM not available."
     MESSAGE ="The AI is busy right now. Please try again in a moment."
     BAD_ANSWER = "The AI's answer could not be used. Please try again, perhaps in different words."
+    KEY_REJECTED = "Your API key was rejected. Check it on the start screen, or remove it to use the free AI."
 
 
 def _target(rel) -> str | None:
@@ -423,6 +424,8 @@ class WorldService:
                 log.warning("LLM answer rejected: %s", str(e)[:300])
                 failure = AIUnavailable.BAD_ANSWER
                 user = f"{prompt}\n\nYour previous answer was invalid:\n{str(e)[:1500]}\nReturn corrected JSON only."
+            except LLMKeyRejected as e:
+                raise AIUnavailable(AIUnavailable.KEY_REJECTED) from e
             except LLMError as e:
                 log.warning("LLM request failed: %s", e)
                 failure = AIUnavailable.MESSAGE
