@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addBridgeColliders, bridgeDeckData, bridgeFrame, deckSurface, densify, drawnRoad, removeBridgeColliders, roadY } from '../../src/render/roads';
+import { addBridgeColliders, bridgeDeckData, bridgeFrame, bridgeRailData, deckSurface, densify, drawnRoad, removeBridgeColliders, roadY } from '../../src/render/roads';
 import { ribbonData } from '../../src/render/ribbon';
 
 // land at y=2 except a water band 20<x<40 with surface 1 (terrain 0 there)
@@ -39,17 +39,45 @@ describe('bridge colliders', () => {
     const bank = { heightAt: () => 3, waterSurfaceAt: () => 2 }; // within a river's reach, above its water
     expect(roadY(bank, 0, 0)).toBeCloseTo(3.12, 5);
   });
-  it('skips non-bridge roads and creates one collider per run; removable', () => {
-    const calls: Array<[Float32Array, Uint32Array]> = [];
+  it('skips non-bridge roads and gives each run a deck to walk on and solid rails; all removable', () => {
+    const decks: Array<[Float32Array, Uint32Array]> = [], rails: Array<[Float32Array, Uint32Array]> = [];
     const removed: unknown[] = [];
-    const fake = { addTerrain: (p: Float32Array, i: Uint32Array) => { calls.push([p, i]); return { id: calls.length } as never; } };
+    const fake = {
+      addTerrain: (p: Float32Array, i: Uint32Array) => { decks.push([p, i]); return { id: `deck${decks.length}` } as never; },
+      addFixedTrimesh: (p: Float32Array, i: Uint32Array) => { rails.push([p, i]); return { id: `rail${rails.length}` } as never; },
+    };
     expect(addBridgeColliders(field, [{ ...road, bridges: road.bridges.map(() => false) }], fake)).toHaveLength(0);
     const two = { ...road, bridges: [true, false, true, false, true, false] };
     const hs = addBridgeColliders(field, [road, two], fake);
-    expect(hs).toHaveLength(4);
+    expect(decks).toHaveLength(4);
+    expect(rails).toHaveLength(4); // the rails are walls, not ground to stand on
+    expect(hs).toHaveLength(8);
     removeBridgeColliders(hs, { removeCollider: (c: unknown) => { removed.push(c); } } as never);
-    expect(removed).toHaveLength(4);
+    expect(removed).toHaveLength(8);
     expect(hs).toHaveLength(0);
+  });
+  it('the rails are walls along both edges of the deck, a little taller than drawn, and leave the road ends open', () => {
+    const walls = bridgeRailData(field, road);
+    expect(walls).toHaveLength(1);
+    const { positions, indices } = walls[0];
+    expect(indices.length).toBeGreaterThan(0);
+    const { yAt } = drawnRoad(field, road);
+    const zs = new Set<number>(), xs: number[] = [];
+    for (let v = 0; v < positions.length; v += 3) {
+      const [x, y, z] = [positions[v], positions[v + 1], positions[v + 2]];
+      zs.add(Math.round(Math.abs(z) * 1000) / 1000);
+      xs.push(x);
+      expect(y).toBeLessThanOrEqual(yAt(x, 0) + 1.5); // up to just over the 1 m rail
+    }
+    expect([...zs]).toEqual([2]); // every wall stands on a deck edge (width 4), none across the road
+    expect(Math.min(...xs)).toBeLessThanOrEqual(21);
+    expect(Math.max(...xs)).toBeGreaterThanOrEqual(39); // the whole span across the water
+    let tallest = -Infinity;
+    for (let v = 0; v < positions.length; v += 3) tallest = Math.max(tallest, positions[v + 1] - yAt(positions[v], 0));
+    expect(tallest).toBeGreaterThan(1.2); // a jump against the rail does not carry over it
+  });
+  it('a bridge with no rails drawn (the boardwalks of an ocean world) gets no rail walls', () => {
+    expect(bridgeRailData({ ...field, deckY: 3 }, road)).toHaveLength(0);
   });
   it('a bridge stands on posts down to the bed, with rails along both sides', () => {
     const { points, bridge, yAt } = drawnRoad(field, road);
