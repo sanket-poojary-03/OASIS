@@ -74,6 +74,11 @@ const GROUND_REACH: Partial<Record<ScatterKind, number>> = { rock: 1, log: 1.5, 
 const FLORA_REACH: Partial<Record<FloraLayer, number>> = { shrub: 0.5, ground: 0.3, rock: 1 };
 const MAX_SCATTER_SINK = 0.5;
 const TREES: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pine', 'palm', 'dead_tree']);
+/** A tree: a preset tree kind, or a plant the AI named for the canopy (not logs or stumps, which lie low). */
+export const isTreeKind = (kind: ItemKind): boolean => {
+  const named = parseFloraKey(kind);
+  return named ? named.layer === 'canopy' : TREES.has(kind as ScatterKind);
+};
 /** The share of a forest's trees left standing among a settlement's houses: people clear the land they live on. */
 const SETTLEMENT_TREES = 0.3;
 
@@ -153,8 +158,7 @@ export function scatterChunk(field: WorldField, cx: number, cz: number, size = 6
     const named = parseFloraKey(kind);
     if (layerOf(kind) !== 'rock' && field.slopeAt(x, z) > 0.6) continue;
     if (field.isReserved(x, z, 2) || field.pavedAt(x, z) > 0 || field.cropAt(x, z)) continue;
-    const tree = named ? named.layer === 'canopy' : TREES.has(kind as ScatterKind);
-    if (tree && !park && field.inSettlement(x, z) && rng() > SETTLEMENT_TREES) continue;
+    if (isTreeKind(kind) &&!park && field.inSettlement(x, z) && rng() > SETTLEMENT_TREES) continue;
     const rotation = rng() * Math.PI * 2, scale = 0.75 + rng() * 0.6, variant = Math.floor(rng() * VARIANTS);
     const reach = named ? FLORA_REACH[named.layer] : GROUND_REACH[kind as ScatterKind];
     const sink = reach === undefined ? 0 : Math.min(MAX_SCATTER_SINK, field.slopeAt(x, z) * reach * scale);

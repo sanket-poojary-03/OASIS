@@ -74,7 +74,7 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
 }
 
 /** A named plant's height in metres when the AI gave none, by layer. */
-const FLORA_HEIGHT: Record<FloraLayer, number> = { canopy: 7, shrub: 1.4, ground: 0.6, rock: 1.2 };
+export const FLORA_HEIGHT: Record<FloraLayer, number> = { canopy: 7, shrub: 1.4, ground: 0.6, rock: 1.2 };
 
 /**
  * The plants a world names (recipe `flora`), from the library alone like the base art: CC0, one look, and light enough

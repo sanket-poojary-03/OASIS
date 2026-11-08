@@ -6,6 +6,13 @@ import type { ModelBase } from '../world/groundPose';
  * iterations every frame (5 ms), so a detailed model collides as a simpler copy of its own shape, with no walls in the air.
  */
 export const MAX_COLLIDER_TRIS = 1500;
+/**
+ * What the player and cars can walk into: this far above a model's lowest point. Simplified on its own, with its own
+ * budget: a grid sized to a giant tree's whole canopy erased its trunk (measured: twisted and oak trees at 20 m kept
+ * 0-2 triangles at knee height), so you walked through the bark and bumped into leaves overhead.
+ */
+const REACH = 2.5;
+export const MAX_REACH_TRIS = 1000;
 /** The first simplifying grid has this many cells along the model's longest diagonal; each try is coarser. */
 const FIRST_GRID = 64;
 const COARSER = 1.5;
@@ -66,7 +73,45 @@ export function surfaceOf(root: THREE.Object3D): Surface | null {
     if (g.index) for (let i = 0; i < g.index.count; i++) indices[next++] = base + g.index.getX(i);
     else for (let i = 0; i < pos.count; i++) indices[next++] = base + i;
   }
-  return simplifySurface({ positions, indices }, MAX_COLLIDER_TRIS);
+  const full = { positions, indices };
+  if (indices.length / 3 <= MAX_COLLIDER_TRIS) return full;
+  const [low, high] = splitAtReach(full);
+  return joinSurfaces(simplifySurface(low, MAX_REACH_TRIS), simplifySurface(high, MAX_COLLIDER_TRIS));
+}
+
+/** The triangles with a corner within REACH of the model's lowest point, and the rest (each with only its own vertices). */
+function splitAtReach({ positions, indices }: Surface): [Surface, Surface] {
+  let lowest = Infinity;
+  for (let i = 1; i < positions.length; i += 3) lowest = Math.min(lowest, positions[i]);
+  const reach = lowest + REACH;
+  const parts: [number[], number[]] = [[], []];
+  for (let i = 0; i < indices.length; i += 3) {
+    const low = positions[indices[i] * 3 + 1] <= reach || positions[indices[i + 1] * 3 + 1] <= reach || positions[indices[i + 2] * 3 + 1] <= reach;
+    parts[low ? 0 : 1].push(indices[i], indices[i + 1], indices[i + 2]);
+  }
+  return [compact(positions, parts[0]), compact(positions, parts[1])];
+}
+
+function compact(positions: Float32Array, picked: number[]): Surface {
+  const remap = new Map<number, number>(), out: number[] = [];
+  const indices = new Uint32Array(picked.length);
+  picked.forEach((v, i) => {
+    let id = remap.get(v);
+    if (id === undefined) { id = remap.size; remap.set(v, id); out.push(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]); }
+    indices[i] = id;
+  });
+  return { positions: new Float32Array(out), indices };
+}
+
+function joinSurfaces(a: Surface, b: Surface): Surface {
+  const positions = new Float32Array(a.positions.length + b.positions.length);
+  positions.set(a.positions);
+  positions.set(b.positions, a.positions.length);
+  const indices = new Uint32Array(a.indices.length + b.indices.length);
+  indices.set(a.indices);
+  const offset = a.positions.length / 3;
+  for (let i = 0; i < b.indices.length; i++) indices[a.indices.length + i] = b.indices[i] + offset;
+  return { positions, indices };
 }
 
 /**
@@ -119,6 +164,22 @@ function cluster({ positions, indices }: Surface, min: THREE.Vector3, cell: numb
  * sails or a lamp's arm do not count. Call it on a `content` that has no parent yet.
  */
 export function baseOf(content: THREE.Object3D): ModelBase {
+  const { points, low, high } = samplePoints(content);
+  return extentOf(points, -Infinity, low + Math.max(MIN_BASE_BAND, (high - low) * BASE_SHARE)) ?? { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+}
+
+/**
+ * The extent of a model between `from` and `to` metres above its lowest point, in `content`'s own space, or null when
+ * nothing is drawn there. A tree's trunk at the height the player touches it: a leaning trunk or a splayed root puts its
+ * foot elsewhere. Call it on a `content` that has no parent yet.
+ */
+export function bandOf(content: THREE.Object3D, from: number, to: number): ModelBase | null {
+  const { points, low } = samplePoints(content);
+  return extentOf(points, low + from, low + to);
+}
+
+/** Up to BASE_VERTICES of what `content` draws, in its own space, and its lowest and highest y. */
+function samplePoints(content: THREE.Object3D): { points: number[]; low: number; high: number } {
   content.updateMatrixWorld(true);
   const meshes = drawnMeshes(content);
   const total = meshes.reduce((n, m) => n + m.geometry.getAttribute('position').count, 0);
@@ -134,12 +195,15 @@ export function baseOf(content: THREE.Object3D): ModelBase {
       high = Math.max(high, v.y);
     }
   }
-  const band = low + Math.max(MIN_BASE_BAND, (high - low) * BASE_SHARE);
-  const base: ModelBase = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  return { points, low, high };
+}
+
+function extentOf(points: number[], from: number, to: number): ModelBase | null {
+  const box: ModelBase = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (let i = 0; i < points.length; i += 3) {
-    if (points[i + 1] > band) continue;
-    base.minX = Math.min(base.minX, points[i]); base.maxX = Math.max(base.maxX, points[i]);
-    base.minZ = Math.min(base.minZ, points[i + 2]); base.maxZ = Math.max(base.maxZ, points[i + 2]);
+    if (points[i + 1] < from || points[i + 1] > to) continue;
+    box.minX = Math.min(box.minX, points[i]); box.maxX = Math.max(box.maxX, points[i]);
+    box.minZ = Math.min(box.minZ, points[i + 2]); box.maxZ = Math.max(box.maxZ, points[i + 2]);
   }
-  return base.minX === Infinity ? { minX: 0, maxX: 0, minZ: 0, maxZ: 0 } : base;
+  return box.minX === Infinity ? null : box;
 }

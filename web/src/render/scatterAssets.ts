@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { FloraLayer } from '../core/recipe';
 import { parseFloraKey, type FloraKey, type ItemKind, type ScatterItem, type ScatterKind } from '../world/scatter';
+import { standInTrunk, type TrunkShape } from '../world/trunks';
 import { fitToHeight } from './fit';
+import { bandOf, baseOf } from './meshCollider';
 import { NOT_REFLECTED } from './layers';
 
 interface PartOpts { x?: number; y?: number; z?: number; sx?: number; sy?: number; sz?: number; rz?: number }
@@ -123,8 +125,11 @@ const FAR_VARIANTS = 2;
 const KEEP = ['position', 'normal', 'uv', 'color'];
 
 type Drawn = { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] };
-/** A pack model, with a lighter copy for the outer rings when it was given one (render/lightModel). */
-type Model = Drawn & { far?: Drawn };
+/**
+ * A pack model, with a lighter copy for the outer rings when it was given one (render/lightModel), and where its trunk
+ * stands: fitting centres the whole model, so a leaning canopy puts the trunk a metre or more off its middle.
+ */
+type Model = Drawn & { far?: Drawn; trunk: TrunkShape };
 
 export class ScatterAssets {
   private readonly geos = new Map<ScatterKind, THREE.BufferGeometry>();
@@ -188,7 +193,7 @@ export class ScatterAssets {
   useModel(kind: ItemKind, object: THREE.Object3D, height: number, far?: THREE.Object3D): void {
     const near = this.merge(object, height);
     if (!near) return;
-    const model: Model = { ...near, far: far ? this.merge(far, height) ?? undefined : undefined };
+    const model: Model = { ...near, far: far ? this.merge(far, height) ?? undefined : undefined, trunk: trunkOf(object, height) };
     const list = this.models.get(kind) ?? [];
     list.push(model);
     list.sort((a, b) => a.geometry.getAttribute('position').count - b.geometry.getAttribute('position').count); // lightest first: see FAR_VARIANTS
@@ -225,6 +230,22 @@ export class ScatterAssets {
     return { geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed };
   }
 
+  /** Which of a kind's models an item is drawn with at `lod` (see instance), or -1 for its stand-in shape. */
+  private variantOf(it: ScatterItem, models: Model[] | undefined, lod: number): number {
+    return models?.length ? (it.variant ?? 0) % Math.min(models.length, lod > 0 ? FAR_VARIANTS : drawnVariants(it.kind)) : -1;
+  }
+
+  /**
+   * The trunk of the model a near item is drawn with (colliders exist only near the player, at lod 0), in its own space
+   * at scale 1; a stand-in's is in its middle, sized by `height`. Null when the item is not drawn at all.
+   */
+  trunkShape(it: ScatterItem, height: number): TrunkShape | null {
+    const models = this.modelsFor(it.kind);
+    const v = this.variantOf(it, models, 0);
+    if (v >= 0) return models![v].trunk;
+    return this.standIns ? standInTrunk(height) : null;
+  }
+
   /**
    * `lod`: 0 for the chunks around the camera (everything, with shadows); 1 and 2 for the outer rings, which keep only
    * trees, rocks and other big things, thinned to 1 in 3 and 1 in 5, and cast no shadows. Library trees are 3-6k
@@ -239,7 +260,7 @@ export class ScatterAssets {
     for (const it of items) {
       const models = this.modelsFor(it.kind);
       if (!models?.length && !this.standIns) continue; // with a server: real model or nothing
-      const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, lod > 0 ? FAR_VARIANTS : drawnVariants(it.kind)) : -1;
+      const v = this.variantOf(it, models, lod);
       const key = `${it.kind}#${v}`;
       const model = v >= 0 ? models![v] : undefined;
       const g = groups.get(key) ?? { kind: it.kind, model: lod > 0 ? model?.far ?? model : model, list: [] };
@@ -263,4 +284,19 @@ export class ScatterAssets {
     }
     return group;
   }
+}
+
+/** No measured trunk is wider than this share of its tree: a model with a ground patch under it is not a wall. */
+const WIDEST_TRUNK = 0.2;
+/** Where the player meets a trunk, in metres above the model's foot: from the knee to the shoulder. */
+const BODY_FROM = 0.5, BODY_TO = 1.5;
+
+/**
+ * A fitted model's trunk where the player touches it (meshCollider.bandOf): the middle and mean half-width. A model with
+ * nothing at that height (a floating tree) falls back to where it meets the ground.
+ */
+function trunkOf(object: THREE.Object3D, height: number): TrunkShape {
+  const b = bandOf(object, BODY_FROM, BODY_TO) ?? baseOf(object);
+  const radius = Math.min(height * WIDEST_TRUNK, (b.maxX - b.minX + b.maxZ - b.minZ) / 4);
+  return { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2, radius };
 }

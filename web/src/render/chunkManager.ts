@@ -4,7 +4,9 @@ import type { Physics } from '../physics/physics';
 import { CHUNK_SIZE, type ChunkData } from '../world/chunkData';
 import { chunkInMap } from '../world/mapBounds';
 import type { FieldSnapshot } from '../world/field';
-import type { ScatterItem } from '../world/scatter';
+import { floraKey, type ItemKind, type ScatterItem } from '../world/scatter';
+import { trunkColliders } from '../world/trunks';
+import { FLORA_HEIGHT, SCATTER_ART } from './artLoader';
 import { ChunkQueue } from './chunkQueue';
 import type { GrassSystem } from './grass';
 import type { ScatterAssets } from './scatterAssets';
@@ -32,10 +34,14 @@ interface LiveChunk {
   positions: Float32Array;
   indices: Uint32Array;
   collider: Collider | null;
+  /** Its trees' trunks: built and dropped with `collider`, rebuilt when models arrive (a tree you cannot see is not solid). */
+  trunks: Collider[];
   stale: boolean;
 }
 
 const key = (cx: number, cz: number) => `${cx},${cz}`;
+/** The height each preset kind is drawn at (the art catalogue); named plants add theirs per world in setSnapshot. */
+const PRESET_HEIGHT = new Map<ItemKind, number>(SCATTER_ART.map((e) => [e.kind, e.height]));
 
 export class ChunkManager {
   readonly group = new THREE.Group();
@@ -49,6 +55,8 @@ export class ChunkManager {
   private readonly workers: Worker[] = [];
   private nextWorker = 0;
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
+  /** Drawn height of every kind in this world: presets plus the recipe's named plants (as artLoader fits them). */
+  private heights = new Map(PRESET_HEIGHT);
 
   constructor(scene: THREE.Scene, private readonly physics: Physics, private readonly scatter: ScatterAssets, private readonly grass: GrassSystem) {
     scene.add(this.group);
@@ -68,6 +76,8 @@ export class ChunkManager {
   setSnapshot(snapshot: FieldSnapshot): void {
     this.generation++;
     this.queue.reset();
+    this.heights = new Map(PRESET_HEIGHT);
+    for (const f of snapshot.recipe.flora ?? []) this.heights.set(floraKey(f), f.height ?? FLORA_HEIGHT[f.layer]);
     for (const worker of this.workers) worker.postMessage({ type: 'init', generation: this.generation, snapshot });
     for (const c of this.chunks.values()) c.stale = true;
   }
@@ -100,7 +110,7 @@ export class ChunkManager {
       if (far > VIEW + 1) { this.drop(k); continue; }
       const near = far <= 1;
       if (near && !c.collider) needCollider.push({ key: k, dist: (c.cx - ccx) ** 2 + (c.cz - ccz) ** 2 });
-      if (!near && c.collider) { this.physics.removeCollider(c.collider); c.collider = null; }
+      if (!near && c.collider) this.dropColliders(c);
       if (near && !c.grass && c.grassData.length) { c.grass = this.grass.build(c.grassData); this.group.add(c.grass); }
       if (!near && c.grass) this.dropGrass(c);
       const lod = this.lodAt(c.cx, c.cz);
@@ -108,9 +118,32 @@ export class ChunkManager {
     }
     // Bounded per frame, nearest (the player's chunk) first; the rest wait for later frames.
     for (const k of pickColliderBuilds(needCollider)) {
-      const c = this.chunks.get(k)!;
-      c.collider = this.physics.addTerrain(c.positions, c.indices);
+      this.addColliders(this.chunks.get(k)!);
     }
+  }
+
+  /** Solid ground and tree trunks: cylinders cost next to nothing beside the terrain's BVH, so they share its budget. */
+  private addColliders(c: LiveChunk): void {
+    c.collider = this.physics.addTerrain(c.positions, c.indices);
+    this.addTrunks(c);
+  }
+
+  private addTrunks(c: LiveChunk): void {
+    const heightOf = (k: ItemKind): number => this.heights.get(k) ?? FLORA_HEIGHT.canopy;
+    for (const t of trunkColliders(c.items, heightOf, (it) => this.scatter.trunkShape(it, heightOf(it.kind)))) {
+      c.trunks.push(this.physics.addFixedCylinder(t.x, t.y, t.z, t.halfHeight, t.radius));
+    }
+  }
+
+  private dropTrunks(c: LiveChunk): void {
+    for (const t of c.trunks) this.physics.removeCollider(t);
+    c.trunks = [];
+  }
+
+  private dropColliders(c: LiveChunk): void {
+    if (c.collider) this.physics.removeCollider(c.collider);
+    c.collider = null;
+    this.dropTrunks(c);
   }
 
   isReady(x: number, z: number): boolean {
@@ -140,7 +173,11 @@ export class ChunkManager {
 
   /** Pack models arrived (art hot-swap): re-instance the scatter of every live chunk with the current ScatterAssets. */
   refreshScatter(): void {
-    for (const c of this.chunks.values()) this.reinstance(c, c.lod);
+    for (const c of this.chunks.values()) {
+      this.reinstance(c, c.lod);
+      // Trees that just became visible become solid too.
+      if (c.collider) { this.dropTrunks(c); this.addTrunks(c); }
+    }
   }
 
   /** Scatter detail by ring around the camera's chunk: 0 near, 1 and 2 further out (see ScatterAssets.instance). */
@@ -190,9 +227,9 @@ export class ChunkManager {
     this.drop(k);
     this.group.add(mesh, scatter);
     const chunk: LiveChunk = {
-      cx: d.cx, cz: d.cz, mesh, scatter, lod, items: d.scatter, grassData: d.grass, grass: null, positions: d.positions, indices: d.indices, collider: null, stale: false,
+      cx: d.cx, cz: d.cz, mesh, scatter, lod, items: d.scatter, grassData: d.grass, grass: null, positions: d.positions, indices: d.indices, collider: null, trunks: [], stale: false,
     };
-    if (hadCollider) chunk.collider = this.physics.addTerrain(d.positions, d.indices);
+    if (hadCollider) this.addColliders(chunk);
     if (hadGrass && d.grass.length) { chunk.grass = this.grass.build(d.grass); this.group.add(chunk.grass); }
     this.chunks.set(k, chunk);
   }
@@ -204,7 +241,7 @@ export class ChunkManager {
     c.mesh.geometry.dispose();
     for (const child of c.scatter.children) (child as THREE.InstancedMesh).dispose();
     this.dropGrass(c);
-    if (c.collider) this.physics.removeCollider(c.collider);
+    this.dropColliders(c);
     this.chunks.delete(k);
     this.queue.forget(k);
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { baseOf, MAX_COLLIDER_TRIS, simplifySurface, surfaceOf } from '../../src/render/meshCollider';
+import { baseOf, MAX_COLLIDER_TRIS, MAX_REACH_TRIS, simplifySurface, surfaceOf } from '../../src/render/meshCollider';
 import { renderedBox, skinnedTemplate } from './rigFixture';
 
 const raw = (g: THREE.BufferGeometry) => ({ positions: g.getAttribute('position').array as Float32Array, indices: new Uint32Array(g.index!.array) });
@@ -48,12 +48,31 @@ describe('surfaceOf', () => {
     const heavy = new THREE.Group();
     heavy.add(new THREE.Mesh(new THREE.SphereGeometry(5, 200, 100)));
     const s = surfaceOf(heavy)!;
-    expect(s.indices.length / 3).toBeLessThanOrEqual(MAX_COLLIDER_TRIS);
+    expect(s.indices.length / 3).toBeLessThanOrEqual(MAX_COLLIDER_TRIS + MAX_REACH_TRIS); // what you can walk into has its own share
     expect(s.indices.length / 3).toBeGreaterThan(100); // still a shape, not a handful of triangles
     const size = new THREE.Box3().setFromArray(s.positions).getSize(new THREE.Vector3());
     expect(size.x).toBeGreaterThan(9.5);
     expect(size.y).toBeGreaterThan(9.5);
   });
+  it('keeps a thin trunk under a wide, heavy canopy solid from every side (a giant tree)', () => {
+    const root = new THREE.Group();
+    root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 10, 12).translate(1.5, 5, -0.5))); // off-centre, as real trees are
+    root.add(new THREE.Mesh(new THREE.SphereGeometry(12, 64, 48).translate(0, 20, 0)));
+    const s = surfaceOf(root)!;
+    expect(s.indices.length / 3).toBeLessThanOrEqual(MAX_COLLIDER_TRIS + MAX_REACH_TRIS);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), hit = new THREE.Vector3();
+    for (const y of [0.4, 1, 1.8]) for (let k = 0; k < 8; k++) {
+      const dir = new THREE.Vector3(Math.cos((k / 8) * Math.PI * 2), 0, Math.sin((k / 8) * Math.PI * 2));
+      const ray = new THREE.Ray(new THREE.Vector3(1.5, y, -0.5).addScaledVector(dir, -5), dir);
+      let nearest = Infinity;
+      for (let i = 0; i < s.indices.length; i += 3) {
+        a.fromArray(s.positions, s.indices[i] * 3); b.fromArray(s.positions, s.indices[i + 1] * 3); c.fromArray(s.positions, s.indices[i + 2] * 3);
+        if (ray.intersectTriangle(a, b, c, false, hit)) nearest = Math.min(nearest, hit.distanceTo(ray.origin));
+      }
+      expect(nearest, `walking in at y=${y} from direction ${k}`).toBeLessThan(5 - 0.3); // stopped at the bark, not inside it
+    }
+  });
+
 });
 
 describe('simplifySurface', () => {
