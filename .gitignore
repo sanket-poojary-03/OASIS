@@ -9,3 +9,4 @@ backend/assets/generated/
 *.log
 .DS_Store
 backend/assets/.generated-*.json
+backend/assets/.generated-*.tmp

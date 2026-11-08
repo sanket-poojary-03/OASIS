@@ -32,7 +32,7 @@ Recommended way to run the plan: `superpowers:subagent-driven-development`, or `
 - Show model-written text with `textContent` only, never `innerHTML`.
 - Secrets live only in `backend/.env`. Never commit `.env`.
 - Keep files small and single-purpose. Split any file that passes about 400 lines.
-- Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit as the user's git account (Sanket Poojary). No `Co-Authored-By` Claude line or other Claude attribution in commits.
 
 ## Commands
 ```bash
