@@ -16,7 +16,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   return e;
 }
 
-/** A button above "New world": it opens the list of resolutions, each with its size on this window. */
+/** A button above "New world" (top right on the start screen): it opens the list of resolutions, each with its size on this window. */
 export class ResolutionMenu {
   readonly root = el('div', 'resolution');
   private readonly button = el('button', 'secondary resolution-button');
@@ -50,7 +50,7 @@ export class ResolutionMenu {
 
   private label(): void {
     const name = RESOLUTIONS.find((r) => r.id === this.choice)!.label;
-    this.button.textContent = `Resolution: ${name} (R)`;
+    this.button.replaceChildren(`Resolution: ${name}`, el('span', 'resolution-key', ' (R)')); // R works in a world, not on the start screen
   }
 
   private render(): void {

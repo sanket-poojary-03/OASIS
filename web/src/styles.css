@@ -85,6 +85,9 @@ button:active { transform: translateY(var(--wall-h)); --wall-h: 0px; }
 .new-world { position: absolute; right: 16px; bottom: 16px; font-size: 14px; padding: 7px 13px; pointer-events: auto; }
 .resolution { position: absolute; right: 16px; bottom: 62px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: auto; }
 .resolution-button { font-size: 14px; padding: 7px 13px; }
+/* On the start screen: top right, opening downwards; R is a game key, so its hint is left out. */
+.start .resolution { position: absolute; top: 16px; bottom: auto; flex-direction: column-reverse; z-index: 1; }
+.start .resolution-key { display: none; }
 .resolution-list { display: flex; flex-direction: column; gap: 2px; width: min(280px, calc(100vw - 32px)); padding: 7px; border-radius: 16px; background: var(--slab); box-shadow: 0 5px 0 var(--wall), 0 14px 28px var(--cast); }
 .resolution-list.hidden { display: none; }
 .resolution-item { --wall-h: 0px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; padding: 7px 11px; border-radius: 10px; text-align: left; color: var(--ink); background: transparent; }

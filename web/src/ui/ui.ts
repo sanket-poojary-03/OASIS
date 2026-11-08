@@ -98,13 +98,13 @@ export class UI {
     actions.append(go, demo, this.back);
     const panel = el('div', 'start-panel');
     panel.append(this.healthLine, this.prompt, actions);
-    this.start.append(panel);
+    this.start.append(panel, this.resolution.root); // one menu: it moves to the HUD when a world opens (showHud)
     // hud
     const newWorld = el('button', 'secondary new-world', 'New world (N)');
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
     this.hud.append(
       el('div', 'crosshair', '+'),
-      this.resolution.root, newWorld, this.fuel,
+      newWorld, this.fuel,
     );
     this.fuel.append(el('div', 'fuel-label', 'BOOST'), el('div', 'fuel-bar'));
     this.fuel.lastElementChild!.append(this.fuelFill);
@@ -126,6 +126,7 @@ export class UI {
 
   showStart(show: boolean): void {
     this.start.classList.toggle('hidden', !show);
+    if (show) this.moveResolution(this.start);
     if (!show) { blurWithin(this.start); this.back.classList.add('hidden'); }
     // The controls only mean something in a world, so the tutorial waits for one.
     this.tutorial.button.classList.toggle('hidden', show);
@@ -177,9 +178,17 @@ export class UI {
 
   showHud(show: boolean): void {
     this.hud.classList.toggle('hidden', !show);
-    if (!show) this.resolution.close();
+    if (show) this.moveResolution(this.hud);
+    else this.resolution.close();
     // The controls live in the tutorial now, so a new player needs one pointer to it, and to the click that takes control.
     if (show && !this.welcomed) { this.welcomed = true; this.toast('Click the world to play. Press H for the controls.'); }
+  }
+
+  /** The resolution menu sits on whichever screen is up: the start screen, or the HUD in a world. */
+  private moveResolution(to: HTMLElement): void {
+    if (this.resolution.root.parentElement === to) return;
+    this.resolution.close();
+    to.append(this.resolution.root);
   }
 
   setHint(text: string | null): void {
