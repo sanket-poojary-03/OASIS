@@ -15,7 +15,7 @@ from urllib.parse import quote
 import httpx
 
 from .asset_sources import (  # noqa: F401 - re-exported for main.py
-    Candidate, MeshyClient, PolyPizzaFinder, SketchfabFinder, license_ok, tokens,
+    ONLINE_MAX_TRIS, Candidate, MeshyClient, PolyPizzaFinder, SketchfabFinder, license_ok, tokens,
 )
 from .asset_analyse import Analysis
 from .asset_match import LLMPicker, default_pick, scene_like, shape_ok  # noqa: F401 - re-exported for main.py
@@ -254,7 +254,7 @@ class AssetService:
         for finder in self.finders:
             try:
                 found = [c for c in finder.search(term)
-                         if license_ok(c.license) and (c.tris is None or c.tris <= 30000) and not scene_like(c.title, f"{term} {original}")][:5]
+                         if license_ok(c.license) and (c.tris is None or c.tris <= ONLINE_MAX_TRIS) and not scene_like(c.title, f"{term} {original}")][:5]
             except Exception as e:  # noqa: BLE001 - a failing source just means fewer results
                 log.warning("asset finder %s failed for %r: %s: %s", getattr(finder, "name", type(finder).__name__), term, type(e).__name__, e)
                 continue

@@ -50,6 +50,7 @@ Without `LLM_API_KEY`, or without the backend, the app shows "LLM not available"
 | V | Switch between first and third person |
 | B | Change character |
 | C | See the world checks |
+| M | Open the mini-map large |
 | R | Choose the resolution |
 | N | Make a new world |
 | H | Show the controls again |

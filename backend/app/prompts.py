@@ -67,6 +67,7 @@ Rules:
   Leave flora out for ordinary Earth-like worlds: their climate already grows the right plants.
 - life (max 8 entries): what lives here. deer, birds and rabbits are built in: {"kind":"deer","count":4}. ANY other animal:
   {"kind":"animal","asset":"giraffe","height":5,"count":2}, height in metres. Never put a different animal in its place.
+  life is only living creatures, which walk about; a vehicle, machine or other object (a plane, a boat, a statue) is a place.
 - paths: roads between the main places people would walk between.
 - ids: lowercase, start with a letter, 2-32 chars of [a-z0-9_-], unique. Every target and path must name an existing id.
 - Every place is welcome: cities, towns, modern, futuristic or fantasy worlds. A city is a large settlement (its asset is the building type,
@@ -103,6 +104,8 @@ Rules:
   detail without using a place slot: {"asset":"wooden barrel","count":1-6,"size":"small|medium|large"}. E.g. a market: crates,
   barrels, sacks; a plaza: benches, street lamps; a harbour: crates, rowboats, rope coils; a city street: street lights, benches,
   bins, parked cars; a camp: logs, crates, lanterns. Give most places 1-3 kinds of props.
+- height (optional, metres): a place's real height, true to life, when that matters (a plane 3, a house 8, a lighthouse 30,
+  a giant statue 40). Leave it out for settlements. Animals in life take their real height too (a horse 1.7, a dragon 10).
 - highest, lowest, flat and by_water take no other fields. size is only small, medium or large. Use unsupported ONLY for harmful content, never because a place is unusual.
 - "version": 1, any integer "seed".
 
@@ -153,13 +156,18 @@ Rules:
 - "here", "there", "where I'm looking", "in front of me" -> {"rel":"at","x":<lookAt.x>,"z":<lookAt.z>} using the lookAt numbers exactly. If lookAt is null, use relations instead.
 - "on this", "on that", "on top of it" (small props only, e.g. a candle on a table) -> the same "at" plus "y":<lookAt.y>, so the prop sits on the surface being looked at.
 - "near this", "next to that", "beside it" -> {"rel":"near","target":<lookingAt id>,"maxDist":30} plus {"rel":"flat"}; if lookingAt is null, use the "at" of lookAt.
-- Any object the user names is fine, even unusual ones ("a hot-air balloon", "a red telephone box"): put a short visual description in "asset"; the model finder searches free libraries for it.
+- Any object the user names (a thing, vehicle, machine, building or statue), even unusual ones ("a hot-air balloon", "a crashed plane"),
+  is addPlace with its real height in metres, true to life. "add a phone box here" ->
+  {"op":"addPlace","place":{"id":"phone_box","kind":"prop","label":"Phone box","asset":"red telephone box","size":"medium","height":2.5,"where":[{"rel":"at","x":<lookAt.x>,"z":<lookAt.z>}]}}
+  (a bench 1, a small plane 3, a bus 3.5, a house 8, a statue 15, a lighthouse 30). Put a short visual description in "asset"; the model finder
+  searches free libraries for it. "Make it bigger/smaller/taller" -> updatePlace with a new height.
 - "that", "this", "it" (the thing being looked at) -> the lookingAt id.
 - New place ids must not already exist. Never resend the whole recipe; only operations.
 - setClimate, setTerrain and setWater rebuild the whole world. Use them only when asked (e.g. "make it winter" -> setClimate temperature 0.1 + setAtmosphere weather snow).
 - Time and weather words -> setAtmosphere.
-- Any animal ("add a giraffe here", "three horses by the lake") -> addLife. deer, birds and rabbits are built in; any other is
-  {"op":"addLife","kind":"animal","asset":"giraffe","height":5,"count":1}, height in metres. "here" adds "at":{"x":<lookAt.x>,"z":<lookAt.z>}. Never put a different animal in its place.
+- Only living creatures, which walk about, are addLife ("add a giraffe here", "three horses by the lake", "a dragon"). deer, birds
+  and rabbits are built in; any other is {"op":"addLife","kind":"animal","asset":"dragon","height":10,"count":1}, its real height
+  in metres (a horse 1.7, a giraffe 5, a dragon 10). "here" adds "at":{"x":<lookAt.x>,"z":<lookAt.z>}. Never put a different animal in its place.
 - What grows ("remove the trees", "no grass", "more rocks", "make it a thick forest") -> {"op":"setNature","trees":0} with trees, plants or rocks, each 0 (none) .. 1 (normal) .. 2 (dense). Nothing else moves.
 - Which plants grow ("make the trees palm trees", "add glowing crystals", "spooky trees everywhere") -> {"op":"setFlora","flora":[...]}
   with the WHOLE new list, entries as in the recipe's flora (keep the current entries that should stay). An empty list

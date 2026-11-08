@@ -1,5 +1,6 @@
 import { CORE_HALF, type Place, type PlaceKind, type PlaceSize, type Recipe, type Relation } from '../core/recipe';
 import { hashString, mulberry32 } from '../core/rng';
+import { placeHeight } from '../core/sizes';
 import type { Pad, WorldField } from './field';
 import { groupRadius, MAX_GROUP_RADIUS } from './layouts';
 import { clamp } from './noise';
@@ -180,6 +181,8 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   const ocean = field.deckY !== null;
   const radius = placeRadius(place, ocean);
   const warnings: string[] = [];
+  const sized = placeHeight(place).note;
+  if (sized) warnings.push(sized);
   for (const id of targetsOf(place)) if (!placed.has(id)) warnings.push(`${id} was not placed before ${place.id}`);
   const at = place.where.find((r): r is Rel<'at'> => r.rel === 'at');
   if (at) {

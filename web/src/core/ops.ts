@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  DIRECTIONS, floraSchema, hexSchema, idSchema, INTERACTIONS, lifeFields, MAX_FLORA, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
+  DIRECTIONS, floraSchema, hexSchema, idSchema, INTERACTIONS, lifeFields, MAX_FLORA, MAX_PLACES, placeHeightSchema, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
   type Recipe,
 } from './recipe';
 
@@ -14,7 +14,7 @@ export const opSchema = z.discriminatedUnion('op', [
   z.strictObject({
     op: z.literal('updatePlace'), id: idSchema,
     label: z.string().min(1).max(60).optional(), asset: z.string().min(2).max(120).optional(),
-    interaction: z.enum(INTERACTIONS).optional(), description: z.string().max(280).optional(),
+    interaction: z.enum(INTERACTIONS).optional(), description: z.string().max(280).optional(), height: placeHeightSchema.optional(),
   }),
   z.strictObject({ op: z.literal('setAtmosphere'), time: z.enum(TIMES).optional(), weather: z.enum(WEATHERS).optional(), fog: unit.optional(), wind: unit.optional() }),
   z.strictObject({ op: z.literal('setClimate'), temperature: unit.optional(), moisture: unit.optional() }),

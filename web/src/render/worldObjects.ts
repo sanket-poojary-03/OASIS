@@ -11,6 +11,7 @@ import { baseOf, surfaceOf } from './meshCollider';
 import { buildPlaceholder } from './placeholders';
 import { buildTower } from './towers';
 import { hashString } from '../core/rng';
+import { DEFAULT_HEIGHT, placeHeight } from '../core/sizes';
 import type { WorldField } from '../world/field';
 import { groundPose } from '../world/groundPose';
 import { towerFacade, towerSpec, type FacadeHint } from '../world/towerSpec';
@@ -46,15 +47,14 @@ export class NullModelSource implements ModelSource {
   async load(): Promise<null> { return null; }
 }
 
-const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
-  settlement: { small: 5, medium: 6, large: 7 },
-  landmark: { small: 10, medium: 16, large: 24 },
-  structure: { small: 4, medium: 6, large: 9 },
-  prop: { small: 1, medium: 1.6, large: 2.4 },
-};
+const HEIGHT = DEFAULT_HEIGHT;
 
 /** Widest a single building or landmark may be, in multiples of its fitted height. */
 export const MAX_ASPECT = 4;
+
+type Found = Awaited<ReturnType<ModelSource['load']>>;
+/** How many more equally good library models a place tries when a different request already shows its first. */
+const OTHER_TRIES = 3;
 
 /** Drivable vehicles are car-sized whatever kind the AI gave them (a "structure" car must not be 6 m tall). */
 const VEHICLE_HEIGHT: Record<PlaceSize, number> = { small: 1.3, medium: 1.5, large: 2.6 };
@@ -106,7 +106,10 @@ function shadows(o: THREE.Object3D): void {
 
 /** `extra`: a prop scattered around its place (place.props): waits for its model silently, never in the place's notice. */
 interface Spec {
-  asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean;
+  asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number;
+  /** Widest a model drawn at a real height may be: its place's ground. Shrunk evenly past it. */
+  plot?: number;
+  x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean;
   /** A modern building designed in code (towerSpec) instead of a model, from this seed. */
   tower?: { facade: FacadeHint; seed: number };
 }
@@ -174,6 +177,8 @@ export class WorldObjects {
   readonly onLoading: Array<(e: LoadingEvent) => void> = [];
   private entries: Entry[] = [];
   private version = 0;
+  /** Which request each library model on show answers ("generic building"), so a different request gets another model. */
+  private shown = new Map<THREE.Object3D, string>();
   /** Places still waiting for their first model (label by id); they keep waiting across rebuilds. */
   private readonly waiting = new Map<string, string>();
   /** This rebuild's objects still loading per waiting place, whether any found no model, and whether it has a notice. */
@@ -204,7 +209,8 @@ export class WorldObjects {
       const facade = place.kind !== 'prop' && place.interaction !== 'drive' ? towerFacade(place.asset, false, false) : null;
       specs.push({
         asset: place.asset, kind: place.kind, variant: 0, x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
-        height: facade ? SINGLE_TOWER_HEIGHT[place.size] : place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : HEIGHT[place.kind][place.size],
+        height: facade ? SINGLE_TOWER_HEIGHT[place.size] : place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : placeHeight(place).height,
+        plot: place.height !== undefined && !facade && place.interaction !== 'drive' ? 2 * pl.radius : undefined,
         tower: facade ? { facade, seed: (world.recipe.seed ?? 0) ^ hashString(pl.id) } : undefined,
         info: { placeId: pl.id, objectId: pl.id, label: place.label, description: place.description, reasons: pl.reasons, warnings: pl.warnings, source: 'placeholder', interaction: place.interaction, kind: place.kind },
       });
@@ -308,7 +314,7 @@ export class WorldObjects {
     };
     if (s.tower) { this.spawnTower(entry, wait); return; }
     if (!wait) placeholder();
-    void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
+    void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => this.another(s, res)).then((res) => {
       if (version !== this.version) return;
       if (wait && !s.extra) this.settle(s.info.placeId, !res);
       if (!res) { if (wait && this.standIns) placeholder(); return; } // with a server: no model, no object
@@ -320,6 +326,28 @@ export class WorldObjects {
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info); // again: interactions re-fit the loaded model (its own door, size)
     });
+  }
+
+  /**
+   * A place's library model, unless another place asking for something else already shows it ("a building", then "a
+   * cottage", both landing on the first house): then the next equally good one, while the library has another. The
+   * same request twice may share its model. A village's houses and scattered extras pick their own variants.
+   */
+  private async another(s: Spec, res: Found): Promise<Found> {
+    if (!res || res.source !== 'library' || s.extra || s.info.kind === 'building') return res;
+    const asked = s.asset.toLowerCase().trim();
+    for (let k = 1; k <= OTHER_TRIES && this.takenByOther(res.object, asked); k++) {
+      const next = await this.models.load(s.asset, s.kind, s.variant + k).catch(() => null);
+      if (!next || next.object === res.object) break; // nothing else as good
+      res = next;
+    }
+    if (!this.shown.has(res.object)) this.shown.set(res.object, asked);
+    return res;
+  }
+
+  private takenByOther(object: THREE.Object3D, asked: string): boolean {
+    const by = this.shown.get(object);
+    return by !== undefined && by !== asked;
   }
 
   /** A modern building designed in code: built at once at its real size, no model request. */
@@ -340,6 +368,8 @@ export class WorldObjects {
     if (s.info.kind === 'building' && s.info.objectId.includes('-house-')) widenHouse(content);
     // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
     if (s.maxWidth) return fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group;
+    // Drawn at the height the AI gave, a long or flat model (a wreck, a winged thing) stays on its ground, keeping its shape.
+    if (s.plot) return fitWidth(content, s.plot) as THREE.Group;
     // Scattered props stay prop-sized whatever their shape (a cart lying on its side came out 8 m long). Cars have their own size.
     if (s.extra && s.kind === 'prop' && s.info.interaction !== 'drive') return fitWidth(content, EXTRA_MAX_WIDTH) as THREE.Group;
     // Models are fitted by height, so a low, wide one balloons (a 6 m-tall manhole cover was 100 m across): cap the
@@ -391,6 +421,7 @@ export class WorldObjects {
       this.group.remove(e.root);
     }
     this.entries = [];
+    this.shown.clear();
     for (const cb of this.onCleared) cb();
   }
 }

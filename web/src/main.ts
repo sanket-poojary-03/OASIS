@@ -95,6 +95,7 @@ void (async () => {
     else if (e.code === 'KeyC') ui.toggleChecks();
     else if (e.code === 'KeyH') ui.tutorial.open();
     else if (e.code === 'KeyR') ui.resolution.toggle();
+    else if (e.code === 'KeyM') ui.minimap.toggle();
   });
   (window as unknown as { app: App }).app = app;
 })();

@@ -257,12 +257,43 @@ export function bridgeDeckData(field: RoadGround, road: Road): Array<{ positions
 }
 
 /** One thin trimesh per bridge run, built from the same vertices as the drawn deck. Free with removeBridgeColliders on rebuild. */
-export function addBridgeColliders(field: RoadGround, roads: Road[], physics: Pick<Physics, 'addTerrain'>): Collider[] {
+/** The rail walls reach from this far under the deck to this far over it: a little over the 1 m rail drawn. */
+const WALL_BELOW = 0.3;
+const WALL_ABOVE = 1.4;
+
+/**
+ * The rails as walls for physics, one mesh per run of spans: an upright quad under each drawn rail segment on both sides,
+ * from just under the deck to a little over the rail, so neither a walk, a car nor a jump against it goes over the edge.
+ * Nothing across the road's ends. An ocean world's boardwalks draw no rails, so they get none.
+ */
+export function bridgeRailData(field: RoadGround & Pick<WorldField, 'meshHeightAt'>, road: Road): Array<{ positions: number[]; indices: number[] }> {
+  if (field.deckY != null) return [];
+  const { points, bridge, yAt } = drawnRoad(field, road);
+  return spansIn(bridge).map(([j, e]) => {
+    const positions: number[] = [], indices: number[] = [];
+    for (const { a, b } of bridgeFrame(field, points.slice(j, e + 2), road.width, yAt).rails) {
+      const n = positions.length / 3, aDeck = a.y - RAIL_HEIGHT, bDeck = b.y - RAIL_HEIGHT;
+      positions.push(
+        a.x, aDeck - WALL_BELOW, a.z, a.x, aDeck + WALL_ABOVE, a.z,
+        b.x, bDeck - WALL_BELOW, b.z, b.x, bDeck + WALL_ABOVE, b.z,
+      );
+      indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2);
+    }
+    return { positions, indices };
+  });
+}
+
+/** Each bridge's deck, as ground to stand and drive on, and its rails, as walls (not ground: nothing parks or lands on them). */
+export function addBridgeColliders(field: RoadGround & Pick<WorldField, 'meshHeightAt'>, roads: Road[], physics: Pick<Physics, 'addTerrain' | 'addFixedTrimesh'>): Collider[] {
   const out: Collider[] = [];
   for (const road of roads) {
     for (const d of bridgeDeckData(field, road)) {
       if (d.indices.length === 0) continue;
       out.push(physics.addTerrain(new Float32Array(d.positions), new Uint32Array(d.indices)));
+    }
+    for (const w of bridgeRailData(field, road)) {
+      if (w.indices.length === 0) continue;
+      out.push(physics.addFixedTrimesh(new Float32Array(w.positions), new Uint32Array(w.indices)));
     }
   }
   return out;

@@ -40,6 +40,10 @@ const STRIDE = 0.015;
 /** Where an animal stands: on the ground, or on the surface of water it was put in. */
 const groundY = (f: WorldField, x: number, z: number): number => Math.max(f.heightAt(x, z), f.waterSurfaceAt(x, z) ?? -Infinity);
 
+/** Where an animal may step: dry, not too steep, and clear of houses and roads. */
+const walkable = (f: WorldField, x: number, z: number): boolean =>
+  !f.isWater(x, z) && f.slopeAt(x, z) < 0.7 && !f.isReserved(x, z, ANIMAL_CLEARANCE);
+
 /** Materials are shared per colour for the app's lifetime; only geometries are disposed on rebuild. */
 const MATERIALS = new Map<number, THREE.MeshStandardMaterial>();
 function material(color: number): THREE.MeshStandardMaterial {
@@ -251,8 +255,10 @@ export class Wildlife {
         const nx = a.x + Math.sin(a.state.heading) * sp * dt, nz = a.z + Math.cos(a.state.heading) * sp * dt;
         // Around houses and off roads, and back toward its herd once it has wandered too far from it.
         const strays = !!a.home && Math.hypot(nx - a.home.x, nz - a.home.z) > a.home.leash && Math.hypot(nx - a.home.x, nz - a.home.z) > Math.hypot(a.x - a.home.x, a.z - a.home.z);
-        if (!strays && isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7 && !field.isReserved(nx, nz, ANIMAL_CLEARANCE)) { a.x = nx; a.z = nz; }
-        else if (a.state.mode === 'walk') a.state = { ...a.state, heading: a.state.heading + Math.PI };
+        // One put where it may not walk (on a road, in a lake, inside a house: asked for there) walks off it freely.
+        if (!strays && isReady(nx, nz) && (walkable(field, nx, nz) || !walkable(field, a.x, a.z))) { a.x = nx; a.z = nz; }
+        // Blocked: stop and face somewhere else for a moment. Turning straight back every frame flickers when both ways are shut.
+        else if (a.state.mode === 'walk') a.state = { mode: 'graze', timer: 1 + this.rng() * 2, heading: a.state.heading + Math.PI / 2 + this.rng() * Math.PI };
       }
       a.mesh.position.set(a.x, groundY(field, a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0) + (sp > 0 ? Math.abs(Math.sin(t * 5)) * a.bob : 0), a.z);
       a.mesh.rotation.y = a.state.heading;

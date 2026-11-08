@@ -98,6 +98,7 @@ export class App {
   private cineAngle = 0;
   /** The start screen's world is turning behind it (showcase); a world the player enters ends it. */
   private menuWorld = false;
+  private readonly lookDir = new THREE.Vector3();
   /** Set while the start screen's camera and clock are following the menu's flight (ui/menuFlight). */
   private menuBeats: readonly MenuBeat[] | null = null;
   private menuSpots: ReadonlyMap<string, { x: number; y: number; z: number }> = new Map();
@@ -271,6 +272,7 @@ export class App {
     this.growFlora(recipe);
     this.objects.rebuild(built, wait, respawn); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
+    this.ui?.minimap.showWorld(built, !this.menuWorld);
     this.ui?.setChecks(built.checks);
     if (respawn) {
       this.spawnPending = built.spawn;
@@ -309,18 +311,6 @@ export class App {
       ui?.setBusy(null);
       ui?.toast('Could not build that world. Try describing it differently.');
       return false;
-    } finally {
-      this.working = false;
-    }
-  }
-
-  /** Dev and screenshot harness (?w=<fixture>): enter a given recipe the way a generated world is entered. */
-  async open(recipe: Recipe): Promise<boolean> {
-    if (this.working) return false;
-    this.cancel();
-    this.working = true;
-    try {
-      return await this.enter({ type: 'recipe', recipe, notes: [], source: 'none' });
     } finally {
       this.working = false;
     }
@@ -594,6 +584,10 @@ export class App {
     setNightGlow(1.4 * THREE.MathUtils.smoothstep(this.atmosphere.night, 0.45, 0.9)); // placeholder windows and the windows/lamps of loaded models: they come on as the light goes
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
+    if (this.built && !this.menuWorld) {
+      const look = this.engine.camera.getWorldDirection(this.lookDir);
+      this.ui?.minimap.draw(this.player.position.x, this.player.position.z, look.x, look.z);
+    }
     if (this.player.atEdge && !this.menuWorld && t - this.edgeToldAt > EDGE_NOTICE_EVERY) {
       this.edgeToldAt = t;
       this.ui?.toast('This is the edge of the map');

@@ -3,6 +3,7 @@ import type { Check } from '../world/checks';
 import { BusyPill } from './busy';
 import type { BusyStage } from './busyWords';
 import { Notices } from './notices';
+import { Minimap } from './minimap';
 import { HINT_LEAD, promptHint } from './promptHint';
 import { ResolutionMenu, type ResolutionHandlers } from './resolutionMenu';
 import type { Resolution } from '../render/resolution';
@@ -60,6 +61,8 @@ export class UI {
   private readonly back = el('button', 'secondary hidden', 'Back to my world');
   /** Top-right progress notices (models loading for places added while playing). */
   readonly notices = new Notices();
+  /** Bottom-left map of the whole world; M opens it large. */
+  readonly minimap = new Minimap();
   readonly tutorial: Tutorial;
   readonly resolution: ResolutionMenu;
   private toastTimer = 0;
@@ -104,7 +107,7 @@ export class UI {
     newWorld.onclick = () => { newWorld.blur(); h.newWorld(); };
     this.hud.append(
       el('div', 'crosshair', '+'),
-      newWorld, this.fuel,
+      newWorld, this.fuel, this.minimap.root,
     );
     this.fuel.append(el('div', 'fuel-label', 'BOOST'), el('div', 'fuel-bar'));
     this.fuel.lastElementChild!.append(this.fuelFill);
