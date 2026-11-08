@@ -1,0 +1,9 @@
+[
+  {
+    "op": "setFlora",
+    "flora": [
+      { "asset": "alien tree", "layer": "canopy", "density": 1.2 },
+      { "asset": "glowing crystal", "layer": "rock", "spot": "high" }
+    ]
+  }
+]

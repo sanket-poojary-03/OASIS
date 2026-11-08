@@ -127,7 +127,7 @@ def _drivable(place) -> None:
 
 
 def repair_ops(raw):
-    """Colour slips in setPalette ops (the same repair as a recipe palette) and vehicles left undrivable."""
+    """Colour slips in setPalette ops (the same repair as a recipe palette), vehicles left undrivable, and flora slips."""
     if isinstance(raw, list):
         for i, op in enumerate(raw):
             if isinstance(op, dict) and op.get("op") == "setPalette":
@@ -136,6 +136,8 @@ def repair_ops(raw):
                 _drivable(op.get("place"))
             elif isinstance(op, dict) and op.get("op") == "addLife":
                 _repair_at(op)
+            elif isinstance(op, dict) and op.get("op") == "setFlora":
+                raw[i] = {"op": "setFlora", "flora": _repair_flora(op.get("flora"))}
     return raw
 
 
@@ -173,7 +175,41 @@ def repair_recipe(raw):
         raw["scenery"] = _repair_scenery(raw["scenery"])
         if not raw["scenery"]:
             raw.pop("scenery")
+    if "flora" in raw:
+        raw["flora"] = _repair_flora(raw["flora"])
+        if not raw["flora"]:
+            raw.pop("flora")
     return raw
+
+
+_FLORA_LAYERS = {
+    **dict.fromkeys(("canopy", "tree", "trees", "forest", "woods"), "canopy"),
+    **dict.fromkeys(("shrub", "shrubs", "bush", "bushes", "undergrowth"), "shrub"),
+    **dict.fromkeys(("ground", "ground cover", "groundcover", "cover", "flower", "flowers", "grass", "plant", "plants", "fern", "ferns"), "ground"),
+    **dict.fromkeys(("rock", "rocks", "stone", "stones", "boulder", "boulders", "crystal", "crystals"), "rock"),
+}
+_FLORA_SPOTS = {"anywhere", "wet", "dry", "high", "low", "shore"}
+
+
+def _repair_flora(raw) -> list[dict]:
+    """The usable plants of a flora list: layer words mapped ("trees" -> canopy), amounts clamped, an unknown spot made
+    "anywhere", other keys dropped; a plant with no name or no known layer is left out. At most 8, as the schema says."""
+    out: list[dict] = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict) or not isinstance(item.get("asset"), str) or len(item["asset"].strip()) < 2:
+            continue
+        layer = _FLORA_LAYERS.get(str(item.get("layer", "")).lower().replace("_", " ").replace("-", " ").strip())
+        if not layer:
+            continue
+        plant = {"asset": item["asset"].strip()[:80], "layer": layer}
+        if isinstance(item.get("density"), (int, float)):
+            plant["density"] = min(2, max(0, item["density"]))
+        if "spot" in item:
+            plant["spot"] = item["spot"] if item["spot"] in _FLORA_SPOTS else "anywhere"
+        if isinstance(item.get("height"), (int, float)):
+            plant["height"] = min(30, max(0.1, item["height"]))
+        out.append(plant)
+    return out[:8]
 
 
 def _repair_at(item: dict) -> None:

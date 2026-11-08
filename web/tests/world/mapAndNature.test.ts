@@ -11,12 +11,12 @@ const TREES: ScatterKind[] = ['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pin
 const PLANTS: ScatterKind[] = ['bush', 'flowers', 'fern', 'mushroom', 'reed', 'cactus'];
 const lush = (): Recipe => ({ ...loadRecipeFixture('fishing-valley'), climate: { temperature: 0.55, moisture: 0.65 } });
 
-function kindsAcross(r: Recipe): Map<ScatterKind, number> {
-  const f = createField(r), out = new Map<ScatterKind, number>();
+function kindsAcross(r: Recipe): Map<string, number> {
+  const f = createField(r), out = new Map<string, number>();
   for (let cx = -3; cx <= 3; cx++) for (let cz = -3; cz <= 3; cz++) for (const it of scatterChunk(f, cx, cz)) out.set(it.kind, (out.get(it.kind) ?? 0) + 1);
   return out;
 }
-const total = (m: Map<ScatterKind, number>, kinds: ScatterKind[]) => kinds.reduce((s, k) => s + (m.get(k) ?? 0), 0);
+const total = (m: Map<string, number>, kinds: ScatterKind[]) => kinds.reduce((s, k) => s + (m.get(k) ?? 0), 0);
 
 describe('nature: what grows is the AI\'s to say', () => {
   it('no trees means none at all, while plants and rocks stay', () => {

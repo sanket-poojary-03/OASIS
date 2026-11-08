@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { ScatterItem, ScatterKind } from '../world/scatter';
+import type { FloraLayer } from '../core/recipe';
+import { parseFloraKey, type FloraKey, type ItemKind, type ScatterItem, type ScatterKind } from '../world/scatter';
 import { fitToHeight } from './fit';
 import { NOT_REFLECTED } from './layers';
 
@@ -97,11 +98,21 @@ function build(kind: ScatterKind): THREE.BufferGeometry {
 /** Small things not worth drawing past the nearest chunks. */
 const GROUND_COVER: ReadonlySet<ScatterKind> = new Set(['pebble', 'flowers', 'fern', 'mushroom', 'reed', 'stump', 'log', 'bush']);
 const SHADOW: ReadonlySet<ScatterKind> = new Set(['tree', 'birch', 'autumn_tree', 'pine', 'snowy_pine', 'palm', 'dead_tree', 'cactus']);
+/** The preset kind a named plant of each layer looks like until (or unless) its own model arrives. */
+export const FLORA_FALLBACK: Record<FloraLayer, ScatterKind> = { canopy: 'tree', shrub: 'bush', ground: 'fern', rock: 'rock' };
+const isGroundCover = (kind: ItemKind): boolean => {
+  const named = parseFloraKey(kind);
+  return named ? named.layer === 'shrub' || named.layer === 'ground' : GROUND_COVER.has(kind as ScatterKind);
+};
+const castsShadow = (kind: ItemKind): boolean => {
+  const named = parseFloraKey(kind);
+  return named ? named.layer === 'canopy' : SHADOW.has(kind as ScatterKind);
+};
 /**
  * Variants drawn per kind: every (kind, variant) is one draw call per chunk, and 49 chunks are live. Trees, which you
  * notice, use up to 4 models; ground cover and shrubs 2.
  */
-export const drawnVariants = (kind: ScatterKind): number => (SHADOW.has(kind) ? 4 : 2);
+export const drawnVariants = (kind: ItemKind): number => (castsShadow(kind) ? 4 : 2);
 /**
  * The outer rings draw only a kind's lightest models: nobody counts the branches at 150 m, and one oak can be 6k
  * triangles to another's 3.5k. Oaks alone were more than half of what a wooded view drew (measured on the start screen).
@@ -114,7 +125,11 @@ const KEEP = ['position', 'normal', 'uv', 'color'];
 export class ScatterAssets {
   private readonly geos = new Map<ScatterKind, THREE.BufferGeometry>();
   /** Every pack model a kind has (its variants); an item draws `variant % count`. */
-  private readonly models = new Map<ScatterKind, Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>>();
+  private readonly models = new Map<ItemKind, Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>>();
+  /** Named plants with no model of their own: drawn as this preset kind instead (FLORA_FALLBACK). */
+  private readonly fallbacks = new Map<FloraKey, ScatterKind>();
+  /** Named plants already asked for, so a rebuild or an edit never fetches one twice. */
+  private readonly asked = new Set<FloraKey>();
   /**
    * Stand-in shapes allowed: only while no server has answered. With a server a kind without its pack model yet is not drawn at all (it
    * appears when the model arrives, via ChunkManager.refreshScatter), so no placeholder trees ever show.
@@ -123,19 +138,41 @@ export class ScatterAssets {
   private readonly material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
   private readonly dummy = new THREE.Object3D();
 
-  private geometry(kind: ScatterKind): THREE.BufferGeometry {
-    let g = this.geos.get(kind);
-    if (!g) { g = build(kind); this.geos.set(kind, g); }
+  private geometry(kind: ItemKind): THREE.BufferGeometry {
+    const named = parseFloraKey(kind);
+    const shape = named ? FLORA_FALLBACK[named.layer] : (kind as ScatterKind);
+    let g = this.geos.get(shape);
+    if (!g) { g = build(shape); this.geos.set(shape, g); }
     return g;
   }
 
-  hasModel(kind: ScatterKind): boolean {
+  hasModel(kind: ItemKind): boolean {
     return (this.models.get(kind)?.length ?? 0) > 0;
   }
 
   /** How many pack models (variants) a kind has. */
-  modelCount(kind: ScatterKind): number {
+  modelCount(kind: ItemKind): number {
     return this.models.get(kind)?.length ?? 0;
+  }
+
+  /** True the first time a named plant is asked for; false ever after. */
+  claim(kind: FloraKey): boolean {
+    if (this.asked.has(kind)) return false;
+    this.asked.add(kind);
+    return true;
+  }
+
+  /** Draw a named plant that has no model of its own as a preset kind's models. */
+  useFallback(kind: FloraKey, preset: ScatterKind): void {
+    this.fallbacks.set(kind, preset);
+  }
+
+  /** A kind's own models, or its fallback's. */
+  private modelsFor(kind: ItemKind) {
+    const own = this.models.get(kind);
+    if (own?.length) return own;
+    const preset = this.fallbacks.get(kind as FloraKey);
+    return preset ? this.models.get(preset) : undefined;
   }
 
   /**
@@ -143,7 +180,7 @@ export class ScatterAssets {
    * `height` with fitToHeight, standing on y = 0. Takes ownership of `object` (it is rescaled). Live chunks keep their
    * old instances until ChunkManager.refreshScatter() re-instances them. If nothing can be merged the kind stays procedural.
    */
-  useModel(kind: ScatterKind, object: THREE.Object3D, height: number): void {
+  useModel(kind: ItemKind, object: THREE.Object3D, height: number): void {
     fitToHeight(object, height);
     const geos: THREE.BufferGeometry[] = [];
     const mats: THREE.Material[] = [];
@@ -184,11 +221,11 @@ export class ScatterAssets {
    */
   instance(items: ScatterItem[], lod = 0): THREE.Group {
     const group = new THREE.Group();
-    if (lod > 0) items = items.filter((it, i) => !GROUND_COVER.has(it.kind) && i % (2 * lod + 1) === 0);
+    if (lod > 0) items = items.filter((it, i) => !isGroundCover(it.kind) && i % (2 * lod + 1) === 0);
     // One instanced mesh per (kind, variant) actually used.
-    const groups = new Map<string, { kind: ScatterKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
+    const groups = new Map<string, { kind: ItemKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
     for (const it of items) {
-      const models = this.models.get(it.kind);
+      const models = this.modelsFor(it.kind);
       if (!models?.length && !this.standIns) continue; // with a server: real model or nothing
       const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, lod > 0 ? FAR_VARIANTS : drawnVariants(it.kind)) : -1;
       const key = `${it.kind}#${v}`;
@@ -205,9 +242,9 @@ export class ScatterAssets {
         this.dummy.updateMatrix();
         mesh.setMatrixAt(i, this.dummy.matrix);
       });
-      mesh.castShadow = lod === 0 && SHADOW.has(kind);
+      mesh.castShadow = lod === 0 && castsShadow(kind);
       mesh.receiveShadow = true;
-      if (lod > 0 || GROUND_COVER.has(kind)) mesh.layers.set(NOT_REFLECTED);
+      if (lod > 0 || isGroundCover(kind)) mesh.layers.set(NOT_REFLECTED);
       mesh.computeBoundingSphere();
       group.add(mesh);
     }

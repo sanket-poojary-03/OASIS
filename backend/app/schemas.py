@@ -171,6 +171,20 @@ class Nature(Strict):
     rocks: NatureAmount = 1
 
 
+MAX_FLORA = 8
+FloraLayer = Literal["canopy", "shrub", "ground", "rock"]
+FloraSpot = Literal["anywhere", "wet", "dry", "high", "low", "shore"]
+
+
+class Flora(Strict):
+    """A plant the AI names, replacing the preset kinds of its layer; code decides where. Mirrors web `floraSchema`."""
+    asset: Annotated[str, Field(min_length=2, max_length=80)]
+    layer: FloraLayer
+    density: NatureAmount = 1
+    spot: FloraSpot = "anywhere"
+    height: Annotated[float, Field(ge=0.1, le=30)] | None = None
+
+
 class LifeAt(Strict):
     x: Annotated[float, Field(ge=-CORE_HALF, le=CORE_HALF)]
     z: Annotated[float, Field(ge=-CORE_HALF, le=CORE_HALF)]
@@ -201,6 +215,7 @@ class Recipe(Strict):
     atmosphere: Atmosphere
     palette: Palette | None = None
     nature: Nature | None = None
+    flora: Annotated[list[Flora], Field(max_length=MAX_FLORA)] | None = None
     places: Annotated[list[Place], Field(max_length=MAX_PLACES)]
     scenery: Annotated[list[Scenery], Field(max_length=MAX_SCENERY)] | None = None
     paths: Annotated[list[Path_], Field(max_length=MAX_PLACES)] = []
@@ -303,8 +318,14 @@ class SetNature(Strict):
     rocks: NatureAmount | None = None
 
 
+class SetFlora(Strict):
+    """The world's named plants, replaced as a whole; an empty list is the preset plants again."""
+    op: Literal["setFlora"]
+    flora: Annotated[list[Flora], Field(max_length=MAX_FLORA)]
+
+
 Op = Annotated[
-    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, SetPalette, SetNature, AddPath, AddLife],
+    Union[AddPlace, RemovePlace, MovePlace, UpdatePlace, SetAtmosphere, SetClimate, SetTerrain, SetWater, SetPalette, SetNature, SetFlora, AddPath, AddLife],
     Field(discriminator="op"),
 ]
 OpsList = Annotated[list[Op], Field(min_length=1, max_length=20)]

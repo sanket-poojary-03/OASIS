@@ -15,7 +15,7 @@ import { Booster } from './render/booster';
 import { loadCarTemplate } from './render/vehicleModel';
 import { Vehicles } from './logic/vehicles';
 import { Player } from './player/player';
-import { loadArt } from './render/artLoader';
+import { loadArt, loadFlora } from './render/artLoader';
 import { AssetModelSource } from './render/assetModels';
 import { AtmosphereSystem } from './render/atmosphere';
 import { ChunkManager } from './render/chunkManager';
@@ -113,6 +113,8 @@ export class App {
   private backendSeen = false;
   /** A scatter kind switched to its pack model: re-instance live chunks on the next frame (art hot-swap). */
   private artDirty = false;
+  /** Tells the player something about the world's models: queued with the model finder's notices, so none hides another. */
+  private notify = (text: string): void => this.ui?.toast(text);
   /** The playable characters (bundled; B cycles them). */
   readonly characters: CharacterRoster;
   private readonly booster: Booster;
@@ -163,6 +165,7 @@ export class App {
     objects.onLoading.push((e) => { if (!this.menuWorld) this.ui?.notices.loading(e); }); // the menu's world loads quietly
     if (models instanceof AssetModelSource) {
       const notices = new NoticeQueue((text) => this.ui?.toast(text));
+      this.notify = (text) => notices.add(text);
       models.onNotice = (text) => { if (!this.menuWorld) notices.add(text); };
     }
     this.booster = new Booster(engine.scene);
@@ -264,6 +267,7 @@ export class App {
     const standIns = !this.backendSeen && !this.menuWorld;
     this.objects.standIns = standIns;
     if (this.scatter.standIns !== standIns) { this.scatter.standIns = standIns; this.artDirty = true; }
+    this.growFlora(recipe);
     this.objects.rebuild(built, wait, respawn); // clear() → onCleared → interactions.clear(), then onReady → register per object
     this.wildlife.rebuild(built);
     this.ui?.setChecks(built.checks);
@@ -273,6 +277,17 @@ export class App {
       this.player.teleport(built.spawn.x, built.spawn.y, built.spawn.z);
     }
     return built;
+  }
+
+  /**
+   * The plants this world names (recipe `flora`), each fetched once from the library and swapped in as it arrives. One
+   * the library lacks grows as its layer's usual kind, and the player is told. Without a server the stand-ins show.
+   */
+  private growFlora(recipe: Recipe): void {
+    if (!recipe.flora?.length || !this.backendSeen) return;
+    void loadFlora(this.scatter, recipe.flora, { onScatter: () => { this.artDirty = true; } }).then((r) => {
+      if (r.missing.length && !this.menuWorld) this.notify(`No model for ${r.missing.join(', ')} yet, so the usual kind grows there instead`);
+    });
   }
 
   async generate(prompt: string): Promise<boolean> {

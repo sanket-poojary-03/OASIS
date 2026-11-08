@@ -51,6 +51,20 @@ Rules:
   trees: trees, stumps, fallen logs. plants: grass, bushes, flowers, ferns, reeds, cacti. rocks: rocks and pebbles. The climate decides which kinds;
   this decides how many, and without it land fills with what its climate grows. "no trees" -> trees 0; "bare", "barren", "empty land" -> trees 0, plants 0;
   "a thick forest" -> trees 2. What the player rules out stays out: with trees 0, name no trees in places, props or scenery either.
+- flora (optional, up to 8): WHICH plants grow, for worlds whose plants are not the ordinary ones for their climate, or when
+  the player names plants: {"asset":"twisted spooky tree","layer":"canopy|shrub|ground|rock","density":0-2,"spot":"anywhere|wet|dry|high|low|shore"}.
+  Each replaces the usual plants of its layer (canopy: trees; shrub: bushes, cacti; ground: flowers, ferns, mushrooms, reeds;
+  rock: rocks, crystals); a layer you leave out keeps the usual plants. The engine decides where, thick in forests and thin
+  on open land; spot is where it thrives, thick there and thin elsewhere (wet: by water, dry: away from water, high: hilltops,
+  low: low ground, shore: water's edge). A plant with a spot wins there over its layer's "anywhere" plants.
+  Two or three plants on one layer grow in patches of their own. Models exist for: twisted spooky tree, dead tree, willow,
+  birch tree, autumn tree, oak tree, palm tree, pine tree, snowy pine tree, alien tree, spiral alien tree, glowing alien tree,
+  lava tree, floating tree, cactus, bush, flowering bush, snowy bush, big leafy plant, fern, flowers, mushroom, reed,
+  glowing crystal, crystal, rock, snowy rock, pebble. Prefer these names; any other grows as the usual kind of its layer.
+  E.g. a haunted swamp -> [{"asset":"twisted spooky tree","layer":"canopy"},{"asset":"dead tree","layer":"canopy","density":0.6},
+  {"asset":"mushroom","layer":"ground","density":1.5,"spot":"wet"}]; an alien planet -> [{"asset":"spiral alien tree","layer":"canopy"},
+  {"asset":"glowing alien tree","layer":"canopy"},{"asset":"glowing crystal","layer":"rock","spot":"high","height":2.5}].
+  Leave flora out for ordinary Earth-like worlds: their climate already grows the right plants.
 - life (max 8 entries): what lives here. deer, birds and rabbits are built in: {"kind":"deer","count":4}. ANY other animal:
   {"kind":"animal","asset":"giraffe","height":5,"count":2}, height in metres. Never put a different animal in its place.
 - paths: roads between the main places people would walk between.
@@ -147,6 +161,9 @@ Rules:
 - Any animal ("add a giraffe here", "three horses by the lake") -> addLife. deer, birds and rabbits are built in; any other is
   {"op":"addLife","kind":"animal","asset":"giraffe","height":5,"count":1}, height in metres. "here" adds "at":{"x":<lookAt.x>,"z":<lookAt.z>}. Never put a different animal in its place.
 - What grows ("remove the trees", "no grass", "more rocks", "make it a thick forest") -> {"op":"setNature","trees":0} with trees, plants or rocks, each 0 (none) .. 1 (normal) .. 2 (dense). Nothing else moves.
+- Which plants grow ("make the trees palm trees", "add glowing crystals", "spooky trees everywhere") -> {"op":"setFlora","flora":[...]}
+  with the WHOLE new list, entries as in the recipe's flora (keep the current entries that should stay). An empty list
+  brings back the usual plants. Nothing else moves.
 - Colour changes ("make the sea purple", "turn the ground black", "an orange sky") -> setPalette with "#rrggbb" colours
   (ground, water, sky). It recolours without rebuilding.
 - Keep place rules from the world prompt: kind, asset, interaction, relations. interaction: door (buildings), light (lamps),

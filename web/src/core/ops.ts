@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  DIRECTIONS, hexSchema, idSchema, INTERACTIONS, lifeFields, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
+  DIRECTIONS, floraSchema, hexSchema, idSchema, INTERACTIONS, lifeFields, MAX_FLORA, MAX_PLACES, placeSchema, recipeSchema, relationSchema, SHAPES, TIMES, WEATHERS,
   type Recipe,
 } from './recipe';
 
@@ -23,6 +23,7 @@ export const opSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('setPalette'), ground: hexSchema.optional(), water: hexSchema.optional(), sky: hexSchema.optional() }),
   z.strictObject({ op: z.literal('addPath'), from: idSchema, to: idSchema }),
   z.strictObject({ op: z.literal('setNature'), trees: amount.optional(), plants: amount.optional(), rocks: amount.optional() }),
+  z.strictObject({ op: z.literal('setFlora'), flora: z.array(floraSchema).max(MAX_FLORA) }),
   z.strictObject({ op: z.literal('addLife'), ...lifeFields }),
 ]);
 export const opsSchema = z.array(opSchema).min(1).max(20);
@@ -117,6 +118,11 @@ export function applyOps(recipe: Recipe, ops: Op[]): ApplyResult {
         next.nature = { trees: 1, plants: 1, rocks: 1, ...next.nature, ...defined(rest) };
         break;
       }
+      case 'setFlora':
+        // The same as setNature: the plants change, the land and the places stay. An empty list is the preset plants again.
+        if (op.flora.length) next.flora = structuredClone(op.flora);
+        else delete next.flora;
+        break;
       case 'addLife': {
         const { op: _op, ...life } = op;
         next.life.push(structuredClone(life));
@@ -159,6 +165,7 @@ export function describeOps(ops: Op[]): string[] {
       case 'setPalette': return `Recolour ${Object.entries(defined({ ground: op.ground, water: op.water, sky: op.sky })).map(([k, v]) => `${k} ${v}`).join(', ')}`;
       case 'addPath': return `Build a road from ${op.from} to ${op.to}`;
       case 'setNature': return `Change what grows (${Object.entries(defined({ trees: op.trees, plants: op.plants, rocks: op.rocks })).map(([k, v]) => `${k} ${v}`).join(', ')})`;
+      case 'setFlora': return op.flora.length ? `Grow ${op.flora.map((f) => f.asset).join(', ')}` : 'Grow the usual plants again';
       case 'addLife': return `Add ${op.count} ${op.asset ?? op.kind}${op.at ? ' where you pointed' : ''}`;
     }
   });

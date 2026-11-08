@@ -3,10 +3,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import ART from '../../../shared/fixtures/art-queries.json';
 import { resolveAsset } from '../api/client';
 import type { AssetResult } from '../api/types';
+import type { Flora, FloraLayer } from '../core/recipe';
 import type { AnimalKind, Wildlife } from '../logic/wildlife';
-import { SCATTER_KINDS as KINDS, type ScatterKind } from '../world/scatter';
+import { floraKey, SCATTER_KINDS as KINDS, type ItemKind, type ScatterKind } from '../world/scatter';
 import { matteMaterials } from './matte';
-import { drawnVariants, type ScatterAssets } from './scatterAssets';
+import { drawnVariants, FLORA_FALLBACK, type ScatterAssets } from './scatterAssets';
 
 type Gltf = { scene: THREE.Object3D; animations: THREE.AnimationClip[] };
 
@@ -45,6 +46,7 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
   const loadGltf = (url: string): Promise<Gltf> => fetchGltf(url).then((g) => { matteMaterials(g.scene); return g; });
   const report: ArtReport = { loaded: [], missing: [] };
 
+  const resolveVariants = libraryVariants(scatter, resolve, loadGltf, deps.onScatter);
   const one = async (query: string, apply: (g: Gltf) => void): Promise<void> => {
     try {
       const res = await resolve(query);
@@ -57,27 +59,8 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
     }
   };
 
-  /** Every variant of a scatter kind (tree 1…5), one after another: the first arrives fast, the rest add variety. */
   const variants = async (e: (typeof SCATTER_ART)[number]): Promise<void> => {
-    const seen = new Set<string>();
-    // No more than a kind ever draws (a model that is loaded and never shown only costs time).
-    for (let v = 0; v < Math.min(SCATTER_VARIANTS, drawnVariants(e.kind)); v++) {
-      try {
-        const res = await resolve(e.query, v);
-        if (res.status !== 'ready' || !res.url || res.source !== 'library') { if (v === 0) report.missing.push(e.query); return; }
-        if (seen.has(res.url)) return; // the library has no more distinct models for this kind
-        seen.add(res.url);
-        const before = scatter.modelCount(e.kind);
-        scatter.useModel(e.kind, (await loadGltf(res.url)).scene, e.height);
-        if (scatter.modelCount(e.kind) === before) throw new Error('model has no usable meshes');
-        if (v === 0) report.loaded.push(e.query);
-        deps.onScatter?.();
-      } catch (err) {
-        console.warn('[art] could not use', e.query, v, err);
-        if (v === 0) report.missing.push(e.query);
-        return;
-      }
-    }
+    (await resolveVariants(e.kind, e.query, e.height) ? report.loaded : report.missing).push(e.query);
   };
 
   await Promise.all([
@@ -87,4 +70,57 @@ export async function loadArt(scatter: ScatterAssets, wildlife: Wildlife, deps: 
     })),
   ]);
   return report;
+}
+
+/** A named plant's height in metres when the AI gave none, by layer. */
+const FLORA_HEIGHT: Record<FloraLayer, number> = { canopy: 7, shrub: 1.4, ground: 0.6, rock: 1.2 };
+
+/**
+ * The plants a world names (recipe `flora`), from the library alone like the base art: CC0, one look, and light enough
+ * to draw by the thousand. A plant the library lacks grows as its layer's preset kind (FLORA_FALLBACK) and is reported,
+ * so the player can be told. Each plant is asked for once per page; a rebuild or an edit reuses it.
+ */
+export async function loadFlora(scatter: ScatterAssets, flora: readonly Flora[], deps: ArtDeps = {}): Promise<ArtReport> {
+  let loader: GLTFLoader | null = null;
+  const resolve = deps.resolve ?? ((query: string, variant = 0) => resolveAsset(query, 'prop', false, false, variant));
+  const fetchGltf = deps.loadGltf ?? ((url: string) => (loader ??= new GLTFLoader()).loadAsync(url));
+  const loadGltf = (url: string): Promise<Gltf> => fetchGltf(url).then((g) => { matteMaterials(g.scene); return g; });
+  const resolveVariants = libraryVariants(scatter, resolve, loadGltf, deps.onScatter);
+  const report: ArtReport = { loaded: [], missing: [] };
+  await Promise.all(flora.map(async (f) => {
+    const kind = floraKey(f);
+    if (!scatter.claim(kind)) return;
+    const asset = kind.slice(f.layer.length + 1);
+    if (await resolveVariants(kind, asset, f.height ?? FLORA_HEIGHT[f.layer])) { report.loaded.push(asset); return; }
+    scatter.useFallback(kind, FLORA_FALLBACK[f.layer]);
+    report.missing.push(asset);
+    deps.onScatter?.();
+  }));
+  return report;
+}
+
+/**
+ * Every library variant of a kind (tree 1…5), one after another: the first arrives fast, the rest add variety. Stops at
+ * the first repeat, and never loads more than the kind draws. True if at least one model is in use.
+ */
+function libraryVariants(scatter: ScatterAssets, resolve: NonNullable<ArtDeps['resolve']>, loadGltf: (url: string) => Promise<Gltf>, onScatter?: () => void) {
+  return async (kind: ItemKind, query: string, height: number): Promise<boolean> => {
+    const seen = new Set<string>();
+    for (let v = 0; v < Math.min(SCATTER_VARIANTS, drawnVariants(kind)); v++) {
+      try {
+        const res = await resolve(query, v);
+        if (res.status !== 'ready' || !res.url || res.source !== 'library') return v > 0;
+        if (seen.has(res.url)) return true; // the library has no more distinct models for this kind
+        seen.add(res.url);
+        const before = scatter.modelCount(kind);
+        scatter.useModel(kind, (await loadGltf(res.url)).scene, height);
+        if (scatter.modelCount(kind) === before) throw new Error('model has no usable meshes');
+        onScatter?.();
+      } catch (err) {
+        console.warn('[art] could not use', query, v, err);
+        return v > 0;
+      }
+    }
+    return true;
+  };
 }

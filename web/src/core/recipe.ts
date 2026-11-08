@@ -91,6 +91,22 @@ export const paletteSchema = z.strictObject({ ground: hexSchema.optional(), wate
 const natureAmount = z.number().min(0).max(2).default(1);
 export const natureSchema = z.strictObject({ trees: natureAmount, plants: natureAmount, rocks: natureAmount });
 
+/**
+ * What grows, named by the AI ("twisted spooky tree", "glowing crystal"): each replaces the preset kinds of its layer
+ * (canopy: trees, logs, stumps; shrub: bushes, cacti; ground: flowers, ferns, mushrooms, reeds; rock: rocks, pebbles).
+ * Code still decides where and how many from the land; `density` scales it and `spot` narrows it. Unset = preset plants.
+ */
+export const FLORA_LAYERS = ['canopy', 'shrub', 'ground', 'rock'] as const;
+export const FLORA_SPOTS = ['anywhere', 'wet', 'dry', 'high', 'low', 'shore'] as const;
+export const MAX_FLORA = 8;
+export const floraSchema = z.strictObject({
+  asset: z.string().min(2).max(80),
+  layer: z.enum(FLORA_LAYERS),
+  density: natureAmount,
+  spot: z.enum(FLORA_SPOTS).default('anywhere'),
+  height: z.number().min(0.1).max(30).optional(),
+});
+
 /** An animal: `at` is where it was asked for (otherwise around the start), `height` its size in metres. */
 export const lifeFields = {
   kind: z.enum(LIFE_KINDS),
@@ -131,6 +147,7 @@ export const recipeSchema = z
     atmosphere: atmosphereSchema,
     palette: paletteSchema.optional(),
     nature: natureSchema.optional(),
+    flora: z.array(floraSchema).max(MAX_FLORA).optional(),
     places: z.array(placeSchema).max(MAX_PLACES),
     scenery: z.array(scenerySchema).max(MAX_SCENERY).optional(),
     paths: z.array(z.strictObject({ from: idSchema, to: idSchema })).max(MAX_PLACES).default([]),
@@ -158,6 +175,9 @@ export type Place = z.infer<typeof placeSchema>;
 export type Relation = z.infer<typeof relationSchema>;
 export type Atmosphere = z.infer<typeof atmosphereSchema>;
 export type Palette = z.infer<typeof paletteSchema>;
+export type Flora = z.infer<typeof floraSchema>;
+export type FloraLayer = (typeof FLORA_LAYERS)[number];
+export type FloraSpot = (typeof FLORA_SPOTS)[number];
 export type Interaction = (typeof INTERACTIONS)[number];
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 export type PlaceSize = (typeof PLACE_SIZES)[number];

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import type { AssetResult } from '../../src/api/types';
 import { Wildlife } from '../../src/logic/wildlife';
-import { loadArt, RIGGED_ART, SCATTER_ART } from '../../src/render/artLoader';
+import { loadArt, loadFlora, RIGGED_ART, SCATTER_ART } from '../../src/render/artLoader';
 import { ScatterAssets } from '../../src/render/scatterAssets';
 import { fakeTemplate } from './rigFixture';
 
@@ -77,6 +77,44 @@ describe('loadArt', () => {
     expect(loadGltf).toHaveBeenCalledTimes(3);
     const items = [0, 1, 2, 3].map((variant) => ({ kind: 'tree' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant }));
     expect(scatter.instance(items).children).toHaveLength(3); // one instanced mesh per variant used
+  });
+
+  it('flora: each named plant is fetched from the library alone, every distinct variant, and draws its own model', async () => {
+    const scatter = new ScatterAssets();
+    scatter.standIns = false;
+    const resolve = vi.fn(async (q: string, v = 0): Promise<AssetResult> =>
+      q === 'twisted spooky tree' ? { status: 'ready', source: 'library', url: `u/twisted-${v % 2}.glb` } : { status: 'none' });
+    const loadGltf = vi.fn(async () => { const t = fakeTemplate(1); return { scene: t.scene, animations: t.animations }; });
+    const onScatter = vi.fn();
+    const report = await loadFlora(scatter, [{ asset: 'Twisted Spooky Tree', layer: 'canopy', density: 1, spot: 'anywhere' }], { resolve, loadGltf, onScatter });
+    expect(report).toEqual({ loaded: ['twisted spooky tree'], missing: [] });
+    expect(scatter.modelCount('canopy:twisted spooky tree')).toBe(2);
+    expect(onScatter).toHaveBeenCalled();
+    const items = [{ kind: 'canopy:twisted spooky tree' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 }];
+    expect(scatter.instance(items).children).toHaveLength(1);
+  });
+
+  it('flora: a plant the library lacks (or only online has) grows as its layer\'s preset model, and is reported', async () => {
+    const scatter = new ScatterAssets();
+    scatter.standIns = false;
+    scatter.useModel('tree', fakeTemplate(1).scene, 6);
+    const resolve = async (q: string): Promise<AssetResult> => (q === 'bamboo' ? { status: 'ready', source: 'online', url: 'u/bamboo.glb' } : { status: 'none' });
+    const loadGltf = vi.fn();
+    const report = await loadFlora(scatter, [{ asset: 'bamboo', layer: 'canopy', density: 1, spot: 'anywhere' }], { resolve, loadGltf });
+    expect(report.missing).toEqual(['bamboo']);
+    expect(loadGltf).not.toHaveBeenCalled();
+    const items = [{ kind: 'canopy:bamboo' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 }];
+    expect(scatter.instance(items).children).toHaveLength(1); // drawn with the oak
+  });
+
+  it('flora: a plant already asked for is not fetched again (a rebuild or edit keeps it)', async () => {
+    const scatter = new ScatterAssets();
+    const resolve = vi.fn(async (): Promise<AssetResult> => ({ status: 'none' }));
+    const flora = [{ asset: 'willow', layer: 'canopy' as const, density: 1, spot: 'anywhere' as const }];
+    await loadFlora(scatter, flora, { resolve, loadGltf: vi.fn() });
+    const second = await loadFlora(scatter, flora, { resolve, loadGltf: vi.fn() });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(second).toEqual({ loaded: [], missing: [] });
   });
 
   it('with a server, a kind without its model yet is not drawn (no placeholder trees)', () => {

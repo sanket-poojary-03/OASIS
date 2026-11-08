@@ -8,6 +8,7 @@ EXPECTED_OPS = {
     "make-winter": ["setClimate", "setAtmosphere"],
     "red-planet": ["setPalette", "setAtmosphere"],
     "no-trees": ["setNature"],
+    "alien-flora": ["setFlora"],
     "add-giraffe": ["addLife"],
 }
 

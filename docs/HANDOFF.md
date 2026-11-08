@@ -4,7 +4,13 @@ Read this first in a new session, together with `CLAUDE.md`. The full decision l
 
 **Deadline: 2026-11-11 16:30 CEST.**
 
-## Newest work (2026-11-07, not committed)
+## Newest work (2026-11-08): recipe `flora`, the AI names what grows
+- **What:** an optional `flora` list (up to 8 `{asset, layer: canopy|shrub|ground|rock, density 0-2, spot}`) and a `setFlora` edit op, in both schemas. Each plant replaces the preset kinds of its layer. The biome still decides how much grows where; a layer it did not name keeps its preset plants. Models come from the **library only** (`loadFlora` in `render/artLoader.ts`); a plant the library lacks grows as its layer's preset kind and the player is told. Reasons: `docs/DECISIONS.md`, entry "Recipe flora".
+- **Guard:** `web/tests/world/golden.test.ts` hashes what the 4 fixture worlds draw. A world without `flora` must stay exactly that.
+- **Deploy order:** the browser's recipe schema is strict, so an old frontend rejects a world with `flora` (and a `setFlora` edit). **Deploy the frontend (Vercel) before, or with, the backend (Render).**
+- **Checked live** (headless Chrome over CDP, port 8001 backend with the new code, because the 8000 one was started without `--reload`): a haunted swamp (twisted and dead trees, mushrooms), an alien planet (glowing and spiral alien trees in patches on purple ground), an ordinary valley (willows; "alder tree" fell back to oaks), and a fixture without flora (unchanged).
+
+## Earlier work (2026-11-07)
 Start screen rebuilt: `web/src/ui/showcase.ts` (one world: village and city), `web/src/ui/menuFlight.ts` (camera and clock), `web/public/menu-poster.webp` (shown until the live world is ready). The reasons and the general generator fixes are in `docs/DECISIONS.md`, entry "The start screen's world".
 - **After changing the menu's world:** run `node scripts/bundle_models.mjs` (backend up) if it asks for new models, and retake the poster: a 2160×900 capture at the first beat from `MENU_START_ANGLE`.
 - **Testing in Chrome automation:** an unfocused tab gets about 1 frame a second, and a minimized window reports `innerWidth` 0 (which also selects the low-tier view distance). Do not read load times or frame rates from it without saying so.
