@@ -37,6 +37,9 @@ const ANIMAL_CLEARANCE = 0.6;
 /** A model has no walk to play, so a walking animal bobs by this share of its height. */
 const STRIDE = 0.015;
 
+/** Where an animal stands: on the ground, or on the surface of water it was put in. */
+const groundY = (f: WorldField, x: number, z: number): number => Math.max(f.heightAt(x, z), f.waterSurfaceAt(x, z) ?? -Infinity);
+
 /** Materials are shared per colour for the app's lifetime; only geometries are disposed on rebuild. */
 const MATERIALS = new Map<number, THREE.MeshStandardMaterial>();
 function material(color: number): THREE.MeshStandardMaterial {
@@ -173,8 +176,14 @@ export class Wildlife {
       }
       const centre = life.at ?? anchor;
       for (let i = 0; i < life.count; i++) {
-        let x = centre.x, z = centre.z, found = false;
-        for (let tries = 0; tries < 30; tries++) {
+        let x = centre.x, z = centre.z, found = !!life.at;
+        // Asked for at a spot: the first stands on it and the rest close by, whatever the ground (a slope, a roof, a lake).
+        if (life.at && i > 0) {
+          const a = this.rng() * Math.PI * 2, d = 2 + this.rng() * 6;
+          x += Math.cos(a) * d;
+          z += Math.sin(a) * d;
+        }
+        for (let tries = 0; tries < 30 && !found; tries++) {
           const a = this.rng() * Math.PI * 2, r = this.rng(), d = life.at ? 2 + r * 6 : 30 + r * 150;
           x = centre.x + Math.cos(a) * d;
           z = centre.z + Math.sin(a) * d;
@@ -233,7 +242,7 @@ export class Wildlife {
         if (!strays && isReady(nx, nz) && !field.isWater(nx, nz) && field.slopeAt(nx, nz) < 0.7 && !field.isReserved(nx, nz, ANIMAL_CLEARANCE)) { a.x = nx; a.z = nz; }
         else if (a.state.mode === 'walk') a.state = { ...a.state, heading: a.state.heading + Math.PI };
       }
-      a.mesh.position.set(a.x, field.heightAt(a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0) + (sp > 0 ? Math.abs(Math.sin(t * 5)) * a.bob : 0), a.z);
+      a.mesh.position.set(a.x, groundY(field, a.x, a.z) + (a.hop && !a.anim && sp > 0 ? Math.abs(Math.sin(t * 10)) * 0.25 : 0) + (sp > 0 ? Math.abs(Math.sin(t * 5)) * a.bob : 0), a.z);
       a.mesh.rotation.y = a.state.heading;
       a.mesh.visible = isReady(a.x, a.z);
       if (a.anim && a.mesh.visible) {

@@ -360,3 +360,10 @@ Reported from a live Mars world: a road ran down the canyon wall and a bridge sa
 
 - `/api/health` says `live` whenever a key is set, and busy models fall back silently, so nothing showed which provider served a world. Each answer now logs `LLM answered: model=… at <base url> in …s`, plus `(backup)` when a fallback answered. Startup logs the configured models with only the key's last 4 characters. The `app` loggers get a console handler; nothing configured them before, so only warnings showed.
 - **Found while verifying a changed key:** on Windows, killing a uvicorn `--reload` parent leaves its spawned worker alive, still holding port 8000. Two workers from before the key change were answering alongside the new server. Windows spread requests across them, so some used the old environment. After a key change, check that `netstat -ano | grep :8000` shows a single listener.
+
+## 2026-11-08: What you ask for at a spot goes right there, whatever the ground
+An animal asked for at the crosshair ("add a dragon here") used to need dry, gentle, free ground within 8 m, and was
+silently dropped otherwise (a lake, a slope, a roof), so the edit said "Done" and nothing appeared. Now the first stands
+on the spot and the rest within 2–8 m, with no ground check; a slant or a little float is better than nothing. On water
+an animal, or a prop placed with `at`, stands on the surface rather than the bed. Herds the world spawns on its own keep
+the dry-ground search, and animals still never walk into water or up cliffs once placed.

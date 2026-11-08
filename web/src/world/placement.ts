@@ -185,7 +185,10 @@ function placeOne(place: Place, field: WorldField, placed: Map<string, Placement
   if (at) {
     const problem = siteProblem(field, at.x, at.z, radius, MAX_SLOPE[place.kind], placed, false);
     if (problem) warnings.push(`requested spot is ${problem}`);
-    return finish(place, field, at.x, at.z, radius, ['placed where you asked'], warnings, placed, place.kind === 'prop' ? at.y : undefined);
+    // Put on water, a prop floats on its surface: the crosshair saw through to the bed.
+    const surface = field.waterSurfaceAt(at.x, at.z);
+    const y = place.kind === 'prop' ? Math.max(at.y ?? field.heightAt(at.x, at.z), surface ?? -Infinity) : undefined;
+    return finish(place, field, at.x, at.z, radius, ['placed where you asked'], warnings, placed, y);
   }
   const rng = mulberry32(seed ^ hashString(place.id));
   for (const relax of [false, true]) {

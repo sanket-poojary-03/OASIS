@@ -11,6 +11,7 @@ const field = {
   slopeAt: (x: number) => (x < -100 ? 0.9 : 0.1),
   isWater: (x: number) => water(x),
   isReserved: () => false,
+  waterSurfaceAt: (x: number) => (water(x) ? 6 : null),
 } as unknown as WorldField;
 const world = { recipe: { seed: 7, life: [{ kind: 'deer', count: 8 }, { kind: 'rabbits', count: 8 }] }, field, placements: [], spawn: { x: 0, y: 5, z: 0 } } as unknown as BuiltWorld;
 const positions = (w: Wildlife) => w.group.children.map((m) => `${m.position.x},${m.position.z}`);
@@ -24,6 +25,19 @@ describe('Wildlife', () => {
     w2.update(0, 0, new THREE.Vector3(1e6, 0, 1e6), field);
     expect(positions(w1)).toEqual(positions(w2));
     for (const m of w1.group.children) { expect(water(m.position.x)).toBe(false); expect(m.position.x).toBeGreaterThan(-100); }
+  });
+  it('an animal asked for at a spot stands right there, whatever the ground: on water it floats on the surface', () => {
+    const asked = { ...world, recipe: { seed: 7, life: [
+      { kind: 'animal', asset: 'dragon', count: 1, at: { x: 50, z: 0 } }, // a lake
+      { kind: 'animal', asset: 'goat', count: 3, at: { x: -150, z: 0 } }, // a cliff
+    ] } } as unknown as BuiltWorld;
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(asked);
+    w.update(0, 0, new THREE.Vector3(1e6, 0, 1e6), field);
+    const [dragon, ...goats] = w.group.children;
+    expect(w.group.children).toHaveLength(4);
+    expect([dragon.position.x, dragon.position.z, dragon.position.y]).toEqual([50, 0, 6]);
+    for (const g of goats) expect(Math.hypot(g.position.x + 150, g.position.z)).toBeLessThanOrEqual(8);
   });
   it('never walks into water or unloaded terrain, and hides there', () => {
     const w = new Wildlife(new THREE.Scene());

@@ -53,6 +53,18 @@ describe('placement', () => {
     expect(c.y).toBe(123.45);
   });
 
+  it('a prop asked for on water floats on its surface instead of sinking to the bed', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const probe = createField(r);
+    let wet: { x: number; z: number } | undefined;
+    for (let x = -480; x <= 480 && !wet; x += 8) for (let z = -480; z <= 480 && !wet; z += 8) if (probe.isWater(x, z)) wet = { x, z };
+    r.places.push({ id: 'buoy', kind: 'prop', label: 'Buoy', asset: 'buoy', size: 'small', interaction: 'none', where: [{ rel: 'at', ...wet!, y: probe.heightAt(wet!.x, wet!.z) }] });
+    const field = createField(r);
+    const b = solvePlacements(r, field).find((p) => p.id === 'buoy')!;
+    expect([b.x, b.z]).toEqual([wet!.x, wet!.z]);
+    expect(b.y).toBeCloseTo(field.waterSurfaceAt(wet!.x, wet!.z)!, 5);
+  });
+
   it('keeps fixed placements and orders by dependency', () => {
     const r = loadRecipeFixture('fishing-valley');
     expect(orderPlaces([...r.places].reverse()).map((p) => p.id).indexOf('village')).toBeLessThan(

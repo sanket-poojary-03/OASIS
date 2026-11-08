@@ -6,7 +6,7 @@ import { Wildlife } from '../../src/logic/wildlife';
 import type { BuiltWorld } from '../../src/world/build';
 import { loadOpsFixture, loadRecipeFixture } from '../fixtures';
 
-const field = { heightAt: () => 5, isWater: () => false, slopeAt: () => 0, isReserved: () => false };
+const field = { heightAt: () => 5, isWater: () => false, slopeAt: () => 0, isReserved: () => false, waterSurfaceAt: () => null };
 const worldWith = (life: unknown[]) => ({ recipe: { seed: 7, life }, field, placements: [], spawn: { x: 0, y: 5, z: 0 } }) as unknown as BuiltWorld;
 
 function fakeModels() {
