@@ -64,6 +64,16 @@ class AssetLibrary:
         ties = [e for k, e in scored if k == best]
         return ties[(variant + _spread(query)) % len(ties)], best[0]
 
+    def closest(self, query: str, variant: int = 0) -> dict | None:
+        """An entry carrying the query's head noun, however few of its other words it shares: "brownstone townhouse with
+        bay windows" -> a townhouse. Asks no one. It stands in for a whole street, so it rotates with `variant` among every
+        entry covering as much of the query, not only the closest by Jaccard."""
+        scored = self.ranked(query)
+        if not scored:
+            return None
+        ties = [e for k, e in scored if k[0] == scored[0][0][0]]
+        return ties[(variant + _spread(query)) % len(ties)]
+
     def ranked(self, query: str) -> list[tuple[tuple[float, float], dict]]:
         """Entries carrying the query's head noun, best first by (coverage of the query, Jaccard); manifest order on ties."""
         q = set(tokens(query))
@@ -108,6 +118,16 @@ class ModelCache:
             if tint:
                 self.index[key]["tint"] = tint
             _atomic_write_json(self.index_path, self.index)
+
+    def similar(self, query: str) -> dict | None:
+        """A model stored for another request about the same thing (its head noun), sharing the most words with this one."""
+        head, asked = head_noun(query), set(tokens(query))
+        best, most = None, 0
+        for e in self.index.values():
+            words = set(tokens(e["query"]))
+            if head in words and len(asked & words) > most and (self.root / e["file"]).exists():
+                best, most = e, len(asked & words)
+        return best
 
     def count(self, source: str | None = None) -> int:
         return sum(1 for e in self.index.values() if source is None or e["source"] == source)

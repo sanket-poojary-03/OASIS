@@ -31,6 +31,10 @@ MAX_POOL = 8
 NO_MESHY_KEY = "Meshy API key is missing"
 NO_MESHY_CREDITS = "Meshy has no credits left"
 TOO_MANY = {"status": "none", "notices": ["Too many new 3D models at once. Try this one again in a few minutes"]}
+BUDGET_PAUSED = "New 3D models are paused for now (the AI budget is used up), so the closest model we have stands in"
+# What a building stands in as when nothing alike is at hand, so a district never shows empty plots. A landmark or a small
+# thing with nothing alike is left out rather than shown as something else.
+_STAND_IN = {"structure": "house", "settlement": "house"}
 
 
 def _building(query: str) -> str:
@@ -85,6 +89,40 @@ class AssetService:
         return not self.vision or entry["source"] != "online" or bool(entry.get("verified"))
 
     def resolve(self, req: AssetRequest, gate: Callable[[], bool] | None = None, pick_gate: Callable[[], bool] | None = None) -> dict:
+        """_find, except that a request a budget refused gets the closest model already at hand instead of nothing: a city of
+        a hundred kinds of building spent the day's AI budget and its last streets stood empty."""
+        refused: list[bool] = []
+
+        def watched(g: Callable[[], bool] | None) -> Callable[[], bool] | None:
+            if g is None:
+                return None
+
+            def ask() -> bool:
+                ok = g()
+                if not ok:
+                    refused.append(True)
+                return ok
+            return ask
+
+        res = self._find(req, watched(gate), watched(pick_gate))
+        if not refused or res.get("status") != "none":
+            return res
+        return self._closest(req) or {**res, "notices": res.get("notices") or [BUDGET_PAUSED]}
+
+    def _closest(self, req: AssetRequest) -> dict | None:
+        """Free, asking no one: the library model of the same kind, else a model stored for something alike, else (for a
+        building) a plain house. The player is told new models are paused. None when nothing can stand in."""
+        told = {"notices": [BUDGET_PAUSED]}
+        entry = self.library.closest(req.query, req.variant)
+        if entry:
+            return {**self._library_ready(entry), **told}
+        hit = self.cache.similar(req.query)
+        if hit and self._trusted(hit):
+            return {**self._ready(hit), **told}
+        entry = self.library.search(_STAND_IN[req.kind], req.variant)[0] if req.kind in _STAND_IN else None
+        return {**self._library_ready(entry), **told} if entry else None
+
+    def _find(self, req: AssetRequest, gate: Callable[[], bool] | None = None, pick_gate: Callable[[], bool] | None = None) -> dict:
         """An exact library match or an approved cached model, free. Then the request is analysed: a plain shape is built in
         code; anything else tries the library and online search with vision, under each of its search terms, against the
         original request. After that a landmark may wait for Meshy, and whatever is left is built manually.
