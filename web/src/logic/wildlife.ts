@@ -102,6 +102,8 @@ export class Wildlife {
   readonly group = new THREE.Group();
   private animals: Animal[] = [];
   private birds: Bird[] = [];
+  /** Where each entry of the recipe's life was put at the last rebuild: its animals, or a flock's centre. */
+  private spots: Array<Array<{ x: number; z: number }>> = [];
   private readonly flock = new THREE.Vector3();
   private scatter = 0;
   private rng = mulberry32(1);
@@ -158,14 +160,18 @@ export class Wildlife {
     this.clear();
     this.animals = [];
     this.birds = [];
+    this.spots = [];
     this.rng = mulberry32(world.recipe.seed ^ 0x5eed);
     const f = world.field;
     const anchor = world.spawn;
     const version = ++this.version;
     const wanted = new Map<string, { asset: string; height: number; bodies: THREE.Group[] }>();
     for (const life of world.recipe.life) {
+      const spots: Array<{ x: number; z: number }> = [];
+      this.spots.push(spots);
       if (life.kind === 'birds') {
         const c = world.placements[0] ?? anchor;
+        spots.push({ x: c.x, z: c.z });
         this.flock.set(c.x, f.heightAt(c.x, c.z) + 25, c.z);
         for (let i = 0; i < life.count; i++) {
           const mesh = birdMesh();
@@ -191,6 +197,7 @@ export class Wildlife {
         }
         const state: AnimalState = { mode: 'graze', timer: this.rng() * 5, heading: this.rng() * Math.PI * 2 };
         if (!found) continue; // no valid spot: skip the animal (rng draws above stay stable)
+        spots.push({ x, z });
         const home = life.at ? { x: life.at.x, z: life.at.z, leash: HERD_LEASH } : undefined;
         if (life.kind === 'animal') {
           const height = life.height ?? ANY_ANIMAL_HEIGHT, key = `${life.asset}:${height}`;
@@ -227,6 +234,11 @@ export class Wildlife {
         }
       });
     }
+  }
+
+  /** Where the animals of recipe life entry `index` were put (empty when none found room). */
+  spotsOf(index: number): Array<{ x: number; z: number }> {
+    return this.spots[index] ?? [];
   }
 
   update(dt: number, t: number, player: THREE.Vector3, field: WorldField, isReady: (x: number, z: number) => boolean = () => true): void {

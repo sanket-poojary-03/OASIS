@@ -33,6 +33,7 @@ import { WorldObjects, type ModelSource } from './render/worldObjects';
 import { Underwater } from './render/underwater';
 import { insideMap } from './world/mapBounds';
 import { NoticeQueue } from './ui/assetNotices';
+import { reportEdit } from './ui/editReport';
 import { menuShot, type MenuBeat } from './ui/menuFlight';
 import { MENU_FOV, MENU_ORBIT_SPEED } from './ui/showcase';
 import type { UI } from './ui/ui';
@@ -495,8 +496,12 @@ export class App {
     try {
       const keep = a.terrainChanged ? [] : b.placements.filter((pl) => !a.changedPlaces.has(pl.id) && !a.removedPlaces.has(pl.id));
       const built = this.load(a.recipe, keep, false, a.changedPlaces);
-      const placed = built.placements.filter((pl) => a.changedPlaces.has(pl.id)).map((pl) => `${pl.id}: ${pl.reasons.join(', ')}, ${Math.round(Math.hypot(pl.x - this.player.position.x, pl.z - this.player.position.z))} m away`);
-      this.ui?.toast(placed.length ? `Placed ${placed.join(' · ')}` : 'Done');
+      const { x, z } = this.player.position, look = this.player.lookRay().direction;
+      const report = reportEdit({
+        ops: p.ops, before: snap.recipe, after: a.recipe, placements: built.placements,
+        lifeSpots: (i) => this.wildlife.spotsOf(i), player: { x, z, yaw: Math.atan2(-look.x, -look.z) },
+      });
+      this.ui?.toast(report ?? 'Done');
     } catch (e) {
       console.error('edit failed to build', e);
       if (this.history[this.history.length - 1] === snap) this.history.pop();

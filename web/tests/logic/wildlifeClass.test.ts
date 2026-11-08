@@ -39,6 +39,20 @@ describe('Wildlife', () => {
     expect([dragon.position.x, dragon.position.z, dragon.position.y]).toEqual([50, 0, 6]);
     for (const g of goats) expect(Math.hypot(g.position.x + 150, g.position.z)).toBeLessThanOrEqual(8);
   });
+  it('tells where each life entry was put, for the edit report (none for herds that found no room)', () => {
+    const cliff = { ...field, slopeAt: () => 0.9 } as unknown as WorldField;
+    const asked = { ...world, field: cliff, recipe: { seed: 7, life: [
+      { kind: 'deer', count: 2 }, // no gentle ground anywhere: none
+      { kind: 'animal', asset: 'dragon', count: 1, at: { x: 30, z: 4 } },
+      { kind: 'birds', count: 3 },
+    ] } } as unknown as BuiltWorld;
+    const w = new Wildlife(new THREE.Scene());
+    w.rebuild(asked);
+    expect(w.spotsOf(0)).toEqual([]);
+    expect(w.spotsOf(1)).toEqual([{ x: 30, z: 4 }]);
+    expect(w.spotsOf(2)).toHaveLength(1); // the flock's centre
+    expect(w.spotsOf(9)).toEqual([]);
+  });
   it('never walks into water or unloaded terrain, and hides there', () => {
     const w = new Wildlife(new THREE.Scene());
     w.rebuild(world);
