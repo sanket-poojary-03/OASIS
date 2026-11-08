@@ -11,6 +11,7 @@ import { baseOf, surfaceOf } from './meshCollider';
 import { buildPlaceholder } from './placeholders';
 import { buildTower } from './towers';
 import { hashString } from '../core/rng';
+import { DEFAULT_HEIGHT, placeHeight } from '../core/sizes';
 import type { WorldField } from '../world/field';
 import { groundPose } from '../world/groundPose';
 import { towerFacade, towerSpec, type FacadeHint } from '../world/towerSpec';
@@ -46,12 +47,7 @@ export class NullModelSource implements ModelSource {
   async load(): Promise<null> { return null; }
 }
 
-const HEIGHT: Record<PlaceKind, Record<PlaceSize, number>> = {
-  settlement: { small: 5, medium: 6, large: 7 },
-  landmark: { small: 10, medium: 16, large: 24 },
-  structure: { small: 4, medium: 6, large: 9 },
-  prop: { small: 1, medium: 1.6, large: 2.4 },
-};
+const HEIGHT = DEFAULT_HEIGHT;
 
 /** Widest a single building or landmark may be, in multiples of its fitted height. */
 export const MAX_ASPECT = 4;
@@ -106,7 +102,10 @@ function shadows(o: THREE.Object3D): void {
 
 /** `extra`: a prop scattered around its place (place.props): waits for its model silently, never in the place's notice. */
 interface Spec {
-  asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number; x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean;
+  asset: string; kind: PlaceKind; variant: number; height: number; maxWidth?: number;
+  /** Widest a model drawn at a real height may be: its place's ground. Shrunk evenly past it. */
+  plot?: number;
+  x: number; y: number; z: number; rotation: number; info: ObjectInfo; extra?: boolean;
   /** A modern building designed in code (towerSpec) instead of a model, from this seed. */
   tower?: { facade: FacadeHint; seed: number };
 }
@@ -204,7 +203,8 @@ export class WorldObjects {
       const facade = place.kind !== 'prop' && place.interaction !== 'drive' ? towerFacade(place.asset, false, false) : null;
       specs.push({
         asset: place.asset, kind: place.kind, variant: 0, x: pl.x, y: pl.y, z: pl.z, rotation: pl.rotation,
-        height: facade ? SINGLE_TOWER_HEIGHT[place.size] : place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : HEIGHT[place.kind][place.size],
+        height: facade ? SINGLE_TOWER_HEIGHT[place.size] : place.interaction === 'drive' ? VEHICLE_HEIGHT[place.size] : placeHeight(place).height,
+        plot: place.height !== undefined && !facade && place.interaction !== 'drive' ? 2 * pl.radius : undefined,
         tower: facade ? { facade, seed: (world.recipe.seed ?? 0) ^ hashString(pl.id) } : undefined,
         info: { placeId: pl.id, objectId: pl.id, label: place.label, description: place.description, reasons: pl.reasons, warnings: pl.warnings, source: 'placeholder', interaction: place.interaction, kind: place.kind },
       });
@@ -340,6 +340,8 @@ export class WorldObjects {
     if (s.info.kind === 'building' && s.info.objectId.includes('-house-')) widenHouse(content);
     // A member asked to be taller than its plot is wide keeps its height (city towers); others shrink evenly.
     if (s.maxWidth) return fitWidth(content, s.maxWidth, s.height > s.maxWidth) as THREE.Group;
+    // Drawn at the height the AI gave, a long or flat model (a wreck, a winged thing) stays on its ground, keeping its shape.
+    if (s.plot) return fitWidth(content, s.plot) as THREE.Group;
     // Scattered props stay prop-sized whatever their shape (a cart lying on its side came out 8 m long). Cars have their own size.
     if (s.extra && s.kind === 'prop' && s.info.interaction !== 'drive') return fitWidth(content, EXTRA_MAX_WIDTH) as THREE.Group;
     // Models are fitted by height, so a low, wide one balloons (a 6 m-tall manhole cover was 100 m across): cap the

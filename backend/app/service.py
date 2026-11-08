@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from .llm import LLMError, extract_json
 from .asset_match import cheap_llm
 from .prompts import brief_system_prompt, edit_system_prompt, world_system_prompt, world_user_message
-from .schemas import MAX_SCENERY, EditRequest, Recipe, dump, dump_ops, ops_adapter
+from .schemas import MAX_LIFE_HEIGHT, MAX_SCENERY, EditRequest, Recipe, dump, dump_ops, ops_adapter
 
 # Time-of-day words in a request (complete_time) and words naming a drivable vehicle (repair_*: a vehicle the AI left as scenery can still be driven).
 TIME_WORDS = [(r"\b(night|midnight)\b", "night"), (r"\b(dawn|sunrise|morning)\b", "dawn"), (r"\b(dusk|sunset|evening)\b", "dusk"), (r"\b(noon|midday|daytime|day)\b", "day")]
@@ -134,8 +134,12 @@ def repair_ops(raw):
                 raw[i] = {"op": "setPalette", **_repair_palette({k: v for k, v in op.items() if k != "op"})}
             elif isinstance(op, dict) and op.get("op") == "addPlace":
                 _drivable(op.get("place"))
+                _repair_height(op.get("place"))
+            elif isinstance(op, dict) and op.get("op") == "updatePlace":
+                _repair_height(op)
             elif isinstance(op, dict) and op.get("op") == "addLife":
                 _repair_at(op)
+                _repair_height(op, MAX_LIFE_HEIGHT)
             elif isinstance(op, dict) and op.get("op") == "setFlora":
                 raw[i] = {"op": "setFlora", "flora": _repair_flora(op.get("flora"))}
     return raw
@@ -162,6 +166,7 @@ def repair_recipe(raw):
         if not isinstance(place, dict):
             continue
         _drivable(place)
+        _repair_height(place)
         _repair_variants(place.get("layout"))
         if "size" in place:
             place["size"] = _SIZE_WORDS.get(str(place["size"]).lower(), "medium")
@@ -212,6 +217,18 @@ def _repair_flora(raw) -> list[dict]:
     return out[:8]
 
 
+def _repair_height(item, most: float = 1000) -> None:
+    """A height clamped into the schema's limits (the browser keeps it in range per kind), so a wild one costs the edit
+    nothing; one that is not a number, or on a settlement (its layout decides), is dropped."""
+    if not isinstance(item, dict) or "height" not in item:
+        return
+    h = item["height"]
+    if isinstance(h, bool) or not isinstance(h, (int, float)) or h != h or item.get("kind") == "settlement":
+        item.pop("height")
+    else:
+        item["height"] = min(most, max(0.1, h))
+
+
 def _repair_at(item: dict) -> None:
     """An animal's `at` is just x and z; models write it like a place's relation ({"rel":"at",...}), and that cost a retry."""
     if isinstance(item.get("at"), dict):
@@ -226,6 +243,7 @@ def _repair_life(raw: list) -> list[dict]:
         if not isinstance(kind, str) or len(kind.strip()) < 2:
             continue
         _repair_at(item)
+        _repair_height(item, MAX_LIFE_HEIGHT)
         out.append(item if kind in _LIFE_KINDS else {**item, "kind": "animal", "asset": str(item.get("asset") or kind).strip()[:80]})
     return out
 

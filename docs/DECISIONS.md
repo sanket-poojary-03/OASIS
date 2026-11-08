@@ -390,3 +390,23 @@ layout's heights), noting a clamp on the place card. A first version also grew a
 ground stays as the size word makes it (the layout is the old one) and a model drawn at its height is shrunk evenly to
 fit that ground, so a flat wreck or a winged model keeps its space. The prompts carry a full JSON example with a height:
 prose rules alone were ignored.
+
+## 2026-11-08: A mini-map, drawn from the world's own data
+Bottom left, the whole 1 km map from above: ground in the same biome and palette colours as the 3D land, with hill
+shading; water in the world's water colour; roads, bridges lighter; a marker per place; an arrow for the player. M opens
+it large with names, placed landmarks and groups first and left out where they would overlap. The land's picture
+(`world/minimap.ts`, pure) is redrawn only when the land changes (`terrainKey`) and a few rows a frame, since a busy
+world takes a few hundred ms; the visible map redraws at most ten times a second. Names are canvas text, never markup.
+
+## 2026-11-09: Bridge rails are solid
+A bridge's deck had a collider but its rails were only drawn, so a walk or a drive sideways went through them and off.
+Each run of spans now gets upright walls along both rails (`bridgeRailData`), from the same rail lines as drawn, from
+0.3 m under the deck to 1.4 m over it (the rail is 1 m: a jump against it does not carry over). They are fixed
+colliders, not terrain, so cars are stopped by them too and nothing parks or lands on them. Ocean boardwalks draw no
+rails and get none.
+
+## 2026-11-09: Different requests get different models
+"add a building", then "add a cottage house", showed the same house: equally good library models always resolved to the
+first in the manifest ("cottage" is a synonym of "house"). Ties now rotate from an offset hashed from the request's own
+words (same words, same model; villages still step through variants). And in the browser a place whose library model a
+different request already shows asks for the next equally good one, up to 3 more; the same request twice may share.

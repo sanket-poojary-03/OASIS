@@ -65,6 +65,15 @@ describe('placement', () => {
     expect(b.y).toBeCloseTo(field.waterSurfaceAt(wet!.x, wet!.z)!, 5);
   });
 
+  it('a real height leaves the layout as it was (the same ground as its size word), and one past its range says it was clamped', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    r.places.push({ id: 'plane', kind: 'prop', label: 'Plane', asset: 'plane', size: 'medium', interaction: 'none', height: 3.2, where: [{ rel: 'at', x: 100, z: 50 }] });
+    r.places.push({ id: 'barrel', kind: 'prop', label: 'Barrel', asset: 'barrel', size: 'medium', interaction: 'none', height: 500, where: [{ rel: 'at', x: -100, z: 50 }] });
+    const pls = solvePlacements(r, createField(r));
+    expect(pls.find((p) => p.id === 'plane')!.radius).toBe(2.5);
+    expect(pls.find((p) => p.id === 'barrel')!.warnings).toContain('made 6 m tall: a prop is at most 6 m');
+  });
+
   it('keeps fixed placements and orders by dependency', () => {
     const r = loadRecipeFixture('fishing-valley');
     expect(orderPlaces([...r.places].reverse()).map((p) => p.id).indexOf('village')).toBeLessThan(

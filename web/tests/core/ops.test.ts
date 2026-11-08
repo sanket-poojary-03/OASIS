@@ -8,6 +8,7 @@ describe('ops', () => {
     expect(opsSchema.parse(loadOpsFixture('add-lighthouse-at')).length).toBe(2);
     expect(opsSchema.parse(loadOpsFixture('make-winter')).length).toBe(2);
     expect(opsSchema.parse(loadOpsFixture('red-planet')).length).toBe(2);
+    expect(opsSchema.parse(loadOpsFixture('sized-plane')).length).toBe(1);
   });
 
   it('setPalette recolours without rebuilding terrain, keeps unnamed colours, and rejects non-hex', () => {
@@ -63,5 +64,23 @@ describe('ops', () => {
     const add = { op: 'addPlace' as const, place: { ...r.places[0], id: 'one-more', where: [{ rel: 'flat' as const }] } };
     expect(() => applyOps(full, [add])).toThrow(`This world already has ${MAX_PLACES} places — remove one first.`);
     expect(applyOps(full, [{ op: 'removePlace', id: 'spot-0' }, add]).recipe.places).toHaveLength(MAX_PLACES); // remove then add is fine
+  });
+
+  it('a place keeps the height it was given, and updatePlace can change it ("make the statue bigger")', () => {
+    const r = loadRecipeFixture('fishing-valley');
+    const added = applyOps(r, opsSchema.parse(loadOpsFixture('sized-plane')));
+    expect(added.recipe.places.find((p) => p.id === 'plane')!.height).toBe(3);
+    const grown = applyOps(added.recipe, opsSchema.parse([{ op: 'updatePlace', id: 'plane', height: 4.5 }]));
+    expect(grown.recipe.places.find((p) => p.id === 'plane')!.height).toBe(4.5);
+    expect(grown.changedPlaces.has('plane')).toBe(true);
+  });
+
+  it('heights have hard limits the backend clamps into: places up to 1000 m, animals up to 15 m', () => {
+    const place = (height: number) => [{ op: 'addPlace', place: { id: 'xx', kind: 'prop', label: 'X', asset: 'xx', height } }];
+    expect(opsSchema.safeParse(place(1000)).success).toBe(true);
+    expect(opsSchema.safeParse(place(1001)).success).toBe(false);
+    const life = (height: number) => [{ op: 'addLife', kind: 'animal', asset: 'dragon', count: 1, height }];
+    expect(opsSchema.safeParse(life(15)).success).toBe(true);
+    expect(opsSchema.safeParse(life(16)).success).toBe(false);
   });
 });

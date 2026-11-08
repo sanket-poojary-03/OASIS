@@ -1,0 +1,9 @@
+[
+  {
+    "op": "addPlace",
+    "place": {
+      "id": "plane", "kind": "prop", "label": "Small propeller plane", "asset": "small propeller plane", "size": "large",
+      "height": 3, "where": [{ "rel": "at", "x": 40, "z": -60 }]
+    }
+  }
+]

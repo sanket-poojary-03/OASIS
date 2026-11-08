@@ -156,6 +156,22 @@ describe('WorldObjects footprint cap', () => {
     const size = new THREE.Box3().setFromObject(objects.group.children[0].getObjectByName('content')!).getSize(new THREE.Vector3());
     expect(Math.max(size.x, size.z)).toBeLessThanOrEqual(40.01);
   });
+
+  it('a place drawn at the real height the AI gave it never spreads past its ground: shrunk evenly, not squashed', async () => {
+    const wreck = new THREE.Group();
+    wreck.add(new THREE.Mesh(new THREE.BoxGeometry(10, 1, 9))); // a crashed plane lying flat: 10 m across, 1 m tall
+    const { objects } = rig(wreck);
+    const sized = {
+      ...world,
+      placements: [{ ...world.placements[0], id: 'wreck', radius: 4 }],
+      recipe: { places: [{ id: 'wreck', kind: 'prop', size: 'large', label: 'Wreck', asset: 'crashed plane', interaction: 'none', height: 3, where: [] }] },
+    } as unknown as BuiltWorld;
+    objects.rebuild(sized); // fitted to 3 m tall, it would be 30 m across
+    await flush();
+    const size = new THREE.Box3().setFromObject(objects.group.children[0].getObjectByName('content')!).getSize(new THREE.Vector3());
+    expect(Math.max(size.x, size.z)).toBeLessThanOrEqual(8.01); // its ground: a 4 m radius
+    expect(size.x / size.y).toBeCloseTo(10, 1); // proportions kept
+  });
 });
 
 describe('WorldObjects: places added while playing wait for their model (no stand-in house first)', () => {

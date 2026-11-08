@@ -10,6 +10,7 @@ EXPECTED_OPS = {
     "no-trees": ["setNature"],
     "alien-flora": ["setFlora"],
     "add-giraffe": ["addLife"],
+    "sized-plane": ["addPlace"],
 }
 
 RECIPES = sorted((FIXTURES_DIR / "recipes").glob("*.json"))

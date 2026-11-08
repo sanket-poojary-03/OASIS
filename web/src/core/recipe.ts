@@ -62,6 +62,9 @@ export const placePropSchema = z.strictObject({
   size: z.enum(PLACE_SIZES).default('medium'),
 });
 
+/** Hard limits only: the backend clamps into them and core/sizes into a range per kind (a barrel at 500 m is made 6 m). */
+export const placeHeightSchema = z.number().min(0.1).max(1000);
+
 export const placeSchema = z.strictObject({
   id: idSchema,
   kind: z.enum(PLACE_KINDS),
@@ -69,6 +72,8 @@ export const placeSchema = z.strictObject({
   asset: z.string().min(2).max(120),
   style: z.string().max(40).optional(),
   size: z.enum(PLACE_SIZES).default('medium'),
+  /** Its real height in metres, when the AI gave one: core/sizes keeps it within its kind's range. */
+  height: placeHeightSchema.optional(),
   interaction: z.enum(INTERACTIONS).default('none'),
   description: z.string().max(280).optional(),
   where: z.array(relationSchema).max(4).default([]),
@@ -112,7 +117,7 @@ export const lifeFields = {
   kind: z.enum(LIFE_KINDS),
   count: z.number().int().min(1).max(20),
   asset: z.string().min(2).max(80).optional(),
-  height: z.number().min(0.1).max(12).optional(),
+  height: z.number().min(0.1).max(15).optional(),
   at: z.strictObject({ x: coord, z: coord }).optional(),
 };
 export const lifeSchema = z.strictObject(lifeFields).refine((l) => l.kind !== 'animal' || !!l.asset, 'an animal must name its asset');

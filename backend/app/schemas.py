@@ -107,6 +107,12 @@ class Scenery(Strict):
     spot: Literal["anywhere", "water", "high"] = "anywhere"
 
 
+# A place's real height in metres. Hard limits only: repairs clamp into them, and the browser (core/sizes.ts) keeps it
+# within a range per kind. A settlement's comes from its layout, so repairs drop one.
+PlaceHeight = Annotated[float, Field(ge=0.1, le=1000)]
+MAX_LIFE_HEIGHT = 15
+
+
 class Place(Strict):
     id: Id
     kind: Kind
@@ -114,6 +120,7 @@ class Place(Strict):
     asset: Annotated[str, Field(min_length=2, max_length=120)]
     style: Annotated[str, Field(max_length=40)] | None = None
     size: Size = "medium"
+    height: PlaceHeight | None = None
     interaction: Interaction = "none"
     description: Annotated[str, Field(max_length=280)] | None = None
     where: Annotated[list[Relation], Field(max_length=4)] = []
@@ -195,7 +202,7 @@ class Life(Strict):
     kind: LifeKind
     count: Annotated[int, Field(ge=1, le=20)]
     asset: Annotated[str, Field(min_length=2, max_length=80)] | None = None
-    height: Annotated[float, Field(ge=0.1, le=12)] | None = None
+    height: Annotated[float, Field(ge=0.1, le=MAX_LIFE_HEIGHT)] | None = None
     at: LifeAt | None = None
 
     @model_validator(mode="after")
@@ -263,6 +270,7 @@ class UpdatePlace(Strict):
     asset: Annotated[str, Field(min_length=2, max_length=120)] | None = None
     interaction: Interaction | None = None
     description: Annotated[str, Field(max_length=280)] | None = None
+    height: PlaceHeight | None = None
 
 
 class SetAtmosphere(Strict):
