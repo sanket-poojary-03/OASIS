@@ -19,6 +19,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   { keys: ['U'], title: 'Undo a change', text: 'Takes back the last change you made to the world.' },
   { keys: ['V'], title: 'Switch camera', text: 'Swap between first-person and third-person view.' },
   { keys: ['B'], title: 'Change character', text: 'Play as the next character.' },
+  { keys: ['M'], title: 'Find your way', text: 'The map in the corner shows lakes, roads and every place. M opens it large, with their names.' },
   { keys: ['C'], title: 'See the world checks', text: 'Opens the list of checks on this world. Press C again to close it.' },
   { keys: ['R'], title: 'Choose the resolution', text: 'Auto lowers it when the frame rate drops. Pick Low to Ultra to keep it fixed.' },
   { keys: ['N'], title: 'Make a new world', text: 'Go back to the start screen and describe another one.' },
