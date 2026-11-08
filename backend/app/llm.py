@@ -101,7 +101,12 @@ class LLMClient:
         for model in [*backups, self.model] if prefer_backup and backups else [self.model, *backups]:
             for attempt in range(self.retries):
                 try:
-                    return self._call(model, system, user)
+                    started = time.monotonic()
+                    answer = self._call(model, system, user)
+                    # Which provider really answered: health only says a key is set, and busy models fall back silently.
+                    log.info("LLM answered: model=%s at %s in %.1fs%s", model, self.base_url, time.monotonic() - started,
+                             " (backup)" if model != self.model else "")
+                    return answer
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code not in RETRYABLE:
                         log.warning("LLM call failed: %s", e)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -116,6 +117,29 @@ def create_app(llm=None, limiter: RateLimiter | None = None, assets: AssetServic
     return app
 
 
+def _show_app_logs() -> None:
+    """Our INFO lines (which model answered) on the server console: nothing else configures the `app` loggers."""
+    log = logging.getLogger("app")
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+        log.addHandler(handler)
+    log.setLevel(logging.INFO)
+
+
+def _describe(llm: LLMClient | None, world: LLMClient | None) -> str:
+    """The configured provider, with only the key's last four characters: enough to tell which key is loaded."""
+    if not llm:
+        return "LLM: none (no LLM_API_KEY): the app will say 'LLM not available'"
+    out = f"LLM: {llm.model} at {llm.base_url}, backups {llm.fallback_models or 'none'}, key ...{llm.api_key[-4:]}"
+    if world and world is not llm:
+        out += f"; worlds: {world.model} at {world.base_url}, backups {world.fallback_models or 'none'}"
+    return out
+
+
 load_dotenv(BACKEND_DIR / ".env")
+_show_app_logs()
 _llm = LLMClient.from_env()
-app = create_app(_llm, world_llm=_llm.for_world() if _llm else None)
+_world_llm = _llm.for_world() if _llm else None
+logging.getLogger("app.main").info(_describe(_llm, _world_llm))
+app = create_app(_llm, world_llm=_world_llm)

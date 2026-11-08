@@ -154,3 +154,16 @@ def test_world_client_from_env(monkeypatch):
     w = base.for_world()
     assert (w.model, w.base_url, w.fallback_models) == ("glm5.3-flash", "https://api.example/v2", ["fast", "slow"])
     assert w.timeout >= 120 and (base.model, base.base_url) == ("fast", "https://api.example/v1")
+
+
+def test_each_answer_logs_which_model_and_host_answered_never_the_key(caplog):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503) if json.loads(request.content)["model"] == "m1" else _reply()
+
+    client = LLMClient("https://x.test/v2", "sk_secret_key", "m1", fallback_models=["m2"], transport=httpx.MockTransport(handler), sleep=lambda s: None)
+    with caplog.at_level("INFO", logger="app.llm"):
+        client.complete("sys", "hi")
+    answered = [r.getMessage() for r in caplog.records if "LLM answered" in r.getMessage()]
+    assert len(answered) == 1
+    assert "model=m2" in answered[0] and "x.test/v2" in answered[0] and "backup" in answered[0]
+    assert "sk_secret_key" not in caplog.text
