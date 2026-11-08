@@ -6,6 +6,7 @@ import type { AssetResult } from '../api/types';
 import type { Flora, FloraLayer } from '../core/recipe';
 import type { AnimalKind, Wildlife } from '../logic/wildlife';
 import { floraKey, SCATTER_KINDS as KINDS, type ItemKind, type ScatterKind } from '../world/scatter';
+import { FAR_TRIS, fitTriangles, NEAR_TRIS } from './lightModel';
 import { matteMaterials } from './matte';
 import { drawnVariants, FLORA_FALLBACK, type ScatterAssets } from './scatterAssets';
 
@@ -113,7 +114,11 @@ function libraryVariants(scatter: ScatterAssets, resolve: NonNullable<ArtDeps['r
         if (seen.has(res.url)) return true; // the library has no more distinct models for this kind
         seen.add(res.url);
         const before = scatter.modelCount(kind);
-        scatter.useModel(kind, (await loadGltf(res.url)).scene, height);
+        // Held to the scatter budgets: near, and a lighter copy for the outer rings.
+        const scene = (await loadGltf(res.url)).scene, far = scene.clone(true);
+        await fitTriangles(scene, NEAR_TRIS);
+        await fitTriangles(far, FAR_TRIS);
+        scatter.useModel(kind, scene, height, far);
         if (scatter.modelCount(kind) === before) throw new Error('model has no usable meshes');
         onScatter?.();
       } catch (err) {

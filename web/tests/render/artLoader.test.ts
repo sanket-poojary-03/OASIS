@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { AssetResult } from '../../src/api/types';
 import { Wildlife } from '../../src/logic/wildlife';
 import { loadArt, loadFlora, RIGGED_ART, SCATTER_ART } from '../../src/render/artLoader';
+import { FAR_TRIS, NEAR_TRIS } from '../../src/render/lightModel';
 import { ScatterAssets } from '../../src/render/scatterAssets';
 import { fakeTemplate } from './rigFixture';
 
@@ -105,6 +106,23 @@ describe('loadArt', () => {
     expect(loadGltf).not.toHaveBeenCalled();
     const items = [{ kind: 'canopy:bamboo' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 }];
     expect(scatter.instance(items).children).toHaveLength(1); // drawn with the oak
+  });
+
+  it('a heavy model is held to the near budget, and drawn lighter still in the outer rings', async () => {
+    const scatter = new ScatterAssets();
+    scatter.standIns = false;
+    const heavy = () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(1, 128, 64), new THREE.MeshStandardMaterial()));
+      return g;
+    };
+    const resolve = async (q: string): Promise<AssetResult> => (q === 'twisted spooky tree' ? { status: 'ready', source: 'library', url: 'u/twisted.glb' } : { status: 'none' });
+    await loadFlora(scatter, [{ asset: 'twisted spooky tree', layer: 'canopy', density: 1, spot: 'anywhere' }], { resolve, loadGltf: async () => ({ scene: heavy(), animations: [] }) });
+    const item = { kind: 'canopy:twisted spooky tree' as const, x: 0, y: 0, z: 0, rotation: 0, scale: 1, variant: 0 };
+    const tris = (lod: number) => ((scatter.instance([item], lod).children[0] as THREE.InstancedMesh).geometry.getAttribute('position').count / 3);
+    expect(tris(0)).toBeLessThanOrEqual(NEAR_TRIS * 1.1);
+    expect(tris(0)).toBeGreaterThan(NEAR_TRIS * 0.5);
+    expect(tris(1)).toBeLessThanOrEqual(FAR_TRIS * 1.1);
   });
 
   it('flora: a plant already asked for is not fetched again (a rebuild or edit keeps it)', async () => {

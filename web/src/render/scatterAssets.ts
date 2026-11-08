@@ -122,10 +122,14 @@ const FAR_VARIANTS = 2;
 /** Attributes a pack model may keep when its meshes are merged (only those every mesh has). */
 const KEEP = ['position', 'normal', 'uv', 'color'];
 
+type Drawn = { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] };
+/** A pack model, with a lighter copy for the outer rings when it was given one (render/lightModel). */
+type Model = Drawn & { far?: Drawn };
+
 export class ScatterAssets {
   private readonly geos = new Map<ScatterKind, THREE.BufferGeometry>();
   /** Every pack model a kind has (its variants); an item draws `variant % count`. */
-  private readonly models = new Map<ItemKind, Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>>();
+  private readonly models = new Map<ItemKind, Model[]>();
   /** Named plants with no model of their own: drawn as this preset kind instead (FLORA_FALLBACK). */
   private readonly fallbacks = new Map<FloraKey, ScatterKind>();
   /** Named plants already asked for, so a rebuild or an edit never fetches one twice. */
@@ -179,8 +183,19 @@ export class ScatterAssets {
    * Add a pack model (one more variant) for a kind, replacing its procedural shape: merged into one geometry (one material group per mesh), fitted to
    * `height` with fitToHeight, standing on y = 0. Takes ownership of `object` (it is rescaled). Live chunks keep their
    * old instances until ChunkManager.refreshScatter() re-instances them. If nothing can be merged the kind stays procedural.
+   * `far`: a lighter copy of the same model, drawn in the outer rings instead.
    */
-  useModel(kind: ItemKind, object: THREE.Object3D, height: number): void {
+  useModel(kind: ItemKind, object: THREE.Object3D, height: number, far?: THREE.Object3D): void {
+    const near = this.merge(object, height);
+    if (!near) return;
+    const model: Model = { ...near, far: far ? this.merge(far, height) ?? undefined : undefined };
+    const list = this.models.get(kind) ?? [];
+    list.push(model);
+    list.sort((a, b) => a.geometry.getAttribute('position').count - b.geometry.getAttribute('position').count); // lightest first: see FAR_VARIANTS
+    this.models.set(kind, list);
+  }
+
+  private merge(object: THREE.Object3D, height: number): Drawn | null {
     fitToHeight(object, height);
     const geos: THREE.BufferGeometry[] = [];
     const mats: THREE.Material[] = [];
@@ -194,12 +209,12 @@ export class ScatterAssets {
       geos.push(g);
       mats.push(Array.isArray(o.material) ? o.material[0] : o.material);
     });
-    if (geos.length === 0) return;
+    if (geos.length === 0) return null;
     const keep = KEEP.filter((a) => geos.every((g) => g.getAttribute(a)));
     for (const g of geos) for (const name of Object.keys(g.attributes)) if (!keep.includes(name)) g.deleteAttribute(name);
     const merged = mergeGeometries(geos, true);
     for (const g of geos) g.dispose();
-    if (!merged) return;
+    if (!merged) return null;
     // A material that reads vertex colours would turn black once a mesh without them forced the attribute out.
     const fixed = mats.map((m) => {
       if (keep.includes('color') || !(m as THREE.MeshStandardMaterial).vertexColors) return m;
@@ -207,10 +222,7 @@ export class ScatterAssets {
       (c as THREE.MeshStandardMaterial).vertexColors = false;
       return c;
     });
-    const list = this.models.get(kind) ?? [];
-    list.push({ geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed });
-    list.sort((a, b) => a.geometry.getAttribute('position').count - b.geometry.getAttribute('position').count); // lightest first: see FAR_VARIANTS
-    this.models.set(kind, list);
+    return { geometry: merged, material: fixed.length === 1 ? fixed[0] : fixed };
   }
 
   /**
@@ -223,13 +235,14 @@ export class ScatterAssets {
     const group = new THREE.Group();
     if (lod > 0) items = items.filter((it, i) => !isGroundCover(it.kind) && i % (2 * lod + 1) === 0);
     // One instanced mesh per (kind, variant) actually used.
-    const groups = new Map<string, { kind: ItemKind; model?: { geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }; list: ScatterItem[] }>();
+    const groups = new Map<string, { kind: ItemKind; model?: Drawn; list: ScatterItem[] }>();
     for (const it of items) {
       const models = this.modelsFor(it.kind);
       if (!models?.length && !this.standIns) continue; // with a server: real model or nothing
       const v = models?.length ? (it.variant ?? 0) % Math.min(models.length, lod > 0 ? FAR_VARIANTS : drawnVariants(it.kind)) : -1;
       const key = `${it.kind}#${v}`;
-      const g = groups.get(key) ?? { kind: it.kind, model: v >= 0 ? models![v] : undefined, list: [] };
+      const model = v >= 0 ? models![v] : undefined;
+      const g = groups.get(key) ?? { kind: it.kind, model: lod > 0 ? model?.far ?? model : model, list: [] };
       g.list.push(it);
       groups.set(key, g);
     }
