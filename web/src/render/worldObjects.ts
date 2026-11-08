@@ -52,6 +52,10 @@ const HEIGHT = DEFAULT_HEIGHT;
 /** Widest a single building or landmark may be, in multiples of its fitted height. */
 export const MAX_ASPECT = 4;
 
+type Found = Awaited<ReturnType<ModelSource['load']>>;
+/** How many more equally good library models a place tries when a different request already shows its first. */
+const OTHER_TRIES = 3;
+
 /** Drivable vehicles are car-sized whatever kind the AI gave them (a "structure" car must not be 6 m tall). */
 const VEHICLE_HEIGHT: Record<PlaceSize, number> = { small: 1.3, medium: 1.5, large: 2.6 };
 
@@ -173,6 +177,8 @@ export class WorldObjects {
   readonly onLoading: Array<(e: LoadingEvent) => void> = [];
   private entries: Entry[] = [];
   private version = 0;
+  /** Which request each library model on show answers ("generic building"), so a different request gets another model. */
+  private shown = new Map<THREE.Object3D, string>();
   /** Places still waiting for their first model (label by id); they keep waiting across rebuilds. */
   private readonly waiting = new Map<string, string>();
   /** This rebuild's objects still loading per waiting place, whether any found no model, and whether it has a notice. */
@@ -308,7 +314,7 @@ export class WorldObjects {
     };
     if (s.tower) { this.spawnTower(entry, wait); return; }
     if (!wait) placeholder();
-    void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => {
+    void this.models.load(s.asset, s.kind, s.variant).catch(() => null).then((res) => this.another(s, res)).then((res) => {
       if (version !== this.version) return;
       if (wait && !s.extra) this.settle(s.info.placeId, !res);
       if (!res) { if (wait && this.standIns) placeholder(); return; } // with a server: no model, no object
@@ -320,6 +326,28 @@ export class WorldObjects {
       this.refreshCollider(entry);
       for (const cb of this.onReady) cb(root, s.info); // again: interactions re-fit the loaded model (its own door, size)
     });
+  }
+
+  /**
+   * A place's library model, unless another place asking for something else already shows it ("a building", then "a
+   * cottage", both landing on the first house): then the next equally good one, while the library has another. The
+   * same request twice may share its model. A village's houses and scattered extras pick their own variants.
+   */
+  private async another(s: Spec, res: Found): Promise<Found> {
+    if (!res || res.source !== 'library' || s.extra || s.info.kind === 'building') return res;
+    const asked = s.asset.toLowerCase().trim();
+    for (let k = 1; k <= OTHER_TRIES && this.takenByOther(res.object, asked); k++) {
+      const next = await this.models.load(s.asset, s.kind, s.variant + k).catch(() => null);
+      if (!next || next.object === res.object) break; // nothing else as good
+      res = next;
+    }
+    if (!this.shown.has(res.object)) this.shown.set(res.object, asked);
+    return res;
+  }
+
+  private takenByOther(object: THREE.Object3D, asked: string): boolean {
+    const by = this.shown.get(object);
+    return by !== undefined && by !== asked;
   }
 
   /** A modern building designed in code: built at once at its real size, no model request. */
@@ -393,6 +421,7 @@ export class WorldObjects {
       this.group.remove(e.root);
     }
     this.entries = [];
+    this.shown.clear();
     for (const cb of this.onCleared) cb();
   }
 }

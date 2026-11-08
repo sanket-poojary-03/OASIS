@@ -33,6 +33,11 @@ def _read_json(path: Path, default):
         return default
 
 
+def _spread(query: str) -> int:
+    """A stable number from a request's words (case and spacing aside): the same words always choose the same model."""
+    return int(hashlib.sha1(" ".join(query.lower().split()).encode("utf-8")).hexdigest()[:8], 16)
+
+
 class AssetLibrary:
     def __init__(self, root: Path):
         self.root = root
@@ -46,7 +51,9 @@ class AssetLibrary:
 
         TAGGING CONTRACT: a kind-specific model also carries its category noun, e.g. pine -> ["pine", "tree"],
         dead -> ["dead", "tree"], plain tree -> ["tree"]. Then "tree" -> the plain tree (highest Jaccard),
-        "pine"/"pine tree" -> the pine. Equally good entries rotate with `variant`. Returns (entry, coverage).
+        "pine"/"pine tree" -> the pine. Equally good entries rotate with `variant`, starting from one chosen by the
+        request's own words: "house" and "cottage house" tie on every house model, and always taking the first gave each
+        the same one. Returns (entry, coverage).
         """
         scored = self.ranked(query)
         if not scored:
@@ -55,7 +62,7 @@ class AssetLibrary:
         if best[0] < 0.5:
             return None, best[0]
         ties = [e for k, e in scored if k == best]
-        return ties[variant % len(ties)], best[0]
+        return ties[(variant + _spread(query)) % len(ties)], best[0]
 
     def ranked(self, query: str) -> list[tuple[tuple[float, float], dict]]:
         """Entries carrying the query's head noun, best first by (coverage of the query, Jaccard); manifest order on ties."""

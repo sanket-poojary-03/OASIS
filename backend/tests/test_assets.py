@@ -76,6 +76,21 @@ def test_library_search_and_variants(tmp_path):
     assert lib.search("purple dragon")[0] is None
 
 
+def test_differently_worded_requests_spread_over_equally_good_models(tmp_path):
+    # "add a building" then "add a cottage house" both landed on the first house model: a tie always took the first entry.
+    root = tmp_path / "houses"
+    root.mkdir()
+    (root / "manifest.json").write_text(json.dumps([
+        {"id": f"house-{c}", "file": f"house-{c}.glb", "tags": ["house"], "license": "CC0", "source": "q"} for c in "abcd"]))
+    lib = AssetLibrary(root)
+    asks = ["house", "cottage", "cottage house", "small house", "stone cottage", "wooden cabin", "village home"]
+    picks = [lib.search(q)[0]["id"] for q in asks]
+    assert len(set(picks)) >= 3
+    assert [lib.search(q)[0]["id"] for q in asks] == picks  # the same words, the same model, every time
+    assert lib.search("Cottage  House")[0]["id"] == lib.search("cottage house")[0]["id"]
+    assert {lib.search("cottage house", variant=v)[0]["id"] for v in range(4)} == {"house-a", "house-b", "house-c", "house-d"}
+
+
 def lib_from(tmp_path, entries):
     root = tmp_path / "lib2"
     root.mkdir()
@@ -216,7 +231,8 @@ def test_failing_finder_falls_through(tmp_path):
 def test_asset_routes(tmp_path):
     lib = make_lib(tmp_path)
     (lib.root / "prefabs").mkdir()
-    (lib.root / "prefabs" / "house_a.glb").write_bytes(b"glTFhouse")
+    for name in ("house_a", "house_b"):  # equally good for a cottage: which one depends on the words asked
+        (lib.root / "prefabs" / f"{name}.glb").write_bytes(b"glTFhouse")
     svc = AssetService(lib, ModelCache(tmp_path / "gen"), [])
     client = TestClient(create_app(llm=None, assets=svc))
     body = client.post("/api/assets/resolve", json={"query": "wooden cottage"}).json()

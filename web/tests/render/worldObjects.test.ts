@@ -174,6 +174,38 @@ describe('WorldObjects footprint cap', () => {
   });
 });
 
+describe('WorldObjects: different requests get different models', () => {
+  /** A library where every house request first answers model A (variant 0), then B, C: equally good houses. */
+  function houses() {
+    const made = new Map<string, THREE.Object3D>();
+    const model = (name: string) => made.get(name) ?? made.set(name, Object.assign(new THREE.Group(), { name: 'model' }).add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4)), { name }))).get(name)!;
+    const load = vi.fn(async (_asset: string, _kind: string, variant = 0) => ({ object: model('ABC'[Math.min(variant, 2)]), source: 'library' as const }));
+    const physics = { addFixedBox: vi.fn(() => ({})), addFixedTrimesh: vi.fn(() => ({})), removeCollider: vi.fn() } as unknown as Physics;
+    return { objects: new WorldObjects(new THREE.Scene(), physics, { load }), load };
+  }
+  const town = (assets: string[]) => ({
+    placements: assets.map((_, i) => ({ id: `p${i}`, x: i * 30, y: 0, z: 0, rotation: 0, radius: 6, reasons: [], warnings: [] })),
+    recipe: { places: assets.map((asset, i) => ({ id: `p${i}`, kind: 'structure', size: 'medium', label: asset, asset, interaction: 'none', where: [] })) },
+    buildings: [],
+  }) as unknown as BuiltWorld;
+  const shown = (objects: WorldObjects) => objects.group.children.map((r) => ['A', 'B', 'C'].find((n) => r.getObjectByName(n)));
+
+  it('a place asking for something else than the one before does not get its very model ("a building", then "a cottage")', async () => {
+    const { objects } = houses();
+    objects.rebuild(town(['generic building', 'cottage house']));
+    for (let i = 0; i < 5; i++) await flush();
+    expect(shown(objects)).toEqual(['A', 'B']);
+  });
+
+  it('the same request twice may share its model: that is what was asked for', async () => {
+    const { objects, load } = houses();
+    objects.rebuild(town(['watchtower', 'watchtower']));
+    for (let i = 0; i < 5; i++) await flush();
+    expect(shown(objects)).toEqual(['A', 'A']);
+    expect(load.mock.calls.every((c) => (c[2] ?? 0) === 0)).toBe(true);
+  });
+});
+
 describe('WorldObjects: places added while playing wait for their model (no stand-in house first)', () => {
   function deferred() {
     let resolve!: (v: Awaited<ReturnType<ModelSource['load']>>) => void;
