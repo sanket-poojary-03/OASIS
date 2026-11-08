@@ -6,7 +6,9 @@ import os
 import logging
 import re
 import time
-from typing import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Callable, Iterator
 
 import httpx
 
@@ -16,6 +18,23 @@ log = logging.getLogger(__name__)
 
 class LLMError(Exception):
     pass
+
+
+class LLMKeyRejected(LLMError):
+    """The provider refused the player's own key (401/403): theirs to fix, not a busy AI."""
+
+
+# Bring your own key: a player's key for the current request only. Set per request, never stored or logged.
+USER_KEY: ContextVar[str | None] = ContextVar("USER_KEY", default=None)
+
+
+@contextmanager
+def using_key(key: str | None) -> Iterator[None]:
+    token = USER_KEY.set(key)
+    try:
+        yield
+    finally:
+        USER_KEY.reset(token)
 
 
 FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
@@ -57,6 +76,8 @@ class LLMClient:
         # Always cap the answer (OpenRouter reserves its cost up front). 8000 leaves room for a reasoning model's ~2500 thinking tokens.
         self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "8000"))
         self.reasoning_effort = os.getenv("LLM_REASONING_EFFORT", "").strip()
+        # A player's own key (USER_KEY) replaces api_key; off for a client with a key of its own (VISION_API_KEY).
+        self.byok = True
 
     @classmethod
     def from_env(cls) -> "LLMClient | None":
@@ -89,7 +110,9 @@ class LLMClient:
         c = copy.copy(self)
         c.model = os.getenv("VISION_MODEL", "glm5.3-flash").strip()
         c.base_url = os.getenv("VISION_BASE_URL", "https://api.sarvam.ai/v2").strip().rstrip("/")
-        c.api_key = os.getenv("VISION_API_KEY", "").strip() or self.api_key
+        own = os.getenv("VISION_API_KEY", "").strip()
+        c.api_key = own or self.api_key
+        c.byok = self.byok and not own
         c.fallback_models = []
         c.reasoning_effort = ""
         return c
@@ -110,6 +133,8 @@ class LLMClient:
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code not in RETRYABLE:
                         log.warning("LLM call failed: %s", e)
+                        if e.response.status_code in (401, 403) and self._players_key():
+                            raise LLMKeyRejected(str(e)) from e
                         raise LLMError(str(e)) from e
                     last = e
                 except httpx.TransportError as e:  # timeouts, refused connections
@@ -121,6 +146,9 @@ class LLMClient:
                 if attempt + 1 < self.retries:
                     self.sleep(1.5 * (attempt + 1))
         raise LLMError(f"all AI models busy: {last}")
+
+    def _players_key(self) -> str | None:
+        return USER_KEY.get() if self.byok else None
 
     def _call(self, model: str, system: str, user: str | list[dict]) -> str:
         body: dict = {
@@ -135,7 +163,8 @@ class LLMClient:
         if self.reasoning_effort:
             body["reasoning_effort"] = self.reasoning_effort
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
-            r = client.post(f"{self.base_url}/chat/completions", json=body, headers={"Authorization": f"Bearer {self.api_key}"})
+            key = self._players_key() or self.api_key
+            r = client.post(f"{self.base_url}/chat/completions", json=body, headers={"Authorization": f"Bearer {key}"})
             r.raise_for_status()
             content = r.json()["choices"][0]["message"]["content"] or ""
             if isinstance(content, list):

@@ -23,6 +23,6 @@ def test_daily_cap_blocks_then_rolls_over():
     clock = Clock(86400 * 10)
     rl = RateLimiter(per_ip=100, daily_cap=2, clock=clock)
     assert rl.check("a") is None and rl.check("b") is None
-    assert "Daily" in rl.check("c")
+    assert "free AI limit" in rl.check("c")
     clock.t += 86400
     assert rl.check("c") is None

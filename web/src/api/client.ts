@@ -3,6 +3,7 @@ import { parseRecipe, type PlaceKind, type Recipe } from '../core/recipe';
 import { bundledAsset } from './bundled';
 import { partsSchema } from './parts';
 import type { AssetResult, EditContext, EditResult, Source, WorldResult } from './types';
+import { userKey } from './userKey';
 
 export const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000').replace(/\/$/, '');
 
@@ -33,8 +34,10 @@ const aiError = (e: unknown): { type: 'unsupported'; reason: string; source: Sou
 
 /** Throws on network error, timeout, any non-2xx (incl. 429/5xx; an HttpError) or non-JSON body. */
 async function post(path: string, body: unknown, timeoutMs = 45000): Promise<Record<string, unknown>> {
+  const key = userKey.get(); // the player's own AI key, when they gave one; otherwise the server's is used
   const r = await fetch(`${API_BASE}${path}`, {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
+    method: 'POST', headers: { 'content-type': 'application/json', ...(key ? { 'x-llm-key': key } : {}) },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
   });
   if (!r.ok) {
     const body: unknown = await r.json().catch(() => null);
