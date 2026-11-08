@@ -4,8 +4,8 @@ import type { ModelTemplate } from '../render/animated';
 import type { Avatar } from './avatar';
 
 /**
- * The playable characters, bundled with the web app (web/public/models/characters): Microsoft Rocketbox avatars (MIT,
- * credited in docs/CREDITS.md), converted by scripts/convert_rocketbox.mjs. One rig, with Idle / Walk / Run clips.
+ * The playable characters, bundled with the web app (web/public/models/characters): Microsoft Rocketbox avatars (MIT, notice in
+ * ROCKETBOX-LICENSE.txt there). One rig, with Idle / Walk / Run clips.
  */
 export const CHARACTERS = [
   { name: 'Street', file: 'street.glb' },

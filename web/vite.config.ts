@@ -1,7 +1,6 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: { fs: { allow: ['..'] } },
   worker: { format: 'es' },
-  test: { environment: 'node', testTimeout: 20000 },
 });

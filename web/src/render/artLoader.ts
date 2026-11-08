@@ -20,8 +20,8 @@ export const SCATTER_VARIANTS = 5;
 const RIGGED_USES: ReadonlySet<string> = new Set(['deer']);
 
 /**
- * The base-art queries live in shared/fixtures/art-queries.json so the backend tests can check them against the real
- * library manifest (ruling I4: the tagging contract makes "pine tree" and "dead tree" pick the kind models).
+ * The base-art queries live in shared/fixtures/art-queries.json, shared with the backend's library manifest: its tagging
+ * makes "pine tree" and "dead tree" pick the kind models.
  */
 export const SCATTER_ART = ART.scatter.filter((e) => SCATTER_KINDS.has(e.kind)) as Array<{ kind: ScatterKind; query: string; height: number }>;
 export const RIGGED_ART = ART.rigged.filter((e) => RIGGED_USES.has(e.use)) as Array<{ use: AnimalKind; query: string; height: number }>;

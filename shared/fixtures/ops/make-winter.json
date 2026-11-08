@@ -1,4 +1,0 @@
-[
-  { "op": "setClimate", "temperature": 0.1 },
-  { "op": "setAtmosphere", "weather": "snow" }
-]

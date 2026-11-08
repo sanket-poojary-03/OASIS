@@ -6,5 +6,5 @@ COPY backend/ /app/backend/
 COPY shared/ /app/shared/
 WORKDIR /app/backend
 # X-Forwarded-For is not trusted by uvicorn (its '*' mode took the client-written leftmost entry): app/clientip.py reads
-# the client address from the right of the header, past Render's Cloudflare and internal hops (DECISIONS, m1).
+# the client address from the right of the header, past Render's Cloudflare and internal hops.
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

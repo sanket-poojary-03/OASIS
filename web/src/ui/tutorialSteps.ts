@@ -5,7 +5,7 @@ export interface TutorialStep {
   text: string;
 }
 
-/** In the order a new player needs them. tests/ui/tutorialSteps.test.ts fails if main.ts binds a key that is not here. */
+/** In the order a new player needs them; every key main.ts binds is listed here. */
 export const TUTORIAL_STEPS: TutorialStep[] = [
   { keys: ['Mouse'], title: 'Look around', text: 'Click the world to take control, then move the mouse. Esc gives the mouse back.' },
   { keys: ['W', 'A', 'S', 'D'], title: 'Move', text: 'Walk forward, left, back and right.' },

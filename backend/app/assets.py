@@ -14,11 +14,11 @@ from urllib.parse import quote
 
 import httpx
 
-from .asset_sources import (  # noqa: F401 - re-exported for callers and tests
-    Candidate, Finder, MeshyClient, PolyPizzaFinder, SketchfabFinder, license_ok, tokens,
+from .asset_sources import (  # noqa: F401 - re-exported for main.py
+    Candidate, MeshyClient, PolyPizzaFinder, SketchfabFinder, license_ok, tokens,
 )
 from .asset_analyse import Analysis
-from .asset_match import LLMPicker, default_pick, scene_like, shape_ok  # noqa: F401 - re-exported for callers and tests
+from .asset_match import LLMPicker, default_pick, scene_like, shape_ok  # noqa: F401 - re-exported for main.py
 from .asset_store import AssetLibrary, ModelCache, _atomic_write_json
 from .asset_vision import Verdict
 from .schemas import AssetRequest

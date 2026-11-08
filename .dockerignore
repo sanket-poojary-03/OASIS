@@ -3,7 +3,6 @@ web/
 backend/.venv
 backend/.env
 backend/.cache
-backend/.pytest_cache
 backend/assets/generated
 backend/assets/.generated-*.json
 **/__pycache__

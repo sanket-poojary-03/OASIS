@@ -5,7 +5,7 @@ export function isLowTier({ narrow, cores }: TierInputs): boolean {
   return narrow || (cores !== undefined && cores <= 4);
 }
 
-/** Reads the real environment; safe outside a browser (vitest/node reports "not low", so values stay deterministic). */
+/** Reads the real environment; safe outside a browser (reports "not low" there). */
 export function detectLowTier(): boolean {
   const narrow = typeof matchMedia === 'function' && matchMedia('(max-width: 900px)').matches;
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;

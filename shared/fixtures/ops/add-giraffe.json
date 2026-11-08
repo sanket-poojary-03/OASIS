@@ -1,3 +1,0 @@
-[
-  { "op": "addLife", "kind": "animal", "asset": "giraffe", "height": 5, "count": 1, "at": { "x": 12, "z": -8 } }
-]

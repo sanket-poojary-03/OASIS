@@ -590,7 +590,7 @@ export class App {
     this.culler.update(dt, this.engine.camera.position);
     this.grass.update(t, this.built?.recipe.atmosphere.wind ?? 0.3);
     this.postfx.setNight(this.atmosphere.night);
-    this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor (DECISIONS 2026-11-02)
+    this.engine.renderer.toneMappingExposure = 0.9 + 0.3 * this.atmosphere.night; // night floor
     setNightGlow(1.4 * THREE.MathUtils.smoothstep(this.atmosphere.night, 0.45, 0.9)); // placeholder windows and the windows/lamps of loaded models: they come on as the light goes
     this.interactions.update(dt, this.atmosphere.isNight, t);
     if (this.built) this.wildlife.update(dt, t, this.player.position, this.built.field, this.isReady);
