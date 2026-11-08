@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 import re
 import time
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +17,10 @@ import httpx
 MAX_DOWNLOAD = 25 * 1024 * 1024  # bytes; one model file
 # Online finds stay small: a big file is almost always a textured scene or interior, not one object, and slow to load.
 ONLINE_MAX_DOWNLOAD = 8 * 1024 * 1024
+# Triangles an online find may have: more is a scan or a scene, too heavy to stand in a world.
+ONLINE_MAX_TRIS = 30000
+# Sketchfab results asked for per search. Its own face-count filter drops relevance, so heavy ones are skipped here instead.
+SKETCHFAB_PAGE = 24
 
 
 STOP = {"a", "an", "the", "of", "with", "and", "on", "in", "small", "big", "large", "old", "new", "tiny", "huge", "some"}
@@ -95,6 +101,34 @@ def stream_to_file(client: httpx.Client, url: str, dest: Path, headers: dict | N
         tmp.unlink(missing_ok=True)
 
 
+class _UrllibStream(httpx.SyncByteStream):
+    def __init__(self, resp):
+        self.resp = resp
+
+    def __iter__(self):
+        while chunk := self.resp.read(64 * 1024):
+            yield chunk
+
+    def close(self) -> None:
+        self.resp.close()
+
+
+class UrllibTransport(httpx.BaseTransport):
+    """Send httpx requests through urllib. Sketchfab's bot filter answers httpx's own connections with an empty 202
+    (curl and urllib get results), so its finder uses this. Error statuses come back as responses; urllib follows redirects."""
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        timeouts = request.extensions.get("timeout") or {}
+        req = urllib.request.Request(str(request.url), data=request.read() or None, method=request.method, headers=dict(request.headers))
+        try:
+            resp = urllib.request.urlopen(req, timeout=timeouts.get("read") or timeouts.get("connect"))
+        except urllib.error.HTTPError as e:
+            resp = e
+        except OSError as e:  # URLError, timeouts, refused connections
+            raise httpx.ConnectError(str(e), request=request) from e
+        return httpx.Response(resp.getcode(), headers=list(resp.headers.items()), stream=_UrllibStream(resp), request=request)
+
+
 class PolyPizzaFinder:
     """Poly Pizza: free low-poly CC0/CC-BY GLBs. Free API key at https://poly.pizza/settings/api."""
 
@@ -143,11 +177,11 @@ class SketchfabFinder:
     BASE = "https://api.sketchfab.com/v3"
 
     def __init__(self, token: str, transport: httpx.BaseTransport | None = None):
-        self.token, self.transport = token, transport
+        self.token, self.transport = token, transport or UrllibTransport()
 
     def search(self, query: str, limit: int = 8) -> list[Candidate]:
         with httpx.Client(timeout=6, transport=self.transport) as c:
-            r = c.get(f"{self.BASE}/search", params={"type": "models", "q": query, "downloadable": "true", "count": limit, "max_face_count": 30000},
+            r = c.get(f"{self.BASE}/search", params={"type": "models", "q": query, "downloadable": "true", "count": SKETCHFAB_PAGE},
                       headers={"Authorization": f"Token {self.token}"})
             r.raise_for_status()
             items = r.json().get("results", [])
@@ -159,7 +193,7 @@ class SketchfabFinder:
                 author=str((m.get("user") or {}).get("username", "")), source=self.name, tris=m.get("faceCount"), uid=m.get("uid"),
                 thumbnail=_sketchfab_thumbnail(m),
             ))
-        return [c for c in out if c.uid]
+        return [c for c in out if c.uid and (c.tris is None or c.tris <= ONLINE_MAX_TRIS)][:limit]
 
     def download(self, cand: Candidate, dest: Path) -> None:
         with httpx.Client(timeout=20, transport=self.transport, follow_redirects=True) as c:

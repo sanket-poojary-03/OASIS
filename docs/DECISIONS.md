@@ -367,3 +367,10 @@ silently dropped otherwise (a lake, a slope, a roof), so the edit said "Done" an
 on the spot and the rest within 2–8 m, with no ground check; a slant or a little float is better than nothing. On water
 an animal, or a prop placed with `at`, stands on the surface rather than the bed. Herds the world spawns on its own keep
 the dry-ground search, and animals still never walk into water or up cliffs once placed.
+
+## 2026-11-08: Sketchfab is reached through urllib, and searched without its face filter
+Sketchfab search never worked in the app, with or without a token, for two reasons. Its bot filter answers httpx's own
+connections with an empty 202 (curl and Python's urllib get results; headers, user agent and TLS context made no
+difference), so the Sketchfab finder sends its httpx requests through `UrllibTransport`; Poly Pizza, Meshy and the LLM
+keep plain httpx. And its `max_face_count` filter throws relevance away ("wrecked plane" returned a condiment jar), so
+the finder asks for 24 results unfiltered and drops those over `ONLINE_MAX_TRIS` (30k) itself, keeping their ranked order.
