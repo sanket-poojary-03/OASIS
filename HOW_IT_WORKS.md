@@ -11,14 +11,15 @@ So in OASIS the AI never writes coordinates and never writes code. It writes a s
 The one exception is when the player points at a spot ("put a lighthouse *here*"). Then the browser sends the spot it measured, never a coordinate the AI made up.
 
 ```mermaid
-flowchart LR
-    A[Your prompt] --> B[AI: world brief]
-    B --> C[AI: recipe JSON]
-    C --> D{Validated<br/>Pydantic + Zod}
-    D --> E[World builder<br/>terrain, water, placement, roads]
-    E --> F[Renderer + physics<br/>three.js, Rapier]
-    F --> G[You walk in]
-    G -- "make it night" --> H[AI: edit ops]
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30}, "themeVariables": {"fontSize": "13px"}}}%%
+flowchart TD
+    A(["Your prompt"]) --> B["AI: world brief"]
+    B --> C["AI: recipe JSON"]
+    C --> D{{"Validated: Pydantic + Zod"}}
+    D --> E["World builder<br/>terrain, water, placement, roads"]
+    E --> F["Renderer + physics<br/>three.js, Rapier"]
+    F --> G(["You walk in"])
+    G -->|"T: 'make it night'"| H["AI: edit ops"]
     H --> D
 ```
 
@@ -81,16 +82,72 @@ The operations are validated like a recipe, and the change is shown as a preview
 
 ## 5. Finding a 3D model for anything
 
-When the AI names something ("giraffe", "red lighthouse", "space rover"), the **model finder** (`backend/app/assets.py`) looks for a model in this order:
+The recipe only *names* things: `"asset": "red lighthouse"`, `"asset": "giraffe"`, `"asset": "space rover"`. Nothing in OASIS is limited to a fixed list of objects, so every name has to become a real 3D model. That is the job of the **model finder** (`backend/app/assets.py`).
 
-1. **The bundled library.** 186 curated Quaternius CC0 models with tags (`backend/assets/library`).
-2. **The cache.** Models found earlier and approved.
-3. **AI analysis** (`asset_analyse.py`). What the object is, its size and colour, and whether it is likely to exist online.
-4. **Online search.** Poly Pizza, and Sketchfab if a token is set, over up to four search terms. Only CC0 or CC-BY models are accepted. A vision model (`asset_vision.py`) looks at each candidate's picture to confirm it is the right object. A model that is right except for its colour is recoloured in code.
-5. **Meshy text-to-3D** (optional, landmarks only, capped at `MESHY_MAX_GENERATIONS`).
-6. **Built from parts.** If nothing else works, the AI describes the object as simple shapes (boxes, cylinders, cones and so on) in JSON, and the browser builds it (`asset_procedural.py`, `web/src/api/parts.ts`).
+The idea is simple: **try the cheapest, most reliable option first, and only move on when it fails.** Free models already on disk come first. Searching the internet comes next, with an AI checking what it finds. Building something from scratch comes last.
 
-Each place card says where its model came from, and credits the author and license of models found online. Only 3D models are cached. Every prompt gets a fresh brief and a fresh world from the AI.
+A dotted arrow means a model was found.
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30}, "themeVariables": {"fontSize": "13px"}}}%%
+flowchart TD
+    Q(["e.g. 'red lighthouse'"]) --> L1{{"1. Exact library match?"}}
+    L1 -->|no| C{{"2. In the cache?"}}
+    C -->|no| A["3. AI reads the request"]
+    A --> S{{"Plain shape?"}}
+    S -->|no| L2{{"4. Close library match?"}}
+    L2 -->|no| O{{"5. Online + vision check<br/>(tries each name)"}}
+    O -->|no| M{{"6. Landmark + Meshy?"}}
+    M -->|no| P["7. Build from simple shapes"]
+    S -->|yes| P
+    L1 -.-> OK(["Model ready"])
+    C -.-> OK
+    L2 -.-> OK
+    O -.-> OK
+    M -.-> OK
+    P --> OK
+```
+
+### Step by step
+
+1. **Built-in library, exact match.** OASIS ships with 186 hand-picked, tagged Quaternius CC0 models (houses, trees, animals, props) in `backend/assets/library`. If one model's tags contain every word of the request, it is used at once. This is free and instant.
+
+2. **The cache.** Every model found online, generated or built is saved in `backend/assets/generated`, so the second time anyone asks for "giraffe" it loads straight from disk. A model found online is reused only once it has passed the vision check (step 5). This cache of 3D models is the only thing OASIS remembers between worlds.
+
+3. **The AI reads the request** (`asset_analyse.py`). One small LLM call works out:
+   - the object to search for, without colour or size words ("white stone lighthouse with a red roof" becomes "lighthouse")
+   - a colour, if the whole object is one colour ("red lighthouse" gives a red)
+   - three other names for the *same* thing, from most to least likely to exist ("coastal lighthouse", "beacon tower", "lighthouse building")
+   - whether it is just a plain shape (a cube, a ball, a pyramid). If so, it skips the search and goes straight to step 7.
+
+4. **Built-in library, close match.** If some library models match only part of the request ("statue of a knight" against a stag statue), the AI is shown the six closest and asked to pick one, or none. Its answer is remembered, so the same question is never asked twice.
+
+5. **Online search** (`asset_sources.py`, `asset_vision.py`). OASIS searches **Poly Pizza**, and **Sketchfab** if a token is set, trying each name from step 3 in turn for up to 20 seconds. Before anything is downloaded, the results are filtered:
+   - **License:** only CC0 or CC-BY, never non-commercial, no-derivatives or share-alike
+   - **Size:** at most 30,000 triangles and 8 MB, so the game stays fast
+   - **No whole scenes:** a "lighthouse interior" or "harbour scene" is skipped unless that is what was asked for
+
+   Up to eight results go to a **vision model**, which looks at each thumbnail and judges it against the *original* request: the right object, the right object in the wrong colour, or wrong. The best approved one is downloaded and checked again in code. It must really be a glTF file, and a building must stand upright, not lie flat. If it was the right object in the wrong colour, the browser recolours it (`web/src/render/tint.ts`). Titles alone are not trusted: a "lamp in a wire cube" can be titled "cube".
+
+6. **Meshy text-to-3D** (optional). If nothing was found online and the object is a **landmark**, Meshy can generate a model from text. It is capped at `MESHY_MAX_GENERATIONS` (5 by default), because generations cost credits and a village of houses would use them all up. Without a key or credits, the player is told so.
+
+7. **Built from simple shapes** (`asset_procedural.py`). As a last resort, the AI designs the object as up to 24 parts (boxes, spheres, cylinders, cones, pyramids and rings), each with a size, position and colour. This is plain JSON data, never code. It is validated on both sides and the browser assembles it (`web/src/api/parts.ts`, `web/src/render/proceduralModel.ts`). The player sees a notice such as "Building red lighthouse manually".
+
+### Example: "a red lighthouse on the cliffs"
+
+1. There's no exact library match and nothing in the cache yet.
+2. The AI reads it: search for "lighthouse", colour red, other names "coastal lighthouse", "beacon tower" and "lighthouse building".
+3. Poly Pizza returns several lighthouses. The vision model approves a white one as "the right object, wrong colour".
+4. It is downloaded, checked, cached and painted red in the browser.
+5. Next time, any world that asks for a red lighthouse gets it instantly from the cache.
+
+### What the player sees
+
+- **Waiting.** The world never waits for models. It appears straight away, and each model pops in when it is ready, with a small "Loading…" notice in the corner. The browser fetches five models at a time and retries the ones that fail (`web/src/render/assetModels.ts`).
+- **Sizing.** Models from different sources come in very different sizes. Each one is measured and scaled to a sensible size for what it is, or to the height the AI gave (`web/src/render/fit.ts`, `web/src/core/sizes.ts`).
+- **Credit.** The place card shows where each model came from (CC0 library model, free model found online, AI-generated model, or built from parts), with the author and license of anything found online.
+- **Honesty.** If something goes wrong, the player is told: Meshy has no key or credits, an object is being built manually, or new models are paused because the day's budget is used up. In that last case, the closest model already on hand stands in, so a city never shows empty plots.
+- **Limits.** Online searches and the finder's AI calls have their own rate limits, separate from world generation, so one huge world cannot use up everything.
 
 ## 6. The start screen
 
@@ -124,9 +181,7 @@ web/
 
 ## Deployment
 
-- **Backend on Render (Docker).** Dockerfile `backend/Dockerfile`, build context `.` (the repo root), health check `/api/health`. Set the variables from `backend/.env.example`, with `CORS_ORIGINS=https://<your-vercel-domain>`.
-  - Do not set `MESHY_API_KEY` on a free (ephemeral) instance. The Meshy spend cap is counted in `backend/assets/.generated-attempts.json`, which is wiped on every restart.
-- **Frontend on Vercel.** Root directory `web`, framework Vite, turn on "Include files outside the Root Directory in the Build Step", and set `VITE_API_URL=https://<your-render-service>.onrender.com`.
+The backend is deployed on **Render** (Docker) and the frontend on **Vercel**.
 
 ## Credits
 
